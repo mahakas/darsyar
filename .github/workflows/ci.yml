@@ -1,0 +1,82 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg18-bookworm
+        env:
+          POSTGRES_DB: darsyar_test
+          POSTGRES_USER: darsyar
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U darsyar -d darsyar_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:8-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Verify lockfile exists
+        run: test -s backend/uv.lock
+      - name: Sync backend dependencies
+        working-directory: backend
+        run: uv sync --locked --extra dev
+      - name: Alembic migration smoke
+        working-directory: backend
+        env:
+          APP_ENV: test
+          DATABASE_URL: postgresql+asyncpg://darsyar:ci-only-password@localhost:5432/darsyar_test
+        run: uv run --locked alembic upgrade head
+      - name: Ruff
+        working-directory: backend
+        run: uv run --locked ruff check .
+      - name: Unit tests
+        working-directory: backend
+        env:
+          APP_ENV: test
+          DATABASE_URL: postgresql+asyncpg://darsyar:ci-only-password@localhost:5432/darsyar_test
+          TEST_DATABASE_URL: postgresql+asyncpg://darsyar:ci-only-password@localhost:5432/darsyar_test
+          REDIS_URL: redis://localhost:6379/0
+        run: uv run --locked pytest -q
+      - name: RAG evaluation (only after golden set exists)
+        if: ${{ hashFiles('backend/tests/evaluation/golden_set.jsonl') != '' }}
+        working-directory: backend
+        env:
+          APP_ENV: test
+          DATABASE_URL: postgresql+asyncpg://darsyar:ci-only-password@localhost:5432/darsyar_test
+        run: uv run --locked python -m app.services.retrieval.evaluation
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Verify lockfile exists
+        run: test -s frontend/package-lock.json
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+      - name: Typecheck and build
+        working-directory: frontend
+        run: npm run build

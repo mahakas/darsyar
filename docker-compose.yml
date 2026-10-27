@@ -1,0 +1,154 @@
+name: darsyar-ai
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE_TAG:-pgvector/pgvector:0.8.7-pg18-bookworm}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-darsyar}
+      POSTGRES_USER: ${POSTGRES_USER:-darsyar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env and set POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    security_opt: ["no-new-privileges:true"]
+
+  redis:
+    image: ${REDIS_IMAGE_TAG:-redis:7.4.12-bookworm}
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "${REDIS_MAXMEMORY:-512mb}", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    security_opt: ["no-new-privileges:true"]
+
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: migrate
+    env_file: [.env]
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-darsyar}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-darsyar}
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+    security_opt: ["no-new-privileges:true"]
+
+  inference:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: inference
+    env_file: [.env]
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      INFERENCE_URL: http://inference:8100
+    expose: ["8100"]
+    volumes:
+      - hf_cache:/models/huggingface
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    security_opt: ["no-new-privileges:true"]
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: api
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-darsyar}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-darsyar}
+      REDIS_URL: redis://redis:6379/0
+      INFERENCE_URL: http://inference:8100
+      APP_CORS_ORIGINS: '["http://localhost:5173"]'
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      inference: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    security_opt: ["no-new-privileges:true"]
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: worker
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-darsyar}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-darsyar}
+      REDIS_URL: redis://redis:6379/0
+      INFERENCE_URL: http://inference:8100
+    volumes:
+      - hf_cache:/models/huggingface
+      - ./resources:/app/resources:ro
+      - ./uploads:/app/uploads
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      inference: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    security_opt: ["no-new-privileges:true"]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    restart: unless-stopped
+    environment:
+      VITE_API_PROXY_TARGET: http://api:8000
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    security_opt: ["no-new-privileges:true"]
+
+volumes:
+  postgres_data:
+  redis_data:
+  hf_cache:
