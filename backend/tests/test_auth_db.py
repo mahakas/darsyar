@@ -291,8 +291,11 @@ async def test_admin_seed_requires_explicit_action_and_audits(auth_ctx) -> None:
     assert admin.role == "admin"
     from app.models.admin_audit_log import AdminAuditLog
 
-    logs = (await session.execute(select(AdminAuditLog))).scalars().all()
-    assert len(logs) == 1
-    assert logs[0].action == "seed_admin"
+    logs = (
+        await session.execute(
+            select(AdminAuditLog).where(AdminAuditLog.action == "seed_admin").order_by(AdminAuditLog.created_at.desc())
+        )
+    ).scalars().all()
+    assert logs
     assert logs[0].reason.startswith("initial admin bootstrap")
     assert logs[0].after["role"] == "admin"

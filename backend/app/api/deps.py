@@ -1,9 +1,10 @@
 """وابستگی‌های پایهٔ API؛ احراز هویت و ابزارهای امنیتی."""
 
+import uuid
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
-from fastapi import Request
+from fastapi import Depends, Request
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,9 +12,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.ratelimit import RateLimitRule, RedisRateLimiter
+from app.core.security import decode_token
 from app.db.session import get_db
+from app.models.user import User
+from app.repositories import users as users_repo
 
-__all__ = ["AsyncSession", "get_db", "get_redis", "rate_limit_dependency", "client_ip"]
+__all__ = [
+    "AsyncSession",
+    "get_db",
+    "get_redis",
+    "rate_limit_dependency",
+    "client_ip",
+    "get_current_user",
+]
+
+UNAUTHORIZED = AppError("unauthorized", 401, "احراز هویت لازم است.")
 
 
 async def get_redis(request: Request) -> Redis:
@@ -39,6 +52,25 @@ def rate_limit_dependency(key_builder: Callable[[Request], str], rule: RateLimit
         await check_rate_limit(request, key_builder(request), rule)
 
     return dependency
+
+
+async def get_current_user(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> User:
+    authorization = request.headers.get("authorization", "")
+    if not authorization.startswith("Bearer "):
+        raise UNAUTHORIZED
+    token = authorization[len("Bearer "):]
+    try:
+        payload = decode_token(token, "access")
+        user_id = uuid.UUID(str(payload.get("sub")))
+    except Exception:
+        raise UNAUTHORIZED from None
+    user = await users_repo.get_by_id(session, user_id)
+    if user is None:
+        raise UNAUTHORIZED
+    return user
 
 
 def client_ip(request: Request) -> str:

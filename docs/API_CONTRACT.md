@@ -37,6 +37,25 @@ Base path مسیرهای محصول: `/api/v1`. سه endpoint عملیاتی roo
 - `POST /api/v1/auth/refresh`: کوکی refresh + `X-CSRF-Token` (برابر کوکی csrf) + Origin در فهرست CORS لازم است؛ ناموفق 403 `csrf_origin_rejected`/`csrf_token_mismatch`. چرخش با ابطال عضو قبلی؛ بازپخش والد در پنجرهٔ grace (۳۰ ثانیه) → **409 `refresh_conflict_retry`** بدون `Set-Cookie` و بدون ابطال خانواده (کلاینت نباید یک 409 مجرد را logout تعبیر کند؛ می‌تواند بعداً retry کند)؛ reuse پس از grace → 401 `refresh_reuse_detected` و ابطال خانواده.
 - `POST /api/v1/auth/logout`: ابطال خانواده؛ کوکی‌ها حذف می‌شوند؛ 204.
 
+## پرداخت یک‌باره (فاز ۲ — تابع ADR-047 پذیرفته‌شده)
+
+### `POST /api/v1/billing/checkout` (auth)
+- بدنه: `{"product_id": "basic"|"pro", "idempotency_key": "<uuid>"}`.
+- `201 {"payment_id", "redirect_url", "amount_toman"}` **فقط** وقتی authority معتبر و gateway URL ذخیره شده و payment در حالت `pending` است.
+- `202 {"payment_id", "status"}` وقتی payment در `requesting` یا `unknown_outcome` است؛ هرگز `redirect_url` ساختگی بازگردانده نمی‌شود؛ retry هم‌کلید/هم‌payload درخواست درگاه تکراری صادر نمی‌کند.
+- نمایش به کاربر نباید صرفاً به‌دلیل رسیدن مرورگر به callback، «موفق» را ادعا کند.
+- خطاهای پایدار:
+  - `404 unknown_product`
+  - `409 idempotency_conflict` (همان کلید با payload متفاوت؛ بدون اثر مالی)
+  - `503 catalog_unavailable`
+
+### `GET /api/v1/billing/callback` (بدون session؛ پارامترهای provider غیرقابل‌اعتماد)
+- فقط ماشهٔ یافتن payment + verify سمت سرور؛ `Status=OK` به‌تنهایی grant تولید نمی‌کند؛ `Status=NOK` به‌تنهایی نهایی‌کنندهٔ شکست نیست.
+- پاسخ: صفحهٔ ثابت موفق/ناموفق/درانتظار؛ بدون redirect با کنترل کاربر.
+
+### `GET /api/v1/billing/payments/{id}` (auth؛ فقط مالک)
+- پاسخ امن: `{"payment_id", "status", "amount_toman", "ref_id"}` (در صورت موجود بودن)؛ بدون راز/تشخیص داخلی.
+
 ## Streaming
 از `fetch` + `ReadableStream` استفاده می‌شود؛ نه `EventSource` برای bearer-authenticated POST stream. قرارداد eventها باید `event`, `id`, `data` را مشخص کند، `Last-Event-ID` را برای resume امن تعریف کند و خروجی نیمه‌کاره را از پایان موفق جدا کند.
 

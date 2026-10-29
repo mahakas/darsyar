@@ -98,6 +98,19 @@
 | `backend/app/repositories/reservations.py` | دسترسی رزروها و گذار شرطی (Slice A). |
 | `backend/alembic/versions/0004_financial_core.py` | مهاجرت هستهٔ مالی: accounts/ledger/reservations + trigger (Slice A). |
 | `backend/alembic/versions/0005_ledger_immutability_trigger.py` | مهاجرت سخت‌سازی: trigger رد UPDATE/DELETE روی credit_ledger. |
+| `backend/alembic/versions/0006_payment_transactions.py` | مهاجرت تراکنش‌های پرداخت + trigger ترمینال (Slice B). |
+| `backend/alembic/versions/0007_product_catalog.py` | مهاجرت کاتالوگ محصولات + seed Basic/Pro (Slice B). |
+| `backend/app/models/payment_transaction.py` | مدل payment_transactions (ADR-047). |
+| `backend/app/models/product_catalog.py` | مدل کاتالوگ محصولات. |
+| `backend/app/repositories/payment_transactions.py` | دسترسی پرداخت‌ها و گذارهای شرطی. |
+| `backend/app/repositories/product_catalog.py` | دسترسی کاتالوگ و به‌روزرسانی مع audit. |
+| `backend/app/services/payment.py` | سرویس پرداخت: checkout/verify/finalize/reconcile/resolution. |
+| `backend/app/services/payment_provider.py` | adapter زرین‌پال v4 (تبدیل تومان/ریال فقط اینجا). |
+| `backend/app/schemas/billing.py` | schemaهای checkout/payment status. |
+| `backend/app/api/v1/billing.py` | مسیرهای checkout/callback/payments. |
+| `backend/app/scripts/upsert_product.py` | CLI operator برای تغییر کاتالوگ با audit. |
+| `backend/tests/test_zarinpal_provider.py` | تست واحد adapter با respx. |
+| `backend/tests/test_billing_db.py` | تست‌های یکپارچهٔ پرداخت روی PostgreSQL واقعی. |
 | `backend/tests/test_finance_db.py` | تست‌های یکپارچهٔ مالی روی PostgreSQL واقعی (Slice A). |
 | `backend/app/services/retrieval/.gitkeep` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/retrieval/__init__.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
@@ -170,6 +183,7 @@
 | `docs/adr/ADR-044-redis-client-pin.md` | تصمیم تأییدشدهٔ مالک: سرور Redis 7.4.12 + کلاینت 5.x + arq (accepted). |
 | `docs/adr/ADR-045-baseline-index-meta.md` | تصمیم تأییدشدهٔ مالک: جدول `index_meta` در خط پایه (accepted). |
 | `docs/adr/ADR-046-refresh-grace-semantics.md` | سیاست تأییدشدهٔ grace: 409 بدون چرخش؛ ابطال خانواده پس از پنجره (accepted). |
+| `docs/adr/ADR-047-payment-checkout-zarinpal.md` | پیشنهاد خرید یک‌بارهٔ Basic/Pro و زرین‌پال (proposed). |
 | `docs/licenses/README.md` | سیاست ثبت مجوز و منشأ منبع آموزشی. |
 | `frontend/.dockerignore` | ساخت/پیکربندی فرانت‌اند. |
 | `frontend/.npmrc` | ساخت/پیکربندی فرانت‌اند. |

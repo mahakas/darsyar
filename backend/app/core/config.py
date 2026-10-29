@@ -65,6 +65,12 @@ class Settings(BaseSettings):
     reservation_stale_minutes: int = Field(default=15, ge=1, le=1440)
     reconcile_interval_minutes: int = Field(default=5, ge=1, le=1440)
     min_billable_tokens: int = Field(default=1, ge=1, le=1000)
+    payment_provider: Literal["zarinpal"] = "zarinpal"
+    zarinpal_merchant_id: SecretStr | None = None
+    zarinpal_sandbox: bool = False
+    zarinpal_callback_url: str = ""
+    zarinpal_timeout_seconds: float = Field(default=10.0, gt=0, le=60)
+    payment_request_stale_minutes: int = Field(default=30, ge=1, le=1440)
 
     inference_mode: Literal["service", "remote"] = "remote"
     inference_url: str = "http://localhost:8100"
@@ -114,6 +120,12 @@ class Settings(BaseSettings):
                 sms_key = self.kavenegar_api_key.get_secret_value() if self.kavenegar_api_key else ""
                 if not sms_key or sms_key.startswith("CHANGE_ME"):
                     raise ValueError("KAVENEGAR_API_KEY must be a valid production secret")
+            if self.payment_provider == "zarinpal":
+                merchant = self.zarinpal_merchant_id.get_secret_value() if self.zarinpal_merchant_id else ""
+                if not merchant or merchant.startswith("CHANGE_ME"):
+                    raise ValueError("ZARINPAL_MERCHANT_ID must be a valid production secret")
+                if not self.zarinpal_callback_url.startswith("https://"):
+                    raise ValueError("ZARINPAL_CALLBACK_URL must be an https URL in production")
             if not self.app_cors_origins or "*" in self.app_cors_origins:
                 raise ValueError("APP_CORS_ORIGINS must be explicit in production")
             if self.inference_mode not in {"service", "remote"}:
