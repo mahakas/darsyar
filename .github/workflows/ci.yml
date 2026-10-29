@@ -49,6 +49,10 @@ jobs:
         working-directory: backend
         env:
           APP_ENV: test
+          # Fixed test-only secrets; never reuse in development or production.
+          APP_SECRET_KEY: "ci-only-signing-secret-never-use-outside-tests-39"
+          OTP_PEPPER: "ci-only-otp-pepper-never-use-outside-tests-39"
+          OTP_PEPPER_ID: "v1"
           DATABASE_URL: postgresql+asyncpg://darsyar:ci-only-password@localhost:5432/darsyar_test
           TEST_DATABASE_URL: postgresql+asyncpg://darsyar:ci-only-password@localhost:5432/darsyar_test
           DARSYAR_TEST_DB: "1"
