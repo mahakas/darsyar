@@ -62,6 +62,9 @@ class Settings(BaseSettings):
     admin_password_login_enabled: bool = False
     page_size_max: int = Field(default=100, ge=1, le=1000)
     max_request_bytes: int = Field(default=20971520, ge=1024, le=104857600)
+    reservation_stale_minutes: int = Field(default=15, ge=1, le=1440)
+    reconcile_interval_minutes: int = Field(default=5, ge=1, le=1440)
+    min_billable_tokens: int = Field(default=1, ge=1, le=1000)
 
     inference_mode: Literal["service", "remote"] = "remote"
     inference_url: str = "http://localhost:8100"

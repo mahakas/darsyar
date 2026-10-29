@@ -89,7 +89,15 @@
 | `backend/app/services/quiz/__init__.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/quota.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/rerank.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
-| `backend/app/services/reservation.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
+| `backend/app/services/reservation.py` | سرویس دامنهٔ مالی Slice A: reserve/settle/release/reconcile (ADR-035). |
+| `backend/app/models/credit_account.py` | مدل projection اعتبار (Slice A فاز ۲). |
+| `backend/app/models/credit_ledger.py` | مدل ledger append-only (Slice A فاز ۲). |
+| `backend/app/models/reservation.py` | مدل رزرو پایدار (Slice A فاز ۲). |
+| `backend/app/repositories/credit_accounts.py` | دسترسی projection با قفل ردیف (Slice A). |
+| `backend/app/repositories/credit_ledger.py` | دسترسی ledger فقط-درج (Slice A). |
+| `backend/app/repositories/reservations.py` | دسترسی رزروها و گذار شرطی (Slice A). |
+| `backend/alembic/versions/0004_financial_core.py` | مهاجرت هستهٔ مالی: accounts/ledger/reservations + trigger (Slice A). |
+| `backend/tests/test_finance_db.py` | تست‌های یکپارچهٔ مالی روی PostgreSQL واقعی (Slice A). |
 | `backend/app/services/retrieval/.gitkeep` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/retrieval/__init__.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/settings_store.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
