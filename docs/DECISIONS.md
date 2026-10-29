@@ -27,11 +27,11 @@
 | ADR-032 | دامنه MVP و defer قابلیت‌های یادگیری پیشرفته | proposed |
 | ADR-033 | HMAC OTP + pepper مستقل و چرخش کلید | accepted (مشخص‌سازی ADR-003) |
 | ADR-034 | access memory و refresh cookie + CSRF | accepted (مشخص‌سازی ADR-003) |
-| ADR-035 | PostgreSQL reservation و credit projection | proposed؛ OQ-001..003 باید حل شوند |
+| ADR-035 | PostgreSQL reservation (مدل حسابداری، idempotency هیبرید، گذار اتمیک) | accepted (OQ-001/002/003 بسته) |
 | ADR-036 | INFERENCE_MODE: service یا remote | proposed |
 | ADR-037 | نگاشت پایه و سیاست legacy | proposed؛ OQ-009 باید حل شود |
 | ADR-038 | edition_year و active edition | proposed |
-| ADR-039 | سیاست پاسخ نیمه‌کاره و billable threshold | proposed؛ OQ-008 باید حل شود |
+| ADR-039 | سیاست داخلی پاسخ نیمه‌کاره و billable threshold | accepted (OQ-008 بسته؛ مرز با REFUND_POLICY مشتری حفظ شد) |
 | ADR-040 | timezone/duration دورهٔ ماه | proposed |
 | ADR-041 | ارتقای فناوری‌ها و سازگاری wheel | proposed |
 | ADR-042 | retention و حذف دادهٔ دانش‌آموز | proposed |

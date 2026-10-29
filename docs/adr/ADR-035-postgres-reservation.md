@@ -1,8 +1,52 @@
-# ADR-035: رزرو اعتبار پایدار در PostgreSQL
+# ADR-035: رزرو اعتبار پایدار در PostgreSQL — تأییدشده
 
-- Status: proposed; gated by OQ-001–OQ-003
-- Context: رزرو مالی نباید فقط در Redis باشد و نباید با crash یا retry دوباره اعمال شود.
-- Decision: reservations و credit projection در PostgreSQL transaction و با row lock/idempotency نگهداری شوند؛ Redis فقط cache/rate-limit/queue است.
-- Rejected alternatives: Redis-only balance؛ GET+DECR؛ آزادسازی متکی به TTL.
-- Consequences: پیش از فاز ۲ باید semantics available/reserved/ledger و event idempotency بدون تناقض تعریف شوند.
-- Affected files: credit service, reservation model, ledger, reconciliation jobs, tests.
+- **وضعیت:** accepted (تصمیم مالک — 2026-10-29؛ ثبت OQ-001/002/003)
+- **هم‌راستا با:** R-124 تا R-131، R-142، R-146
+
+## زمینه
+
+رزرو مالی نباید فقط در Redis باشد و نباید با crash یا retry دوباره اعمال شود. پیش از فاز ۲، معناشناسی حسابداری رزرو، idempotency و گذارهای اتمیک باید بدون تناقض تعریف شوند.
+
+## تصمیم‌های تأییدشده
+
+### ۱) مدل حسابداری رزرو (OQ-001)
+1. `credit_accounts.available_balance` موجودی قابل‌مصرف است و **رزروهای pending را شامل نمی‌شود**.
+2. در رزرو مبتنی بر کردیت: تراکنش اولیه رزرو، reservation با وضعیت `pending` می‌سازد، یک رکورد ledger **بدهی موقت** با `kind='spend'` اضافه می‌کند و projection حساب را در همان تراکنش PostgreSQL کاهش می‌دهد.
+3. نهایی‌سازی به `settled` **دوباره** حساب را بدهکار نمی‌کند.
+4. رهاسازی رزرو pending، در همان تراکنشی که گذار به `released` موفق می‌شود، رکورد جبرانی `refund` append می‌کند و projection را افزایش می‌دهد.
+5. refund جبران خطای سرور پس از پاسخ نیمه‌کارهٔ قابلی‌صورتحساب، رویداد جداگانهٔ append-only با کلید idempotency و دلیل مستقل است.
+6. سطرهای ledger هرگز update/delete نمی‌شوند؛ اصلاح فقط با رکورد معکوس جدید.
+7. **ستون `reserved_balance` لازم نیست**؛ مبالغ رزروشده از رزروهای pending مشتق می‌شوند.
+8. `available_balance` باید با مجموع امضا‌شدهٔ رکوردهای مؤثر بر موجودی reconcile شود؛ رویدادهای غیرمؤثر مثل `unlimited_usage` موجودی را تغییر نمی‌دهند.
+9. رزروهای unlimited فقط usage و وضعیت رزرو را ثبت می‌کنند؛ موجودی کاهش نمی‌یابد.
+10. فهرست فعلی `kind`ها (R-125) حفظ می‌شود؛ بازطراحی `reserve/release` در ledger بخشی از این تصمیم نیست.
+
+### ۲) قرارداد idempotency هیبرید (OQ-002)
+- کلید idempotency **سطح درخواست** و محدود به کاربر، از ساخت رزرو محافظت می‌کند.
+- **fingerprint متعارف payload** پایدار ذخیره می‌شود؛ استفادهٔ مجدد از همان کلید با payload متفاوت، با خطای تعیین‌شده و بدون اثر مالی شکست می‌خورد.
+- هر رویداد ledger یک **کلید رویداد پایدار سرور-تولیدشده** با نام‌فضای مبتنی بر هویت تجاری persistent دریافت می‌کند.
+- کلیدهای متفاوت برای: بدهی رزرو اولیه، refund رهاسازی، refund جبران خطای سرور، و grant کردیت پرداخت.
+- قیدهای یکتایی در DB الزامی‌اند؛ بررسی‌های درون‌حافظه کافی نیستند.
+- callback تکراری پرداخت نباید پرداخت/کردیت دوم بسازد.
+- idempotency گذار رزرو و idempotency رویداد ledger **متمایز**اند؛ هنگام settle (که سطر ledger جدید نمی‌سازد) کلید settle اختراع نمی‌شود.
+- ساخت رویدادها و تغییرات projection همگی اتمیک‌اند.
+- الگوهای پیشنهادی مستند:
+  - `reservation:{id}:reserve-debit`
+  - `reservation:{id}:release-refund`
+  - `reservation:{id}:server-error-refund`
+  - `payment:{id}:credit-grant`
+- قید `UNIQUE(user_id, idempotency_key)` روی reservation و «یکتایی idempotency_key روی ledger» طبق R-128 برقرار و شفاف‌سازی می‌شوند.
+
+### ۳) گذارهای اتمیک (OQ-003)
+- هرگاه موجودی قابل‌مصرف تغییر می‌کند، سطر حساب کاربر با `SELECT ... FOR UPDATE` قفل می‌شود.
+- گذار شرطی: فقط رزروی که وضعیت فعلی‌اش `pending` است update می‌شود؛ **دقیقاً یک سطر** تغییر کرده تأیید می‌شود.
+- قیدهای CHECK مقادیر مجاز وضعیت و سازگاری timestamp/state را اعمال می‌کنند.
+- CHECK به‌تنهایی از گذار از وضعیت‌های نهایی جلوگیری نمی‌کند؛ برای رد گذارهای غیرمجاز از وضعیت‌های نهایی **trigger دیتابیس (یا سازوکار دیتابیسی صریح و مستند)** لازم است؛ مسیر عادی کنترل هم‌زمانی همان update شرطی است.
+- رزرو، ledger و credit_accounts در **یک تراکنش** تغییر می‌کنند.
+- job reconcile فقط اگر رزرو هنوز `pending` باشد و در همان گذار اتمیک برنده شود، آن را رها می‌کند.
+
+## پیامدها
+
+- no schema مالی فعلی وجود ندارد؛ مدل/مهاجرت/قیدها در فاز ۲ با همین سند ساخته می‌شوند.
+- انتظار تست: race بدون overspend؛ بازپخش درخواست یکسان بدون درج دوم؛ گذار غیرمجاز از وضعیت نهایی توسط trigger رد می‌شود؛ reconcile با اختلاف مصنوعی؛ callback تکراری.
+- فایل‌های متأثر: مدل‌های credit_accounts/credit_ledger/reservations/usage_events/payment_transactions، سرویس‌های quota/reservation/payment، jobهای reconcile، تست‌های مالی.

@@ -4,14 +4,14 @@
 
 | ID | موضوع | تناقض/ابهام | موعد |
 |---|---|---|---|
-| OQ-001 | accounting رزرو | R-125 فهرست `kind` شامل reserve/release نیست؛ R-131 می‌گوید آزادسازی خودکار `refund` ثبت می‌کند. اثر available/reserved/ledger و reconcile باید تعریف شود. | پیش از فاز ۲ |
-| OQ-002 | idempotency ledger | R-128 عبارت `idempotency_key` یکتا روی ledger دارد؛ باید تعیین شود کلید به ازای هر رویداد مالی است یا کل درخواست، تا رویدادهای reserve/settle/release همه قابل ثبت باشند. | پیش از فاز ۲ |
-| OQ-003 | reservation CHECK | CHECK constraint انتقال از وضعیت قبلی به جدید را تضمین نمی‌کند؛ روش compare-and-swap/row lock/trigger مشخص شود. | پیش از فاز ۲ |
+| OQ-001 | accounting رزرو | **بسته** — مدل تأییدشده در ADR-035 (accepted): بدهی موقت `spend` هنگام رزرو، `refund` هنگام رهاسازی، بدون ستون reserved_balance، مشتق از رزروهای pending. | بسته (ADR-035) |
+| OQ-002 | idempotency ledger | **بسته** — قرارداد هیبرید در ADR-035 (accepted): کلید درخواست + fingerprint + کلیدهای رویداد پایدار سرور (reserve-debit/release-refund/server-error-refund/credit-grant). | بسته (ADR-035) |
+| OQ-003 | reservation CHECK | **بسته** — استراتژی ترکیبی در ADR-035 (accepted): `SELECT ... FOR UPDATE` + update شرطی `pending` + CHECKها + trigger رد گذار از وضعیت نهایی. | بسته (ADR-035) |
 | OQ-004 | HNSW config | R-090 می‌گوید پارامترها از settings می‌آیند؛ migration پایدار باید تعریف ثابت داشته باشد. تغییر index params با revision جدید/فرایند reindex تعریف شود. | پیش از فاز ۵ |
 | OQ-005 | جست‌وجوی فارسی | R-081 ایندکس متن اصلی را الزام می‌کند، R-165 انتخاب بین متن اصلی و نرمال‌شده را می‌خواهد. ستون/تابع query و index دقیق با EXPLAIN تأیید شود. | پیش از فاز ۵ |
 | OQ-006 | Redis fail-open چت | R-115 fail-open تعریف کرده؛ سقف هزینه و fallback هنگام قطعی Redis مشخص نیست. چت هزینه‌زا بدون محدودیت جایگزین فعال نشود. | پیش از فاز ۳ |
 | OQ-007 | refresh grace | **بسته** — سیاست نهایی در ADR-046 (accepted): 409 بدون چرخش در پنجرهٔ grace؛ ابطال خانواده پس از آن. | بسته (ADR-046) |
-| OQ-008 | سیاست پاسخ نیمه‌کاره | R-133 و R-134 باید در ماتریس صریح حالات complete/cancel/provider-error/server-error یکدست شوند. | پیش از فاز ۲/۳ |
+| OQ-008 | سیاست پاسخ نیمه‌کاره | **بسته** — سیاست داخلی runtime در ADR-039 (accepted): `MIN_BILLABLE_TOKENS=1`، مبنای توکن‌های مشاهده‌شده محلی، جدایی لغو کاربر/کلاینت از شکست provider/سرور، refund جبران فقط در شکست پس از آستانه. | بسته (ADR-039) |
 | OQ-009 | نگاشت پیش‌دانشگاهی | R-152 legacy را پایه ۱۲ معرفی می‌کند؛ اعتبار هم‌ارزی محتوایی و نظام آموزشی باید تأیید شود. | پیش از فاز ۴ |
 | OQ-010 | ADRهای تاریخی | شماره‌ها/موضوعات برخی ADRهای نسخه‌های پیشین در نسخهٔ ۴ جابه‌جا شده‌اند. فقط ADRهای واقعی و قابل‌ردیابی پذیرفته شوند. | پیش از پذیرش ADRهای جدید |
 | OQ-011 | درگاه و میزبان خارج از ایران | شرایط current provider، پرداخت و میزبانی و انطباق حقوقی قبل از public launch تأیید شود. | پیش از انتشار |

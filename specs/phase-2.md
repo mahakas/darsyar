@@ -1,7 +1,7 @@
 # Phase 2: Credits, Ledger & Billing
 
-**Status:** Planned; gated by open financial questions  
-**Dependencies:** Phase 1 and accepted ADR-035/039
+**Status:** Planned; financial decisions recorded (ADR-035/039 accepted); implementation pending
+**Dependencies:** Phase 1; ADR-035/039 (accepted)
 
 ## Goal
 
@@ -26,7 +26,7 @@ Create auditable credits and payment flows without double spending.
 - [ ] Ledger/projection/reconcile invariants hold.
 - [ ] Duplicate callback does not duplicate payment or credit.
 - [ ] Toman/rial conversion tests cover boundaries.
-- [ ] Partial-stream behavior matches accepted ADR and refund draft approval.
+- [ ] Partial-stream behavior matches accepted internal credit-compensation policy (ADR-039); broader customer-facing payment-refund terms remain a release gate (REFUND_POLICY).
 
 ## Required evidence
 
