@@ -175,16 +175,24 @@ async def test_expired_challenge_rejected(auth_ctx) -> None:
 @pytest.mark.asyncio
 async def test_multi_user_isolation(auth_ctx) -> None:
     service, session, sms = auth_ctx
+    phone_a = "+989121234567"
+    phone_b = "+989129876543"
     await service.request_otp("09121234567")
     await service.request_otp("09129876543")
-    code_a = sms.sent["+989121234567"]
+    code_a = sms.sent[phone_a]
+    code_b = sms.sent[phone_b]
     # کد کاربر A نباید برای کاربر B کار کند.
     with pytest.raises(AppError):
         await service.verify_otp("09129876543", code_a)
     await service.verify_otp("09121234567", code_a)
-    users = (await session.execute(select(User).order_by(User.phone))).scalars().all()
+    await service.verify_otp("09129876543", code_b)
+    # فقط دو شمارهٔ مرتبط؛ مستقل از دادهٔ باقی‌مانده از تست‌های دیگر.
+    users = (
+        await session.execute(select(User).where(User.phone.in_([phone_a, phone_b])).order_by(User.phone))
+    ).scalars().all()
     assert len(users) == 2
-    assert users[0].phone != users[1].phone
+    assert {u.phone for u in users} == {phone_a, phone_b}
+    assert users[0].id != users[1].id
 
 
 @pytest.mark.asyncio
