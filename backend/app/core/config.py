@@ -34,11 +34,34 @@ class Settings(BaseSettings):
     settings_cache_ttl: int = Field(default=30, gt=0, le=3600)
 
     jwt_algorithm: Literal["HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "ES256"] = "HS256"
+    jwt_previous_secret: SecretStr | None = None
     refresh_grace_seconds: int = Field(default=30, ge=0, le=120)
     access_token_expire_minutes: int = Field(default=15, gt=0, le=120)
     refresh_token_expire_days: int = Field(default=7, gt=0, le=30)
+    refresh_cookie_name: str = "darsyar_refresh"
+    csrf_cookie_name: str = "darsyar_csrf"
+    otp_code_length: int = Field(default=6, ge=4, le=8)
+    otp_expire_seconds: int = Field(default=120, ge=30, le=600)
+    otp_max_attempts: int = Field(default=5, ge=1, le=20)
+    otp_request_limit_phone: int = Field(default=3, ge=1, le=20)
+    otp_request_window: int = Field(default=300, ge=30, le=3600)
+    otp_request_limit_ip: int = Field(default=10, ge=1, le=100)
+    otp_verify_rate_ip: int = Field(default=20, ge=1, le=200)
+    chat_rate_user: int = Field(default=30, ge=1, le=1000)
+    chat_rate_ip: int = Field(default=60, ge=1, le=1000)
     otp_pepper: SecretStr | None = None
     otp_pepper_id: str = "v1"
+    otp_previous_pepper: SecretStr | None = None
+    sms_provider: Literal["kavenegar"] = "kavenegar"
+    kavenegar_api_key: SecretStr | None = None
+    kavenegar_otp_template: str = ""
+    kavenegar_timeout_seconds: float = Field(default=10.0, gt=0, le=60)
+    admin_email: str = ""
+    admin_phone: str = ""
+    admin_name: str = ""
+    admin_password_login_enabled: bool = False
+    page_size_max: int = Field(default=100, ge=1, le=1000)
+    max_request_bytes: int = Field(default=20971520, ge=1024, le=104857600)
 
     inference_mode: Literal["service", "remote"] = "remote"
     inference_url: str = "http://localhost:8100"
@@ -84,6 +107,10 @@ class Settings(BaseSettings):
                 raise ValueError("OTP_PEPPER must be an independent strong production secret")
             if secret == pepper:
                 raise ValueError("OTP_PEPPER must differ from APP_SECRET_KEY")
+            if self.sms_provider == "kavenegar":
+                sms_key = self.kavenegar_api_key.get_secret_value() if self.kavenegar_api_key else ""
+                if not sms_key or sms_key.startswith("CHANGE_ME"):
+                    raise ValueError("KAVENEGAR_API_KEY must be a valid production secret")
             if not self.app_cors_origins or "*" in self.app_cors_origins:
                 raise ValueError("APP_CORS_ORIGINS must be explicit in production")
             if self.inference_mode not in {"service", "remote"}:

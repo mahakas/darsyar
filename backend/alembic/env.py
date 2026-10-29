@@ -4,12 +4,12 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
+from app import models as app_models  # noqa: F401  # اطمینان از تکمیل metadata با همهٔ مدل‌ها
 from app.core.config import get_settings
 from app.db.base import Base
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-# با اضافه شدن مدل‌ها، آن‌ها را از app.models import کن تا metadata تکمیل شود.
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

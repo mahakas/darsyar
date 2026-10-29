@@ -99,3 +99,39 @@
 - **NOT RUN:** GitHub Actions (بدون مخزن git/remote)؛ پوشش ۷۰٪ (R-217) و آزمون بار (R-025) در دامنهٔ فازهای بعدی.
 - فاز ۱ (`specs/phase-1.md`) شروع نشده و منتظر دستور مالک است.
 
+## گزارش فاز ۱: هویت، OTP و نشست‌ها (2026-10-27)
+
+| آیتم | نتیجه |
+|---|---|
+| Settings و `.env.example` | متغیرهای OTP/JWT/cookie/SMS/ADMIN افزوده و هماهنگ شدند |
+| نرمال‌سازی E.164 | `core/phone.py` + تست |
+| OTP | فقط digest با HMAC-SHA256 + pepper مستقل + `pepper_id` (پشتیبانی چرخش با `OTP_PREVIOUS_PEPPER`)؛ انقضا، مصرف یک‌باره، سقف تلاش |
+| ضد-enumeration | پاسخ 202 یکسان در request؛ ثبت‌نام/ورود یک مسیر |
+| کش‌ها | users، otp_challenges (expires_at ایندکس‌شده)، refresh_tokens (jti/token_hash یکتا، family)، admin_audit_log |
+| migration | `0003_users_otp_refresh_audit` (Alembic؛ upgrade/downgrade) |
+| Access/Refresh | JWT کوتاه‌عمر؛ refresh در کوکی HttpOnly/Secure/SameSite با فقط hash در DB؛ CSRF double-submit + بررسی Origin |
+| Rotation/Reuse | چرخش با ابطال عضو قبلی؛ پنجرهٔ grace ۳۰ ثانیه؛ reuse پس از grace ← ابطال خانواده (ADR-046 پیشنهادی) |
+| Rate limit | RedisRateLimiter (پنجرهٔ ثابت)؛ OTP fail-closed روی Redis |
+| SMS | adapter Kavenegar با timeout صریح؛ mock در تست‌ها |
+| seed-admin | CLI `python -m app.scripts.seed_admin` با تأیید تعاملی + `admin_audit_log` |
+| تست‌ها | `uv run --locked pytest -q` → 42 passed + 11 skipped (schema)؛ `make test-db` → 53 passed |
+| lint/typecheck | ruff PASS؛ mypy PASS (64 فایل) |
+| Docker | استک بالا و healthy؛ `/health` `/ready` `/version` = 200 |
+| NOT RUN | GitHub Actions (بدون مخزن/remote)؛ ارسال SMS واقعی Kavenegar (نیازمند راز production)؛ آزمون بار R-025 |
+
+## ممیزی بستن فاز ۱ (Closure Audit — 2026-10-27)
+
+- **ADRها:** ADR-003 accepted (پایه)؛ ADR-033/034 proposed (جزئیات‌بنداز، بدون supersede رسمی)؛ ADR-046 proposed و برای تایید مالک ارجاع شد (خودسرانه accepted نشد).
+- **رقابت هم‌زمان refresh:** آسیب‌پذیری read-modify-write در چرخش کشف و با **compare-and-swap اتمیک** (`try_mark_revoked` با `UPDATE … WHERE revoked_at IS NULL`) رفع شد؛ تست `test_concurrent_rotation_cas_keeps_single_active` تضمین می‌کند فقط یک عضو فعال در هر خانواده می‌ماند.
+- **تست‌های امنیتی موجود:** CSRF (miss/mismatch)، Origin نامجاز، توکن refresh نامعتبر، OTP منقضی و مصرف‌شده، سقف تلاش، multi-user isolation، reuse+grace (۱۵ در پنجره و پس از آن)، ابطال خانواده، logout.
+- **پوشش R-217:** `pytest --cov=app --cov-fail-under=70` با تست‌های DB → **60 passed؛ Total 82.76%** (core/security 90%، phone 100%، ratelimit 92%، auth service 87%، sms 100%).
+- **شکاف‌های پوشش:** `core/time.py` 0% (ابزار وقت؛ در فازهای بعدی استفاده می‌شود)، `scripts/seed_admin.py` 33% (مسیر تعاملی CLI)، `core/operations.py` 57% (مسیر خطای /ready)، placeholderهای فازهای بعدی (guard/inference/worker) خارج از دامنه.
+- **NOT RUN (بدون تغییر):** ارسال SMS واقعی Kavenegar؛ GitHub Actions؛ آزمون بار R-025.
+
+## اصلاح امنیتی refresh (ADR-046 — 2026-10-29)
+
+- سیاست تأییدشدهٔ مالک پیاده‌سازی شد: بازپخش والدِ باطل در پنجرهٔ grace → **409 `refresh_conflict_retry`** بدون `Set-Cookie` و بدون چرخش/فرزند جدید؛ پس از پنجره → 401 `refresh_reuse_detected` + ابطال خانواده + لاگ.
+- ذخیره‌سازی hash-only (R-106) بدون تغییر؛ بدون مهاجرت؛ محدودیت «گم‌شدن پاسخ برنده» مستند شد (بازیابی همان متن خام تضمین‌نشده).
+- تست‌ها: هم‌زمانی (حداکثر یک چرخش)، 409 بدون Set-Cookie، عدم چرخش در بازپخش‌های تکراری، بازترتیب پاسخ‌ها، ابطال پس از grace.
+- خروجی: `make test-db` → 63 passed؛ coverage → 82.69%؛ ruff/mypy PASS.
+

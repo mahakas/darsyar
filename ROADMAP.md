@@ -5,7 +5,7 @@
 | فاز | سند مرجع | دامنه | پیش‌نیاز | وضعیت |
 |---|---|---|---|---|
 | 0 | `specs/phase-0.md` | Foundation: زیرساخت، تنظیمات، API shell، DB/Redis، Compose، lockfile و CI | قرارداد v4 | تکمیل‌شده (گزارش بستن: 2026-10-27) |
-| 1 | `specs/phase-1.md` | OTP، هویت، نشست و امنیت JWT/refresh | فاز 0 | برنامه‌ریزی‌شده؛ منتظر دستور مالک |
+| 1 | `specs/phase-1.md` | OTP، هویت، نشست و امنیت JWT/refresh | فاز 0 | تکمیل‌شده (ADR-046 accepted؛ اصلاح امنیتی refresh اعمال شد — 2026-10-29) |
 | 2 | `specs/phase-2.md` | کردیت، reservation، ledger، usage، طرح‌ها و پرداخت | فاز 1 + رفع تعارض‌های مالی | برنامه‌ریزی‌شده؛ دارای blocker مستند |
 | 3 | `specs/phase-3.md` | provider gateway، inference service/remote، گفتگو و استریم | فازهای 0/1 و ADRهای مربوط | برنامه‌ریزی‌شده |
 | 4 | `specs/phase-4.md` | منابع، manifest، مجوز، استخراج/OCR، chunking و worker | فازهای 0/3 | برنامه‌ریزی‌شده |

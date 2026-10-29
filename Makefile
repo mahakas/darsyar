@@ -35,7 +35,7 @@ revision:
 	cd backend && uv run --locked alembic revision --autogenerate -m "$(message)"
 
 seed-admin:
-	@echo 'BLOCKED: admin bootstrap is implemented in phase 1; see R-117.'; exit 2
+	cd backend && uv run --locked python -m app.scripts.seed_admin
 
 seed-plans:
 	@echo 'BLOCKED: plan seed is implemented after approved pricing/accounting design.'; exit 2

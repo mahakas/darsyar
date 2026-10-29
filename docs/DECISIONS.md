@@ -8,7 +8,7 @@
 |---|---|---|---|
 | ADR-001 | محدوده MVP پایه‌های ۱–۱۲ | accepted | هم‌راستا با R-011/R-012 |
 | ADR-002 | PostgreSQL منبع دادهٔ پایدار؛ Redis cache/rate limit/queue | accepted | هم‌راستا با R-028/R-124 |
-| ADR-003 | امنیت OTP و نشست | accepted | جزئیات v4 و ADR-033/034 را دنبال کن |
+| ADR-003 | امنیت OTP و نشست | accepted | جزئیات v4 و ADR-033/034 را دنبال کن؛ 033/034 جانشین مستقیم (supersede) نیستند، جزئیات‌بنداز پذیرفته‌نشده‌اند |
 | ADR-004 | fetch streaming | accepted | reconnect به فاز ۳ موکول است |
 | ADR-005 | citation سمت سرور از evidence | accepted | هم‌راستا با R-168/R-178 |
 | ADR-006 | مدل سنگین خارج از process وب | accepted | جزئیات در ADR-036 |
@@ -25,8 +25,8 @@
 | ADR | موضوع | وضعیت |
 |---|---|---|
 | ADR-032 | دامنه MVP و defer قابلیت‌های یادگیری پیشرفته | proposed |
-| ADR-033 | HMAC OTP + pepper مستقل و چرخش کلید | proposed |
-| ADR-034 | access memory و refresh cookie + CSRF | proposed |
+| ADR-033 | HMAC OTP + pepper مستقل و چرخش کلید | accepted (مشخص‌سازی ADR-003) |
+| ADR-034 | access memory و refresh cookie + CSRF | accepted (مشخص‌سازی ADR-003) |
 | ADR-035 | PostgreSQL reservation و credit projection | proposed؛ OQ-001..003 باید حل شوند |
 | ADR-036 | INFERENCE_MODE: service یا remote | proposed |
 | ADR-037 | نگاشت پایه و سیاست legacy | proposed؛ OQ-009 باید حل شود |
@@ -38,5 +38,6 @@
 | ADR-043 | dataset طلایی و RAG gates | proposed |
 | ADR-044 | ترکیب Redis: سرور 7.4.12 (تصمیم مالک) + کلاینت 5.x + arq 0.28 | accepted |
 | ADR-045 | ساخت جدول `index_meta` در فاز صفر (اجرای R-087) | accepted |
+| ADR-046 | سیاست grace در چرخش refresh: 409 بدون چرخش در پنجره؛ ابطال خانواده پس از آن | accepted |
 
 شماره‌های تاریخی ADR-013 تا ADR-023 و ADR-025 تا ADR-031 در منابع این بسته در دسترس نیستند؛ محتوایشان جعل نشده است. اگر در مخزن اصلی موجودند، قبل از پذیرفتن ADR جدید با آن‌ها تطبیق داده شوند. ADRهای `proposed` به‌خودی‌خود accepted نیستند؛ در فاز صفر قواعد الزامی خود AGENTS اجرا می‌شوند.

@@ -1,9 +1,52 @@
-"""وابستگی‌های پایهٔ API؛ احراز هویت در فاز ۱ اضافه می‌شود."""
+"""وابستگی‌های پایهٔ API؛ احراز هویت و ابزارهای امنیتی."""
 
-from collections.abc import AsyncIterator
+from collections.abc import Callable
+from typing import Any, cast
 
+from fastapi import Request
+from redis.asyncio import Redis
+from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
+from app.core.errors import AppError
+from app.core.ratelimit import RateLimitRule, RedisRateLimiter
 from app.db.session import get_db
 
-__all__ = ["AsyncSession", "AsyncIterator", "get_db"]
+__all__ = ["AsyncSession", "get_db", "get_redis", "rate_limit_dependency", "client_ip"]
+
+
+async def get_redis(request: Request) -> Redis:
+    return cast(Redis, request.app.state.redis)
+
+
+async def check_rate_limit(request: Request, key: str, rule: RateLimitRule) -> None:
+    limiter = getattr(request.app.state, "rate_limiter", None)
+    if limiter is None:
+        limiter = RedisRateLimiter(request.app.state.redis)
+        request.app.state.rate_limiter = limiter
+    try:
+        allowed = await limiter.check(key, rule)
+    except RedisError:
+        # R-115: مسیرهای OTP fail-closed؛ وقتی Redis در دسترس نباشد 503 برمی‌گردد.
+        raise AppError("rate_limit_unavailable", 503, "سرویس محدودیت نرخ موقتاً در دسترس نیست.") from None
+    if not allowed:
+        raise AppError("rate_limited", 429, "تعداد درخواست‌ها از سقف مجاز گذشت.")
+
+
+def rate_limit_dependency(key_builder: Callable[[Request], str], rule: RateLimitRule) -> Callable[..., Any]:
+    async def dependency(request: Request) -> None:
+        await check_rate_limit(request, key_builder(request), rule)
+
+    return dependency
+
+
+def client_ip(request: Request) -> str:
+    """IP کلاینت با پشتیبانی proxy قابل‌اعتماد؛ به X-Forwarded-For خام اعتماد نمی‌شود."""
+    settings = get_settings()
+    trusted_proxies = {ip.strip() for ip in settings.forwarded_allow_ips.split(",")} if settings.forwarded_allow_ips else set()
+    if getattr(request.client, "host", None) in trusted_proxies:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+    return getattr(request.client, "host", "unknown") or "unknown"

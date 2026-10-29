@@ -22,21 +22,23 @@
 | `backend/alembic/script.py.mako` | پیکربندی و migration صریح دیتابیس. |
 | `backend/alembic/versions/0001_enable_vector_and_trgm.py` | پیکربندی و migration صریح دیتابیس. |
 | `backend/alembic/versions/0002_index_meta_registry.py` | مهاجرت جدول `index_meta` (R-087)؛ ایجادشده در فاز صفر. |
+| `backend/alembic/versions/0003_users_otp_refresh_audit.py` | مهاجرت users/otp_challenges/refresh_tokens/admin_audit_log (فاز ۱). |
 | `backend/alembic.ini` | پیکربندی و اسکلت اجرایی backend. |
 | `backend/app/__init__.py` | پیکربندی و اسکلت اجرایی backend. |
 | `backend/app/agent/__init__.py` | محل orchestration و nodeهای آینده. |
 | `backend/app/agent/nodes/.gitkeep` | محل orchestration و nodeهای آینده. |
 | `backend/app/agent/nodes/__init__.py` | محل orchestration و nodeهای آینده. |
 | `backend/app/api/__init__.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
-| `backend/app/api/deps.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
+| `backend/app/api/deps.py` | وابستگی‌ها: get_db، Redis، rate-limit و IP. |
 | `backend/app/api/v1/__init__.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
 | `backend/app/api/v1/admin/.gitkeep` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
 | `backend/app/api/v1/admin/__init__.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
-| `backend/app/api/v1/auth.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
+| `backend/app/api/v1/auth.py` | مسیرهای OTP/verify/refresh/logout با CSRF و rate-limit (فاز ۱). |
 | `backend/app/api/v1/billing.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
 | `backend/app/api/v1/chat.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
 | `backend/app/api/v1/documents.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
 | `backend/app/api/v1/health.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
+| `backend/app/api/v1/router.py` | تجمیع health + auth (فاز ۱). |
 | `backend/app/api/v1/router.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
 | `backend/app/api/v1/sessions.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
 | `backend/app/core/__init__.py` | تنظیمات، امنیت پایه، لاگ، خطا یا عملیات مرکزی. |
@@ -44,8 +46,9 @@
 | `backend/app/core/errors.py` | تنظیمات، امنیت پایه، لاگ، خطا یا عملیات مرکزی. |
 | `backend/app/core/logging.py` | تنظیمات، امنیت پایه، لاگ، خطا یا عملیات مرکزی. |
 | `backend/app/core/operations.py` | تنظیمات، امنیت پایه، لاگ، خطا یا عملیات مرکزی. |
-| `backend/app/core/ratelimit.py` | تنظیمات، امنیت پایه، لاگ، خطا یا عملیات مرکزی. |
-| `backend/app/core/security.py` | تنظیمات، امنیت پایه، لاگ، خطا یا عملیات مرکزی. |
+| `backend/app/core/phone.py` | نرمال‌سازی E.164 (فاز ۱). |
+| `backend/app/core/ratelimit.py` | قرارداد و RedisRateLimiter (فاز ۱). |
+| `backend/app/core/security.py` | OTP HMAC/pepper، JWT، digest و تولید توکن (فاز ۱). |
 | `backend/app/core/time.py` | تنظیمات، امنیت پایه، لاگ، خطا یا عملیات مرکزی. |
 | `backend/app/db/__init__.py` | اتصال پایگاه داده، Base و بررسی schema. |
 | `backend/app/db/base.py` | اتصال پایگاه داده، Base و بررسی schema. |
@@ -56,13 +59,24 @@
 | `backend/app/inference/models.py` | پوستهٔ inference؛ مدل سنگین در فاز صفر لود نمی‌شود. |
 | `backend/app/main.py` | پیکربندی و اسکلت اجرایی backend. |
 | `backend/app/models/.gitkeep` | محل مدل‌های SQLAlchemy؛ فعلاً اسکلت. |
-| `backend/app/models/__init__.py` | رجیستری مدل‌های SQLAlchemy؛ فعلاً `IndexMeta`. |
+| `backend/app/models/__init__.py` | رجیستری مدل‌های SQLAlchemy؛ `IndexMeta`, `User`, `OtpChallenge`, `RefreshToken`, `AdminAuditLog`. |
+| `backend/app/models/admin_audit_log.py` | مدل لاگ حسابرسی ادمین append-only (فاز ۱). |
 | `backend/app/models/index_meta.py` | مدل جدول `index_meta` با سبک `Mapped[]` (R-042/R-087). |
+| `backend/app/models/otp_challenge.py` | مدل چالش OTP؛ فقط digest+pepper_id (فاز ۱). |
+| `backend/app/models/refresh_token.py` | مدل توکن refresh؛ hash، family و ابطال (فاز ۱). |
+| `backend/app/models/user.py` | مدل کاربر/ادمین با phone E.164 و soft delete (فاز ۱). |
 | `backend/app/repositories/__init__.py` | لایهٔ دسترسی داده و مالکیت. |
+| `backend/app/repositories/admin_audit_log.py` | درج لاگ حسابرسی (فاز ۱). |
+| `backend/app/repositories/otp_challenges.py` | دسترسی چالش‌های OTP (فاز ۱). |
+| `backend/app/repositories/refresh_tokens.py` | دسترسی و ابطال خانوادهٔ refresh (فاز ۱). |
+| `backend/app/repositories/users.py` | دسترسی کاربران با مالکیت/soft delete (فاز ۱). |
 | `backend/app/schemas/.gitkeep` | محل schemaهای Pydantic. |
 | `backend/app/schemas/__init__.py` | محل schemaهای Pydantic. |
+| `backend/app/schemas/auth.py` | schemaهای OTP/nشست (فاز ۱). |
 | `backend/app/scripts/__init__.py` | پیکربندی و اسکلت اجرایی backend. |
+| `backend/app/scripts/seed_admin.py` | CLI ادمین اولیه با تأیید و حسابرسی (فاز ۱). |
 | `backend/app/services/__init__.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
+| `backend/app/services/auth.py` | سرویس دامنهٔ OTP و چرخش/ابطال refresh (فاز ۱). |
 | `backend/app/services/citation.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/embedding.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/ingestion/.gitkeep` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
@@ -79,7 +93,7 @@
 | `backend/app/services/retrieval/.gitkeep` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/retrieval/__init__.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/settings_store.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
-| `backend/app/services/sms.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
+| `backend/app/services/sms.py` | adapter پیامک Kavenegar (فاز ۱). |
 | `backend/app/services/storage.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/websearch.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/worker.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
@@ -92,8 +106,14 @@
 | `backend/tests/test_health.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
 | `backend/tests/test_inference_shell.py` | تست شکل خطای استاندارد و صداقت shell سرویس inference. |
 | `backend/tests/test_logging.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
+| `backend/tests/test_phone.py` | تست نرمال‌سازی E.164 (فاز ۱). |
+| `backend/tests/test_ratelimit.py` | تست RedisRateLimiter (فاز ۱). |
 | `backend/tests/test_schema_baseline.py` | تست schema روی PostgreSQL واقعی (فقط `make test-db`). |
 | `backend/tests/test_security_primitives.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
+| `backend/tests/test_security_tokens.py` | تست JWT/OTP/token (فاز ۱). |
+| `backend/tests/test_auth_api.py` | تست مسیرهای auth با سرویس جایگزین؛ بدون DB/شبکه. |
+| `backend/tests/test_auth_db.py` | تست یکپارچهٔ auth روی PostgreSQL واقعی (DARSYAR_TEST_DB). |
+| `backend/tests/test_sms_provider.py` | تست adapter Kavenegar با respx (R-216). |
 | `docker-compose.yml` | سرویس‌های توسعه‌ای؛ migrate یک‌بارمصرف و inference داخلی. |
 | `docs/API_CONTRACT.md` | سند مرجع طراحی، امنیت، عملیات یا ریسک. |
 | `docs/ARCHITECTURE.md` | سند مرجع طراحی، امنیت، عملیات یا ریسک. |
@@ -140,6 +160,7 @@
 | `docs/adr/ADR-043-rag-golden-dataset.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
 | `docs/adr/ADR-044-redis-client-pin.md` | تصمیم تأییدشدهٔ مالک: سرور Redis 7.4.12 + کلاینت 5.x + arq (accepted). |
 | `docs/adr/ADR-045-baseline-index-meta.md` | تصمیم تأییدشدهٔ مالک: جدول `index_meta` در خط پایه (accepted). |
+| `docs/adr/ADR-046-refresh-grace-semantics.md` | سیاست تأییدشدهٔ grace: 409 بدون چرخش؛ ابطال خانواده پس از پنجره (accepted). |
 | `docs/licenses/README.md` | سیاست ثبت مجوز و منشأ منبع آموزشی. |
 | `frontend/.dockerignore` | ساخت/پیکربندی فرانت‌اند. |
 | `frontend/.npmrc` | ساخت/پیکربندی فرانت‌اند. |
