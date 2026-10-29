@@ -97,6 +97,7 @@
 | `backend/app/repositories/credit_ledger.py` | دسترسی ledger فقط-درج (Slice A). |
 | `backend/app/repositories/reservations.py` | دسترسی رزروها و گذار شرطی (Slice A). |
 | `backend/alembic/versions/0004_financial_core.py` | مهاجرت هستهٔ مالی: accounts/ledger/reservations + trigger (Slice A). |
+| `backend/alembic/versions/0005_ledger_immutability_trigger.py` | مهاجرت سخت‌سازی: trigger رد UPDATE/DELETE روی credit_ledger. |
 | `backend/tests/test_finance_db.py` | تست‌های یکپارچهٔ مالی روی PostgreSQL واقعی (Slice A). |
 | `backend/app/services/retrieval/.gitkeep` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/retrieval/__init__.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |

@@ -160,13 +160,21 @@ class FinanceService:
     async def reconcile_stale(
         self,
         *,
+        batch_limit: int,
+        user_id: uuid.UUID | None = None,
         older_than: datetime | None = None,
-        batch_limit: int | None = None,
         request_id: str | None = None,
     ) -> int:
-        """رهاسازی امن رزروهای stale؛ فقط اگر هنوز pending باشند و گذار برنده شود."""
+        """رهاسازی امن رزروهای stale؛ فقط اگر هنوز pending باشند و گذار برنده شود.
+
+        batch_limit الزامی و مثبت است تا فراخوانی عملیاتی ناخواسته بدون کران اجرا نشود.
+        user_id اختیاری است؛ اگر داده شود فقط رزروهای همان کاربر بررسی می‌شوند (برای
+        هدف‌گیری و تست‌های ایزوله)؛ پیش‌فرض همهٔ کاربران است.
+        """
+        if batch_limit < 1:
+            raise AppError("invalid_batch_limit", 422, "سقف دستهٔ reconcile باید مثبت باشد.")
         cutoff = older_than or (self._now() - timedelta(minutes=self._settings.reservation_stale_minutes))
-        stale = await reservations_repo.list_stale_pending(self._session, None, cutoff, batch_limit)
+        stale = await reservations_repo.list_stale_pending(self._session, user_id, cutoff, batch_limit)
         released = 0
         for reservation in stale:
             try:

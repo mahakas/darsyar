@@ -254,10 +254,11 @@ async def test_ledger_entries_cannot_be_updated_or_deleted(user_with_balance) ->
         if inspect.isfunction(obj) and obj.__module__ == ledger_module.__name__
     }
     assert defined_fns == {"create", "sum_balance_affecting"}
-    # به‌روزرسانی غیرمجاز مستقیم توسط قید CHECK رد می‌شود (نقض امضای مبلغ).
+    # به‌روزرسانی غیرمجاز مستقیم توسط trigger تغییرناپذیری DB رد می‌شود.
     async with TEST_SESSION_FACTORY() as session:
-        with pytest.raises(sqlalchemy_exc.IntegrityError):
+        with pytest.raises(sqlalchemy_exc.SQLAlchemyError) as excinfo:
             await session.execute(text("UPDATE credit_ledger SET amount = 0 WHERE user_id = :u"), {"u": str(user_id)})
+        assert "credit_ledger_immutable" in str(excinfo.value)
         await session.rollback()
 
 
@@ -321,7 +322,7 @@ async def test_reconcile_releases_stale_pending_safely(user_with_balance) -> Non
         assert result.rowcount == 1
     async with TEST_SESSION_FACTORY() as session:
         service = FinanceService(session)
-        released = await service.reconcile_stale(batch_limit=10)
+        released = await service.reconcile_stale(batch_limit=10, user_id=user_id)
         await session.commit()
         assert released == 1
     async with TEST_SESSION_FACTORY() as session:
@@ -333,7 +334,7 @@ async def test_reconcile_releases_stale_pending_safely(user_with_balance) -> Non
     # reconcile دوم نباید refund تکراری بسازد.
     async with TEST_SESSION_FACTORY() as session:
         service = FinanceService(session)
-        second = await service.reconcile_stale(batch_limit=10)
+        second = await service.reconcile_stale(batch_limit=10, user_id=user_id)
         await session.commit()
         assert second == 0
     async with TEST_SESSION_FACTORY() as session:
@@ -362,13 +363,198 @@ async def test_reconcile_skips_settled_reservations(user_with_balance) -> None:
         assert result.rowcount == 1
     async with TEST_SESSION_FACTORY() as session:
         service = FinanceService(session)
-        released = await service.reconcile_stale(batch_limit=10)
+        released = await service.reconcile_stale(batch_limit=10, user_id=user_id)
         await session.commit()
         assert released == 0
     async with TEST_SESSION_FACTORY() as session:
         assert await _bal(session, user_id) == 90
         final = await reservations_repo.get_by_id(session, reservation_id)
         assert final.status == "settled"
+
+
+@pytest.mark.asyncio
+async def test_ledger_direct_update_delete_rejected_by_db_trigger_but_insert_allowed(user_with_balance) -> None:
+    user_id, _ = user_with_balance
+    async with TEST_SESSION_FACTORY() as session:
+        service = FinanceService(session)
+        await service.reserve_credit(user_id, 10, idempotency_key="k20", payload_fingerprint="f20")
+        await session.commit()
+    async with TEST_SESSION_FACTORY() as session:
+        with pytest.raises(sqlalchemy_exc.SQLAlchemyError) as excinfo:
+            await session.execute(text("UPDATE credit_ledger SET reason = 'hacked' WHERE user_id = :u"), {"u": str(user_id)})
+        assert "credit_ledger_immutable" in str(excinfo.value)
+        await session.rollback()
+        with pytest.raises(sqlalchemy_exc.SQLAlchemyError) as excinfo:
+            await session.execute(text("DELETE FROM credit_ledger WHERE user_id = :u"), {"u": str(user_id)})
+        assert "credit_ledger_immutable" in str(excinfo.value)
+        await session.rollback()
+        # درج مستقیم همچنان مجاز است.
+        result = await session.execute(
+            text(
+                "INSERT INTO credit_ledger (user_id, kind, amount, idempotency_key) "
+                "VALUES (:u, 'adjust', 5, 'direct-insert-test')"
+            ),
+            {"u": str(user_id)},
+        )
+        assert result.rowcount == 1
+        await session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_ledger_projection_consistency_reserve_then_release(user_with_balance) -> None:
+    user_id, _ = user_with_balance
+    initial = 100
+    async with TEST_SESSION_FACTORY() as session:
+        service = FinanceService(session)
+        reservation = await service.reserve_credit(user_id, 25, idempotency_key="k21", payload_fingerprint="f21")
+        await session.commit()
+        reservation_id = reservation.id
+    async with TEST_SESSION_FACTORY() as session:
+        assert await _bal(session, user_id) == 75
+        assert await ledger_repo.sum_balance_affecting(session, user_id) == -25
+    async with TEST_SESSION_FACTORY() as session:
+        service = FinanceService(session)
+        await service.release(reservation_id)
+        await session.commit()
+    async with TEST_SESSION_FACTORY() as session:
+        assert await _bal(session, user_id) == initial
+        assert await ledger_repo.sum_balance_affecting(session, user_id) == 0
+
+
+@pytest.mark.asyncio
+async def test_ledger_projection_consistency_settle_no_second_debit(user_with_balance) -> None:
+    user_id, _ = user_with_balance
+    async with TEST_SESSION_FACTORY() as session:
+        service = FinanceService(session)
+        reservation = await service.reserve_credit(user_id, 25, idempotency_key="k22", payload_fingerprint="f22")
+        await session.commit()
+        reservation_id = reservation.id
+    async with TEST_SESSION_FACTORY() as session:
+        service = FinanceService(session)
+        await service.settle(reservation_id)
+        await session.commit()
+    async with TEST_SESSION_FACTORY() as session:
+        assert await _bal(session, user_id) == 75
+        assert await ledger_repo.sum_balance_affecting(session, user_id) == -25
+
+
+@pytest.mark.asyncio
+async def test_ledger_projection_consistency_unlimited_no_effect(user_with_balance) -> None:
+    user_id, _ = user_with_balance
+    async with TEST_SESSION_FACTORY() as session:
+        service = FinanceService(session)
+        await service.reserve_unlimited(user_id, idempotency_key="k23", payload_fingerprint="f23")
+        await session.commit()
+    async with TEST_SESSION_FACTORY() as session:
+        assert await _bal(session, user_id) == 100
+        assert await ledger_repo.sum_balance_affecting(session, user_id) == 0
+
+
+@pytest.mark.asyncio
+async def test_ledger_projection_consistency_rollback(user_with_balance) -> None:
+    user_id, _ = user_with_balance
+    async with TEST_SESSION_FACTORY() as session:
+        service = FinanceService(session)
+        await service.reserve_credit(user_id, 40, idempotency_key="k24", payload_fingerprint="f24")
+        await session.rollback()
+    async with TEST_SESSION_FACTORY() as session:
+        assert await _bal(session, user_id) == 100
+        assert await ledger_repo.sum_balance_affecting(session, user_id) == 0
+
+
+@pytest.mark.asyncio
+async def test_reconcile_rejects_invalid_batch_limit(user_with_balance) -> None:
+    user_id, _ = user_with_balance
+    async with TEST_SESSION_FACTORY() as session:
+        service = FinanceService(session)
+        for invalid in (0, -1, -100):
+            with pytest.raises(AppError) as excinfo:
+                await service.reconcile_stale(batch_limit=invalid)
+            assert excinfo.value.code == "invalid_batch_limit"
+        await session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_reconcile_batch_limit_actually_limits_processed_reservations(user_with_balance) -> None:
+    user_id, _ = user_with_balance
+    keys = [f"k-batch-{i}" for i in range(5)]
+    async with TEST_SESSION_FACTORY() as session:
+        service = FinanceService(session)
+        for key in keys:
+            await service.reserve_credit(user_id, 5, idempotency_key=key, payload_fingerprint="f-batch")
+        await session.commit()
+    # همهٔ ۵ رزرو را به یک سن کهنه منتقل می‌کنیم (ترتیب قطعی: created_at صعودی).
+    async with TEST_SESSION_FACTORY() as session:
+        await session.execute(
+            text("UPDATE reservations SET created_at = :t WHERE user_id = :u"),
+            {"t": datetime.now(UTC) - timedelta(days=1), "u": str(user_id)},
+        )
+        await session.commit()
+    async with TEST_SESSION_FACTORY() as session:
+        service = FinanceService(session)
+        first = await service.reconcile_stale(batch_limit=2, user_id=user_id)
+        await session.commit()
+        assert first == 2
+    async with TEST_SESSION_FACTORY() as session:
+        released = await session.execute(
+            text("SELECT count(*) FROM reservations WHERE user_id = :u AND status = 'released'"),
+            {"u": str(user_id)},
+        )
+        pending = await session.execute(
+            text("SELECT count(*) FROM reservations WHERE user_id = :u AND status = 'pending'"),
+            {"u": str(user_id)},
+        )
+        assert released.scalar_one() == 2
+        assert pending.scalar_one() == 3
+    # اجرای بعدی بقیهٔ رزروهای واجد شرایط را پردازش می‌کند.
+    async with TEST_SESSION_FACTORY() as session:
+        service = FinanceService(session)
+        second = await service.reconcile_stale(batch_limit=10, user_id=user_id)
+        await session.commit()
+        assert second == 3
+    async with TEST_SESSION_FACTORY() as session:
+        pending = await session.execute(
+            text("SELECT count(*) FROM reservations WHERE user_id = :u AND status = 'pending'"),
+            {"u": str(user_id)},
+        )
+        assert pending.scalar_one() == 0
+
+
+@pytest.mark.asyncio
+async def test_ledger_projection_consistency_equation_explicit(user_with_balance) -> None:
+    """معادلهٔ صریح: available_balance == opening_balance + sum_balance_affecting."""
+    user_id, _ = user_with_balance
+    async with TEST_SESSION_FACTORY() as session:
+        opening = await _bal(session, user_id)
+        assert opening == 100
+    # مورد settle: یک بدهی منفی در مجموع و projectionِ منطبق.
+    async with TEST_SESSION_FACTORY() as session:
+        service = FinanceService(session)
+        reservation = await service.reserve_credit(user_id, 30, idempotency_key="k-eq-1", payload_fingerprint="f-eq")
+        await session.commit()
+        reservation_id = reservation.id
+    async with TEST_SESSION_FACTORY() as session:
+        service = FinanceService(session)
+        await service.settle(reservation_id)
+        await session.commit()
+    async with TEST_SESSION_FACTORY() as session:
+        balance = await _bal(session, user_id)
+        total = await ledger_repo.sum_balance_affecting(session, user_id)
+        assert balance == opening + total
+    # مورد release: جبران کامل، مجموع صفر، projection به baseline برمی‌گردد.
+    async with TEST_SESSION_FACTORY() as session:
+        service = FinanceService(session)
+        reservation = await service.reserve_credit(user_id, 20, idempotency_key="k-eq-2", payload_fingerprint="f-eq")
+        await session.commit()
+        reservation_id = reservation.id
+    async with TEST_SESSION_FACTORY() as session:
+        service = FinanceService(session)
+        await service.release(reservation_id)
+        await session.commit()
+    async with TEST_SESSION_FACTORY() as session:
+        balance = await _bal(session, user_id)
+        total = await ledger_repo.sum_balance_affecting(session, user_id)
+        assert balance == opening + total
 
 
 @pytest.mark.asyncio
