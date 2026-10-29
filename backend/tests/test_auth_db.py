@@ -162,6 +162,53 @@ async def test_grace_replay_conflict_does_not_rotate_or_create_child(auth_ctx) -
 
 
 @pytest.mark.asyncio
+async def test_anti_enumeration_existing_vs_unknown_phone_identical_response() -> None:
+    """ضد-enumeration با مسیر و سرویس واقعی: پاسخ برای شمارهٔ دارای حساب/بدون حساب یکسان است."""
+    from app.api.v1.auth import _auth_service
+    from app.main import app as real_app
+    from app.services.auth import AuthService
+    from httpx import ASGITransport, AsyncClient
+
+    class _AlwaysAllowedLimiter:
+        async def check(self, key: str, rule: object) -> bool:
+            return True
+
+    sms = RecordingSms()
+    phone_a = "+989121234567"
+    phone_b = "+989129876543"
+
+    async with TEST_SESSION_FACTORY() as session:
+        if await users_repo.get_by_phone(session, phone_a) is None:
+            await users_repo.create(session, phone=phone_a, role="user")
+            await session.commit()
+        assert await users_repo.get_by_phone(session, phone_a) is not None
+        assert await users_repo.get_by_phone(session, phone_b) is None
+
+    async def real_auth_service():
+        async with TEST_SESSION_FACTORY() as session:
+            yield AuthService(session, sms)
+
+    previous_limiter = getattr(real_app.state, "rate_limiter", None)
+    real_app.dependency_overrides[_auth_service] = real_auth_service
+    real_app.state.rate_limiter = _AlwaysAllowedLimiter()
+    try:
+        transport = ASGITransport(app=real_app)
+        async with AsyncClient(transport=transport, base_url="http://localhost") as client:
+            first = await client.post("/api/v1/auth/otp/request", json={"phone": "09121234567"})
+            second = await client.post("/api/v1/auth/otp/request", json={"phone": "09129876543"})
+    finally:
+        real_app.dependency_overrides.clear()
+        real_app.state.rate_limiter = previous_limiter
+
+    assert first.status_code == second.status_code == 202
+    assert first.json() == second.json() == {"status": "sent"}
+    assert first.text == second.text
+    # سرویس واقعی (AuthService با DB واقعی) برای هر دو شماره کد تولید و «ارسال» کرد.
+    assert sms.sent[phone_a].isdigit() and len(sms.sent[phone_a]) == 6
+    assert sms.sent[phone_b].isdigit() and len(sms.sent[phone_b]) == 6
+
+
+@pytest.mark.asyncio
 async def test_expired_challenge_rejected(auth_ctx) -> None:
     service, session, sms = auth_ctx
     await service.request_otp("09121234567")
