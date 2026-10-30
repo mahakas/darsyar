@@ -193,7 +193,11 @@
 | `docs/adr/ADR-044-redis-client-pin.md` | تصمیم تأییدشدهٔ مالک: سرور Redis 7.4.12 + کلاینت 5.x + arq (accepted). |
 | `docs/adr/ADR-045-baseline-index-meta.md` | تصمیم تأییدشدهٔ مالک: جدول `index_meta` در خط پایه (accepted). |
 | `docs/adr/ADR-046-refresh-grace-semantics.md` | سیاست تأییدشدهٔ grace: 409 بدون چرخش؛ ابطال خانواده پس از پنجره (accepted). |
-| `docs/adr/ADR-047-payment-checkout-zarinpal.md` | پیشنهاد خرید یک‌بارهٔ Basic/Pro و زرین‌پال (proposed). |
+| `docs/adr/ADR-047-payment-checkout-zarinpal.md` | خرید یک‌بارهٔ Basic/Pro و زرین‌پال (accepted). |
+| `docs/adr/ADR-040-billing-period-timezone.md` | دورهٔ ماهانهٔ Gregorian در Asia/Tehran (accepted). |
+| `docs/adr/ADR-048-free-credit-grant.md` | گرانت رایگان ۵ اعتبار یک‌بار (accepted). |
+| `docs/adr/ADR-049-unlimited-subscription.md` | اشتراک Unlimited و حفظ اعتبار Basic/Pro (accepted؛ با OQ باز). |
+| `docs/adr/ADR-050-fair-use-policy.md` | سیاست Fair-Use و abuse flag (accepted). |
 | `docs/licenses/README.md` | سیاست ثبت مجوز و منشأ منبع آموزشی. |
 | `frontend/.dockerignore` | ساخت/پیکربندی فرانت‌اند. |
 | `frontend/.npmrc` | ساخت/پیکربندی فرانت‌اند. |

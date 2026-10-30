@@ -32,7 +32,10 @@
 | ADR-037 | نگاشت پایه و سیاست legacy | proposed؛ OQ-009 باید حل شود |
 | ADR-038 | edition_year و active edition | proposed |
 | ADR-039 | سیاست داخلی پاسخ نیمه‌کاره و billable threshold | accepted (OQ-008 بسته؛ مرز با REFUND_POLICY مشتری حفظ شد) |
-| ADR-040 | timezone/duration دورهٔ ماه | proposed |
+| ADR-040 | دورهٔ ماهانهٔ Gregorian در Asia/Tehran (YYYY-MM؛ نیمه‌باز) | accepted |
+| ADR-048 | گرانت رایگان ۵ اعتبار یک‌بار (free_grant + ایندکس جزئی) | accepted |
+| ADR-049 | اشتراک Unlimited و حفظ اعتبار Basic/Pro؛ تصمیم‌های تجاری باز | accepted (با OQ باز) |
+| ADR-050 | سیاست Fair-Use: سقف نرم 10,000 + abuse_flag (بدون بلاک) | accepted |
 | ADR-041 | ارتقای فناوری‌ها و سازگاری wheel | proposed |
 | ADR-042 | retention و حذف دادهٔ دانش‌آموز | proposed |
 | ADR-043 | dataset طلایی و RAG gates | proposed |
