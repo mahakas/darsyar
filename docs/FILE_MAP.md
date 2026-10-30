@@ -111,6 +111,16 @@
 | `backend/app/scripts/upsert_product.py` | CLI operator برای تغییر کاتالوگ با audit. |
 | `backend/tests/test_zarinpal_provider.py` | تست واحد adapter با respx. |
 | `backend/tests/test_billing_db.py` | تست‌های یکپارچهٔ پرداخت روی PostgreSQL واقعی. |
+| `backend/alembic/versions/0008_usage_events.py` | مهاجرت usage_events append-only + trigger (Slice C-1). |
+| `backend/alembic/versions/0009_reconciliation_alerts.py` | مهاجرت هشدارهای تطبیق با قید جزئی فعال (Slice C-1). |
+| `backend/app/models/usage_event.py` | مدل رویداد مصرف. |
+| `backend/app/models/reconciliation_alert.py` | مدل هشدار تطبیق. |
+| `backend/app/repositories/usage_events.py` | دسترسی usage؛ فقط درج/شمارش بازه. |
+| `backend/app/repositories/reconciliation_alerts.py` | دسترسی هشدار؛ upsert فعال + resolve. |
+| `backend/app/services/usage.py` | سرویس ثبت رویداد مصرف idempotent. |
+| `backend/app/services/fair_use.py` | شمارش بازهٔ صریح (بدون قواعد تجاری). |
+| `backend/app/services/reconcile.py` | تطبیق read-only ledger↔projection + هشدار. |
+| `backend/tests/test_usage_reconcile_db.py` | تست‌های یکپارچهٔ Slice C-1 روی PostgreSQL واقعی. |
 | `backend/tests/test_finance_db.py` | تست‌های یکپارچهٔ مالی روی PostgreSQL واقعی (Slice A). |
 | `backend/app/services/retrieval/.gitkeep` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/retrieval/__init__.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
