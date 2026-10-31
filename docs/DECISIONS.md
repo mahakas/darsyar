@@ -36,6 +36,7 @@
 | ADR-048 | گرانت رایگان ۵ اعتبار یک‌بار (free_grant + ایندکس جزئی) | accepted |
 | ADR-049 | اشتراک Unlimited و حفظ اعتبار Basic/Pro؛ تصمیم‌های تجاری باز | accepted (با OQ باز) |
 | ADR-050 | سیاست Fair-Use: سقف نرم 10,000 + abuse_flag (بدون بلاک) | accepted |
+| ADR-051 | Admin Control Center، دسترسی user-facing برای Admin و acting context حسابرسی‌شده | proposed | جزئیات در docs/ADMIN_CONSOLE_SPEC.md؛ کنترل‌های MFA/step-up و مرزهای امنیتی پیش از اجرا ratify شوند |
 | ADR-041 | ارتقای فناوری‌ها و سازگاری wheel | proposed |
 | ADR-042 | retention و حذف دادهٔ دانش‌آموز | proposed |
 | ADR-043 | dataset طلایی و RAG gates | proposed |
