@@ -73,6 +73,7 @@ class Settings(BaseSettings):
     payment_request_stale_minutes: int = Field(default=30, ge=1, le=1440)
     credit_reconcile_alert_threshold: int = Field(default=1, ge=0, le=1000000000)
     free_plan_credits: int = Field(default=5, gt=0, le=1000)
+    fair_use_monthly_message_limit: int = Field(default=10000, gt=0, le=1000000000)
 
     inference_mode: Literal["service", "remote"] = "remote"
     inference_url: str = "http://localhost:8100"

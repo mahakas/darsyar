@@ -1,5 +1,6 @@
 """SQLAlchemy models؛ هیچ schema runtime با create_all ساخته نمی‌شود."""
 
+from app.models.abuse_flag import AbuseFlag
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.credit_account import CreditAccount
 from app.models.credit_ledger import CreditLedger
@@ -14,6 +15,7 @@ from app.models.usage_event import UsageEvent
 from app.models.user import User
 
 __all__ = [
+    "AbuseFlag",
     "AdminAuditLog",
     "CreditAccount",
     "CreditLedger",

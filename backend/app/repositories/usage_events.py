@@ -55,3 +55,26 @@ async def count_in_range(
         )
     )
     return int(result.scalar_one())
+
+
+async def count_countable_in_range(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    start: datetime,
+    end: datetime,
+    *,
+    kind: str = "message_usage",
+) -> int:
+    """شمارش فقط رویدادهای قابل‌شمارش (پاسخ دستیار) در بازهٔ نیمه‌باز.
+
+    idempotency رویدادها با UNIQUE(user_id, event_key) از شمارش تکراری جلوگیری می‌کند.
+    """
+    result = await session.execute(
+        select(func.count()).select_from(UsageEvent).where(
+            UsageEvent.user_id == user_id,
+            UsageEvent.kind == kind,
+            UsageEvent.created_at >= start,
+            UsageEvent.created_at < end,
+        )
+    )
+    return int(result.scalar_one())

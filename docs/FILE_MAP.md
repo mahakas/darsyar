@@ -124,6 +124,11 @@
 | `backend/alembic/versions/0010_free_grant_partial_unique.py` | ایندکس جزئی یک‌باربودن free_grant (ADR-048). |
 | `backend/app/services/free_grant.py` | سرویس گرانت رایگان یک‌بار (ساخت کاربر+حساب+ledger یکجا). |
 | `backend/tests/test_free_grant_db.py` | تست‌های یکپارچهٔ گرانت رایگان روی PostgreSQL واقعی. |
+| `backend/alembic/versions/0011_abuse_flags.py` | مهاجرت جدول abuse_flags (ADR-050). |
+| `backend/app/models/abuse_flag.py` | مدل پرچم Fair-Use. |
+| `backend/app/repositories/abuse_flags.py` | دسترسی پرچم؛ درج اتمیک و حل شرطی. |
+| `backend/tests/test_fair_use_period.py` | تست واحد محاسبهٔ دورهٔ ماهانه (ADR-040). |
+| `backend/tests/test_fair_use_db.py` | تست‌های یکپارچهٔ Fair-Use روی PostgreSQL واقعی. |
 | `backend/tests/test_finance_db.py` | تست‌های یکپارچهٔ مالی روی PostgreSQL واقعی (Slice A). |
 | `backend/app/services/retrieval/.gitkeep` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/retrieval/__init__.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
