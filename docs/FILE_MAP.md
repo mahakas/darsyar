@@ -121,6 +121,9 @@
 | `backend/app/services/fair_use.py` | شمارش بازهٔ صریح (بدون قواعد تجاری). |
 | `backend/app/services/reconcile.py` | تطبیق read-only ledger↔projection + هشدار. |
 | `backend/tests/test_usage_reconcile_db.py` | تست‌های یکپارچهٔ Slice C-1 روی PostgreSQL واقعی. |
+| `backend/alembic/versions/0010_free_grant_partial_unique.py` | ایندکس جزئی یک‌باربودن free_grant (ADR-048). |
+| `backend/app/services/free_grant.py` | سرویس گرانت رایگان یک‌بار (ساخت کاربر+حساب+ledger یکجا). |
+| `backend/tests/test_free_grant_db.py` | تست‌های یکپارچهٔ گرانت رایگان روی PostgreSQL واقعی. |
 | `backend/tests/test_finance_db.py` | تست‌های یکپارچهٔ مالی روی PostgreSQL واقعی (Slice A). |
 | `backend/app/services/retrieval/.gitkeep` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/retrieval/__init__.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |

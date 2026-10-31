@@ -8,6 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.credit_ledger import CreditLedger
 
 
+async def find_by_kind(session: AsyncSession, user_id: uuid.UUID, kind: str) -> CreditLedger | None:
+    result = await session.execute(
+        select(CreditLedger).where(CreditLedger.user_id == user_id, CreditLedger.kind == kind)
+    )
+    return result.scalar_one_or_none()
+
+
 async def create(
     session: AsyncSession,
     *,

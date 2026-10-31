@@ -253,7 +253,7 @@ async def test_ledger_entries_cannot_be_updated_or_deleted(user_with_balance) ->
         for name, obj in inspect.getmembers(ledger_module)
         if inspect.isfunction(obj) and obj.__module__ == ledger_module.__name__
     }
-    assert defined_fns == {"create", "sum_balance_affecting"}
+    assert defined_fns == {"create", "sum_balance_affecting", "find_by_kind"}
     # به‌روزرسانی غیرمجاز مستقیم توسط trigger تغییرناپذیری DB رد می‌شود.
     async with TEST_SESSION_FACTORY() as session:
         with pytest.raises(sqlalchemy_exc.SQLAlchemyError) as excinfo:

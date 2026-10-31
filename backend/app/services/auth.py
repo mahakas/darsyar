@@ -88,7 +88,10 @@ class AuthService:
         challenge.consumed_at = now
         user = await users_repo.get_by_phone(self._session, phone)
         if user is None:
-            user = await users_repo.create(self._session, phone=phone, role="user")
+            # فقط کاربر «واقعاً جدید» گرانت رایگان می‌گیرد؛ ورود کاربر موجود هرگز گرانت نمی‌دهد.
+            from app.services.free_grant import create_user_with_free_grant
+
+            user = await create_user_with_free_grant(self._session, phone=phone, role="user")
         await self._session.flush()
         access_token, refresh_token, jti, expires_in = await self._issue_tokens(user.id, user.role)
         return access_token, refresh_token, jti, expires_in, user
