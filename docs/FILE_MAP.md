@@ -156,6 +156,7 @@
 | `backend/tests/test_sms_provider.py` | تست adapter Kavenegar با respx (R-216). |
 | `docker-compose.yml` | سرویس‌های توسعه‌ای؛ migrate یک‌بارمصرف و inference داخلی. |
 | `docs/API_CONTRACT.md` | سند مرجع طراحی، امنیت، عملیات یا ریسک. |
+| `docs/ADMIN_CONSOLE_SPEC.md` | مشخصات جامع پنل Admin و مرکز کنترل عملیات؛ دامنه، ماژول‌ها، امنیت، مدل مفهومی، API groups و معیارهای پذیرش Phase 7. |
 | `docs/ARCHITECTURE.md` | سند مرجع طراحی، امنیت، عملیات یا ریسک. |
 | `docs/CITATION_FORMAT.md` | سند مرجع طراحی، امنیت، عملیات یا ریسک. |
 | `docs/CONSENT_AND_PRIVACY_DRAFT.md` | سند مرجع طراحی، امنیت، عملیات یا ریسک. |
