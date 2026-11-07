@@ -21,12 +21,17 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 FROM runtime-base AS api
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Early Draining + timeout_graceful_shutdown محدود (۴۵s): draining از لحظه SIGTERM فعال
+# می‌شود؛ Uvicorn پس از مهلت، تسک‌های باقی‌مانده را لغو می‌کند و lifespan/drain سپس cleanup
+# مالی (settle/release) را کامل می‌کند.
+CMD ["python", "-m", "app.core.run_server"]
 
 FROM runtime-base AS worker
 CMD ["arq", "app.services.worker.WorkerSettings"]
 
 FROM runtime-base AS inference
+# Slice E: همان image مشترک (R-036) + extra مدل (torch/FlagEmbedding/سentence-transformers).
+RUN uv sync --frozen --no-dev --no-install-project --extra rag
 EXPOSE 8100
 CMD ["uvicorn", "app.inference.main:app", "--host", "0.0.0.0", "--port", "8100"]
 

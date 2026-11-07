@@ -1,6 +1,7 @@
 """کارگر arq پایه؛ jobهای محصولی در فازهای مربوطه اضافه می‌شوند."""
 
 from arq.connections import RedisSettings
+from arq.cron import cron
 
 from app.core.config import get_settings
 
@@ -41,6 +42,16 @@ async def expire_plan_entitlements(ctx: dict[str, object]) -> dict[str, int]:
 class WorkerSettings:
     """پیکربندی worker arq برای jobهای async."""
     functions = [worker_probe]
+    # بازیابی رزروهای stale (آزادسازی رزرو/عبورکرده از مهلت ۱۵ دقیقه) به‌عنوان
+    # لایهٔ آخر recovery پس از shutdown/تصادف. cadence = هر ۶۰ ثانیه، + اجرا در startup.
+    cron_jobs = [
+        cron(
+            expire_reservation_deadlines,
+            name="release-stale-reservations",
+            second={0},
+            run_at_startup=True,
+        )
+    ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     max_jobs = 4
     job_timeout = 300

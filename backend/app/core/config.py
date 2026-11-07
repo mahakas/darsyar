@@ -75,12 +75,45 @@ class Settings(BaseSettings):
     free_plan_credits: int = Field(default=5, gt=0, le=1000)
     fair_use_monthly_message_limit: int = Field(default=10000, gt=0, le=1000000000)
 
-    inference_mode: Literal["service", "remote"] = "remote"
+    inference_mode: Literal["service", "remote"] = "service"
     inference_url: str = "http://localhost:8100"
     inference_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
     request_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
     model_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
     hf_home: str = "/models/huggingface"
+
+    llm_provider: Literal["nvidia", "openai"] = "nvidia"
+    llm_base_url: str = ""
+    llm_api_key: SecretStr | None = None
+    llm_model: str = ""
+    llm_fallback_models: list[str] = Field(default_factory=list)
+    llm_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
+    llm_max_tokens: int = Field(default=2048, ge=1, le=200000)
+    llm_temperature: float = Field(default=0.2, ge=0.0, le=2.0)
+    llm_max_retries: int = Field(default=2, ge=0, le=10)
+
+    chat_rate_fallback_limit: int = Field(default=5, ge=1, le=1000)
+    chat_rate_fallback_window: int = Field(default=60, ge=1, le=3600)
+    chat_stream_shutdown_grace_seconds: int = Field(default=30, ge=1, le=600)
+    metrics_allowed_networks: list[str] = Field(default_factory=lambda: ["127.0.0.1", "::1"])
+
+    embedding_model: str = "BAAI/bge-m3"
+    embedding_dim: int = Field(default=1024, ge=1, le=16384)
+    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    inference_device: Literal["cpu", "cuda"] = "cpu"
+    inference_batch_size: int = Field(default=16, ge=1, le=256)
+    inference_max_sequence_length: int = Field(default=8192, ge=64, le=65536)
+    inference_concurrency_limit: int = Field(default=2, ge=1, le=64)
+    inference_warmup: bool = True
+
+    embedding_backend: Literal["service", "remote"] = "service"
+    rerank_backend: Literal["service", "remote"] = "service"
+    embedding_remote_base_url: str = ""
+    embedding_remote_api_key: SecretStr | None = None
+    embedding_remote_model: str = ""
+    rerank_remote_base_url: str = ""
+    rerank_remote_api_key: SecretStr | None = None
+    rerank_remote_model: str = ""
 
     child_chunk_size: int = Field(default=400, gt=0, le=10000)
     child_chunk_overlap: int = Field(default=60, ge=0, le=5000)

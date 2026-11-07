@@ -11,7 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.errors import AppError
-from app.core.ratelimit import RateLimitRule, RedisRateLimiter
+from app.core.logging import get_logger
+from app.core.ratelimit import PostgresRateLimiter, RateLimitRule, RedisRateLimiter
 from app.core.security import decode_token
 from app.db.session import get_db
 from app.models.user import User
@@ -33,7 +34,15 @@ async def get_redis(request: Request) -> Redis:
     return cast(Redis, request.app.state.redis)
 
 
-async def check_rate_limit(request: Request, key: str, rule: RateLimitRule) -> None:
+async def check_rate_limit(
+    request: Request, key: str, rule: RateLimitRule, *, degraded_allowed: bool = False
+) -> None:
+    """اعمال ریت‌لیمیت با سیاست R-115.
+
+    - مسیرهای OTP: `degraded_allowed=False` → هنگام ازکارافتادن Redis **fail-closed** (503).
+    - چت (هزینه‌زا): `degraded_allowed=True` → بازگشت به شمارندهٔ امن مبتنی بر PostgreSQL
+      با سقف تنزل‌یافتهٔ قابل‌پیکربندی + لاگ هشدار. DB ریت‌لیمیت جدا از ledger مالی است.
+    """
     limiter = getattr(request.app.state, "rate_limiter", None)
     if limiter is None:
         limiter = RedisRateLimiter(request.app.state.redis)
@@ -41,8 +50,20 @@ async def check_rate_limit(request: Request, key: str, rule: RateLimitRule) -> N
     try:
         allowed = await limiter.check(key, rule)
     except RedisError:
-        # R-115: مسیرهای OTP fail-closed؛ وقتی Redis در دسترس نباشد 503 برمی‌گردد.
-        raise AppError("rate_limit_unavailable", 503, "سرویس محدودیت نرخ موقتاً در دسترس نیست.") from None
+        if not degraded_allowed:
+            # R-115: مسیرهای OTP fail-closed؛ وقتی Redis در دسترس نباشد 503 برمی‌گردد.
+            raise AppError("rate_limit_unavailable", 503, "سرویس محدودیت نرخ موقتاً در دسترس نیست.") from None
+        # R-115 + OQ-006: چت fail-open با سقف هزینهٔ اضطراری و fallback امن.
+        settings = get_settings()
+        fallback_rule = RateLimitRule(
+            limit=settings.chat_rate_fallback_limit, window_seconds=settings.chat_rate_fallback_window
+        )
+        from app.db.session import SessionFactory
+
+        fallback = PostgresRateLimiter(SessionFactory)
+        logger = get_logger(__name__)
+        logger.warning("rate_limit_redis_unavailable_fallback_pg", extra={"key": "chat:<redacted>", "degraded_limit": fallback_rule.limit})
+        allowed = await fallback.check(key, fallback_rule)
     if not allowed:
         raise AppError("rate_limited", 429, "تعداد درخواست‌ها از سقف مجاز گذشت.")
 

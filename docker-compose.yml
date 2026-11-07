@@ -95,6 +95,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+    # بودجه زمانی واحد: Uvicorn graceful timeout (45s) + cleanup/نهایی‌سازی مالی (~10s) + حاشیه.
+    stop_grace_period: 90s
     security_opt: ["no-new-privileges:true"]
 
   worker:
@@ -123,6 +125,8 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    # Worker (arq): فرصت کافی برای پایان job مالی فعال (settle/release) و cron بازیابی.
+    stop_grace_period: 30s
     security_opt: ["no-new-privileges:true"]
 
   frontend:

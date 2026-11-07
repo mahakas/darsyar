@@ -270,6 +270,36 @@
 | `specs/phase-8.md` | مشخصات اجرایی فاز؛ دامنه، خارج از دامنه و معیار پذیرش. |
 | `specs/phase-9.md` | مشخصات اجرایی فاز؛ دامنه، خارج از دامنه و معیار پذیرش. |
 | `uploads/.gitkeep` | محل توسعه‌ای فایل‌ها؛ محتوای واقعی در Git قرار نگیرد. |
+| `backend/alembic/versions/0015_chat_and_rate_limit.py` | مهاجرت فاز ۳: conversations/messages + rate_limit_counters (fallback ریت‌لیمیت، جدا از ledger). |
+| `backend/app/models/conversation.py` | مدل گفتگو (فاز ۳). |
+| `backend/app/models/message.py` | مدل پیام و وضعیت‌های استریم (فاز ۳). |
+| `backend/app/models/rate_limit_counter.py` | مدل شمارندهٔ fallback ریت‌لیمیت (OQ-006). |
+| `backend/app/repositories/conversations.py` | دسترسی گفتگو/پیام با مالکیت در query. |
+| `backend/app/schemas/conversation.py` | schemaهای گفتگو/پیام/استریم (فاز ۳). |
+| `backend/app/services/llm.py` | درگاه provider سازگار OpenAI (NVIDIA/OpenAI) برای استریم چت (فاز ۳). |
+| `backend/tests/test_llm_provider.py` | تست واحد درگاه LLM با respx. |
+| `backend/tests/test_chat_persistence_db.py` | تست‌های یکپارچهٔ گفتگو/پیام روی PostgreSQL واقعی. |
+| `backend/tests/test_rate_limit_fallback_db.py` | تست‌های fallback ریت‌لیمیت مبتنی بر PostgreSQL. |
+| `backend/alembic/versions/0016_chat_reservation_link.py` | مهاجرت اتصال پیام assistant به رزرو (unique جزئی؛ گارد درج تکراری). |
+| `backend/app/services/chat_service.py` | ارکستراسیون چت استریم + چرخه مالی reserve→stream→settle/release (ADR-039/OQ-030). |
+| `backend/app/api/v1/chat.py` | endpoint استریم چت با fetch/SSE؛ مالکیت و ریت‌لیمیت چت (degraded). |
+| `backend/tests/test_chat_stream_db.py` | تست‌های یکپارچهٔ چت استریم + چرخه مالی روی PostgreSQL واقعی. |
+| `backend/app/inference/runtime.py` | کرنل واقعی inference (Slice E): لود BGE-M3 + Reranker، batch، اعتبارسنجی ابعاد/NaN، اجرای غیرمسدودکننده. |
+| `backend/app/inference/remote.py` | backend دورستی inference (OpenAI-compatible embedding + generic rerank) با `EMBEDDING_BACKEND=remote`. |
+| `backend/app/inference/main.py` | سرویس inference عملیاتی: /health، /ready واقعی، POST /embed، POST /rerank؛ انتخاب backend بر اساس تنظیمات (ADR-036). |
+| `backend/tests/test_inference_shell.py` | تست قرارداد endpointهای inference با runtime جعلی. |
+| `backend/tests/test_inference_remote.py` | تست backend دورستی با respx (بدون تماس واقعی). |
+| `backend/tests/test_inference_backend_selection.py` | ماتریس انتخاب backend بر اساس EMBEDDING_BACKEND (ADR-054). |
+| `backend/app/core/metrics.py` | متریک‌های سبک درون‌فرایندی (Slice F): Counter/Gauge/Histogram؛ low-cardinality و privacy-safe. |
+| `backend/app/core/shutdown.py` | حالت خاموشی تدریجی درون‌فرایندی (draining + active_streams). |
+| `backend/tests/test_slice_f_observability.py` | تست‌های متریک‌ها، drain و lifecycle خاموشی (Slice F). |
+| `backend/tests/test_phase3_http_acceptance.py` | پذیرش یکپارچه فاز ۳: HTTP واقعی (Uvicorn subprocess) + PostgreSQL + Provider mock محلی. |
+| `backend/scripts/phase3_sigterm_acceptance.py` | پذیرش process-level: SIGTERM واقعی در Linux/Docker برای چت استریم. |
+| `backend/tests/test_deployment_hardening.py` | تست‌های سخت‌سازی Deployment: امنیت Metrics، Early Draining و زمان‌بندی بازیابی worker. |
+| `backend/app/core/run_server.py` | Runner حداقلی Uvicorn با Early Draining (فعال‌سازی draining از لحظه SIGTERM). |
+| `backend/scripts/phase3_sigterm_linux.py` | آزمون process-level Linux CI: Open SSE + SIGTERM واقعی + تأیید مالی PostgreSQL. |
+| `backend/tests/test_inference_real_models.py` | تست واقعی مدل‌ها (skip-gated؛ فقط وقتی هر دو مدل cache شده باشند). |
+| `docs/adr/ADR-054-remote-inference-support.md` | تصمیم پذیرفته‌شده: پشتیبانی رسمی Remote Embedding/Inference (accepted؛ 2026-11-08). |
 
 ## مسیرهای تولیدشده در فاز صفر (2026-10-27)
 

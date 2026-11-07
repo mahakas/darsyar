@@ -17,7 +17,7 @@ jobs:
           --health-cmd "pg_isready -U darsyar -d darsyar_test"
           --health-interval 5s --health-timeout 5s --health-retries 20
       redis:
-        image: redis:8-alpine
+        image: redis:7.4.12-bookworm
         ports: ["6379:6379"]
         options: >-
           --health-cmd "redis-cli ping"
@@ -65,6 +65,63 @@ jobs:
           APP_ENV: test
           DATABASE_URL: postgresql+asyncpg://darsyar:ci-only-password@localhost:5432/darsyar_test
         run: uv run --locked python -m app.services.retrieval.evaluation
+
+  sigterm-linux:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg18-bookworm
+        env:
+          POSTGRES_DB: darsyar_test
+          POSTGRES_USER: darsyar
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U darsyar -d darsyar_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7.4.12-bookworm
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Sync backend dependencies
+        working-directory: backend
+        run: uv sync --locked --extra dev
+      - name: Alembic migration
+        working-directory: backend
+        env:
+          APP_ENV: test
+          DATABASE_URL: postgresql+asyncpg://darsyar:ci-only-password@localhost:5432/darsyar_test
+        run: uv run --locked alembic upgrade head
+      - name: Phase 3 Linux SIGTERM acceptance (open SSE + financial finalization)
+        working-directory: backend
+        env:
+          APP_ENV: test
+          APP_SECRET_KEY: "ci-only-signing-secret-never-use-outside-tests-39"
+          OTP_PEPPER: "ci-only-otp-pepper-never-use-outside-tests-39"
+          OTP_PEPPER_ID: "v1"
+          DATABASE_URL: postgresql+asyncpg://darsyar:ci-only-password@localhost:5432/darsyar_test
+          TEST_DATABASE_URL: postgresql+asyncpg://darsyar:ci-only-password@localhost:5432/darsyar_test
+          DARSYAR_TEST_DB: "1"
+          REDIS_URL: redis://localhost:6379/0
+        run: uv run --locked python scripts/phase3_sigterm_linux.py
+      - name: Upload shutdown logs (on failure or always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sigterm-logs
+          path: backend/server_stdout.log
+          if-no-files-found: ignore
   frontend:
     runs-on: ubuntu-latest
     steps:
