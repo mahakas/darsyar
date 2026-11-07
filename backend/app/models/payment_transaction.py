@@ -19,6 +19,8 @@ class PaymentTransaction(Base):
     product_id: Mapped[str] = mapped_column(String(32), nullable=False)
     amount_toman: Mapped[int] = mapped_column(Integer, nullable=False)
     credit_grant: Mapped[int] = mapped_column(Integer, nullable=False)
+    plan_type: Mapped[str] = mapped_column(String(16), nullable=False, server_default=text("'credit'"))
+    duration_days: Mapped[int] = mapped_column(Integer, nullable=False)
     provider: Mapped[str] = mapped_column(String(32), nullable=False, server_default=text("'zarinpal'"))
     provider_currency: Mapped[str] = mapped_column(String(8), nullable=False, server_default=text("'IRR'"))
     provider_amount: Mapped[int] = mapped_column(Integer, nullable=False)

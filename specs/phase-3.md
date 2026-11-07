@@ -23,7 +23,8 @@ Provider-agnostic chat with cancellable, authenticated streaming and inference r
 ## Acceptance criteria
 
 - [ ] Provider failure before first meaningful token releases reservation.
-- [ ] Mid-stream failure/cancel behavior follows accepted billing ADR.
+- [ ] Mid-stream provider failure and user cancellation follow the accepted billing ADR (ADR-039): correct settlement/release, no duplicate billing, and race/idempotency protection.
+- [ ] Late completion after the 15-minute reservation deadline follows the accepted OQ-030 / D-07 decision (settlement per the ADR-039 partial-stream policy).
 - [ ] No ML model loaded in API process.
 - [ ] SSE reconnection cannot duplicate billing or messages.
 

@@ -73,6 +73,21 @@ async def try_transition_to_terminal(
     return cast(CursorResult, result).rowcount == 1
 
 
+async def list_pending_overdue(
+    session: AsyncSession,
+    deadline: datetime,
+    limit: int,
+    user_id: uuid.UUID | None = None,
+) -> Sequence[Reservation]:
+    """رزروهای pending که `created_at` آن‌ها پیش از deadline است (مهلت ۱۵ دقیقه)."""
+    statement = select(Reservation).where(Reservation.status == "pending", Reservation.created_at < deadline)
+    if user_id is not None:
+        statement = statement.where(Reservation.user_id == user_id)
+    statement = statement.order_by(Reservation.created_at.asc()).limit(limit)
+    result = await session.execute(statement)
+    return result.scalars().all()
+
+
 async def list_stale_pending(
     session: AsyncSession,
     user_id: uuid.UUID | None,

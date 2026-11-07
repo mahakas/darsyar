@@ -56,6 +56,14 @@ Base path مسیرهای محصول: `/api/v1`. سه endpoint عملیاتی roo
 ### `GET /api/v1/billing/payments/{id}` (auth؛ فقط مالک)
 - پاسخ امن: `{"payment_id", "status", "amount_toman", "ref_id"}` (در صورت موجود بودن)؛ بدون راز/تشخیص داخلی.
 
+## پلن و entitlement (فاز ۲ — C-3؛ ADR-052)
+- `GET /api/v1/billing/plans` (auth) → فهرست محصولات فعال: `{product_id, price_toman, credit_grant, plan_type, duration_days}`.
+- `GET /api/v1/billing/entitlements` (auth؛ مالک) → `[{id, product_id, plan_type, status, activated_at, expires_at, granted_credits, remaining_credits}]`.
+- `GET /api/v1/billing/pre-purchase-info?product_id=...` (auth) → هشدار اطلاعاتی: `{product_id, current_entitlement?, remaining_credits, message}` (اطلاعاتی؛ مسدودکننده نیست).
+- `POST /api/v1/billing/cancellation-requests` (auth) `{entitlement_id}` → ثبت درخواست (پشتیبانی/ادمین؛ بدون self-cancel)؛ `409 cancellation_already_pending`؛ `404 entitlement_not_found`.
+- `POST /api/v1/billing/cancellation-requests/{id}/withdraw` (auth؛ فقط مالک) → فقط پیش از تصمیم ادمین؛ `409 cancellation_not_pending`.
+- تصمیم‌های ادمین (لغو/بازپرداخت) در این فاز فقط از سرویس دامنه (`PlanService`)؛ UI ادمین در Phase 7.
+
 ## Streaming
 از `fetch` + `ReadableStream` استفاده می‌شود؛ نه `EventSource` برای bearer-authenticated POST stream. قرارداد eventها باید `event`, `id`, `data` را مشخص کند، `Last-Event-ID` را برای resume امن تعریف کند و خروجی نیمه‌کاره را از پایان موفق جدا کند.
 

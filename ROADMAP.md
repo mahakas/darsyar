@@ -11,7 +11,7 @@
 | 4 | `specs/phase-4.md` | منابع، manifest، مجوز، استخراج/OCR، chunking و worker | فازهای 0/3 | برنامه‌ریزی‌شده |
 | 5 | `specs/phase-5.md` | RAG هیبرید، فیلتر پایه، RRF، rerank، evidence و وب | فاز 4 + دیتاست طلایی | برنامه‌ریزی‌شده |
 | 6 | `specs/phase-6.md` | رابط چت، منبع‌ها، Markdown/KaTeX/Mermaid امن، تاریخچه و i18n | فازهای 1/3/5 | برنامه‌ریزی‌شده |
-| 7 | `specs/phase-7.md` | پنل ادمین، audit، منابع، تنظیمات، usage و traceها | قابلیت‌های پایه | برنامه‌ریزی‌شده |
+| 7 | `specs/phase-7.md` + `docs/ADMIN_CONSOLE_SPEC.md` | Admin Control Center: کاربران/User 360، پشتیبانی، مالی، AI/RAG، امنیت، تنظیمات، عملیات، حریم خصوصی، analytics و audit | فازهای ۱–۶ و primitives حسابرسی؛ هماهنگی عملیاتی با فاز ۹ | برنامه‌ریزی‌شده |
 | 8 | `specs/phase-8.md` | قابلیت‌های یادگیری آینده؛ خارج از MVP و غیرفعال | ADR جدید و تأیید مالک | تعویق‌شده؛ endpoint نساز |
 | 9 | `specs/phase-9.md` | سخت‌سازی تولید، امنیت، بکاپ/بازیابی، انطباق و عملیات | فازهای MVP | برنامه‌ریزی‌شده |
 

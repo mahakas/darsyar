@@ -36,6 +36,17 @@
 | ADR-048 | گرانت رایگان ۵ اعتبار یک‌بار (free_grant + ایندکس جزئی) | accepted |
 | ADR-049 | اشتراک Unlimited و حفظ اعتبار Basic/Pro؛ تصمیم‌های تجاری باز | accepted (با OQ باز) |
 | ADR-050 | سیاست Fair-Use: سقف نرم 10,000 + abuse_flag (بدون بلاک) | accepted |
+| ADR-049 | قواعد تجاری Unlimited: خرید دستی؛ بلوک ۳۰ روزه؛ تمدید روی انقضای موجود؛ بدون grace؛ لغو با پشتیبانی+ادمین (نتایج A/B)؛ غیرقابل‌بازپرداخت + استثنا + اختیار ادمین؛ استقلال پلن‌ها؛ حفظ اعتبار؛ هشدار پیش از خرید | accepted (OQ-013..016 بسته؛ OQ-017 جزئی؛ OQ-018..025 بسته) |
+| D-01 | ترتیب مصرف اعتبار: Earliest Expiry First برای Free/Basic/Pro (expires_at ASC، سپس created_at ASC، سپس PK پایدار)؛ بدون اولویت نوع پلن | accepted (تصمیم مالک؛ OQ-026) |
+| D-02 | حفظ grantهای Free/Basic/Pro حین Unlimited فعال (بدون مصرف/انتخاب)؛ ادامهٔ انقضای مستقل grant حین Unlimited؛ پس از پایان فقط grantهای معتبر واجد شرایط | accepted (تصمیم مالک؛ OQ-026) |
+| ADR-053 | سیستم تخصیص grant→رزرو (reservation_credit_allocations) و حسابداری منبع‌محور | accepted (تصمیم مالک — 2026-11-07؛ هم‌راستا با D-03/D-04/D-05) |
+| D-03 | OQ-027 گزینهٔ A: مهلت ثابت ۱۵ دقیقه برای رزروهای grant‌محور (created_at + 15min؛ تغییرناپذیر)؛ settle مجاز تا قبل از مهلت حتی پس از انقضای طبیعی grant؛ پس از مهلت فقط release منبع‌محور | accepted (تصمیم مالک) |
+| D-04 | OQ-028 گزینهٔ A: لغو فوری/refund تأییدشده — رزروهای موجود تا مهلت اصلی ۱۵ دقیقه‌ای خود می‌توانند settle شوند؛ رزروهای جدید بلافاصله رد می‌شوند؛ پس از مهلت allocationها باطل می‌شوند (بدون بازگشت)؛ اعتبار غیررزروشده باطل؛ بررسی پایانی پس از terminal شدن همهٔ allocationها؛ پرداخت بیرونی جدا از تأیید ادمین | accepted (تصمیم مالک) |
+| D-05 | admin_void: هیچ رزروی پس از ثبت reason=admin_void نمی‌تواند settle شود (حتی با allocation قبل از voided_at)؛ فقط مسیر release/انقضا؛ بدون بازگشت؛ تاریخچه حفظ | accepted (تصمیم مالک) |
+| D-06 | OQ-029 گزینهٔ C: حفظ gating مسیر legacy به‌عنوان سیاست نهایی MVP؛ بدون backfill/reconcile خودکار برای رزروهای legacy؛ رزروهای legacy با منبع grant غیرقابل‌بازسازی ممکن است حل‌نشده بمانند | accepted (تصمیم مالک) |
+| D-07 | OQ-030 گزینهٔ A: تکمیل پس از مهلت ۱۵ دقیقه‌ای از سیاست پذیرفته‌شدهٔ ADR-039 پیروی می‌کند؛ پیاده‌سازی (استریم/مهلت/مسابقه/runtime) به فاز ۳ موکول است و هنوز انجام نشده | accepted (تصمیم مالک) |
+| D-08 | ADR-052 پذیرفته‌شده: مدل entitlement پلن‌ها و تخصیص اعتبار (تصمیمات هشت‌گانه OQ-018..025) با تأیید کامل مالک | accepted (تصمیم مالک — 2026-11-07؛ OQ-018..025 بسته) |
+| ADR-051 | Admin Control Center، دسترسی user-facing برای Admin و acting context حسابرسی‌شده | proposed | جزئیات در docs/ADMIN_CONSOLE_SPEC.md؛ کنترل‌های MFA/step-up و مرزهای امنیتی پیش از اجرا ratify شوند |
 | ADR-041 | ارتقای فناوری‌ها و سازگاری wheel | proposed |
 | ADR-042 | retention و حذف دادهٔ دانش‌آموز | proposed |
 | ADR-043 | dataset طلایی و RAG gates | proposed |

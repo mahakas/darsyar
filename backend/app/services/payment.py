@@ -97,6 +97,8 @@ class PaymentService:
             product_id=product.product_id,
             amount_toman=product.price_toman,
             credit_grant=product.credit_grant,
+            plan_type=product.plan_type,
+            duration_days=product.duration_days,
             provider=self._settings.payment_provider,
             provider_currency="IRR",
             provider_amount=provider_amount,
@@ -169,6 +171,9 @@ class PaymentService:
             reason=f"one-time purchase {payment.product_id}",
         )
         account.available_balance += payment.credit_grant
+        from app.services.plans import PlanService
+
+        await PlanService(self._session).process_paid_payment(payment)
         await self._session.flush()
         return payment
 

@@ -18,6 +18,8 @@ class ProductCatalog(Base):
     product_id: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)
     price_toman: Mapped[int] = mapped_column(Integer, nullable=False)
     credit_grant: Mapped[int] = mapped_column(Integer, nullable=False)
+    plan_type: Mapped[str] = mapped_column(String(16), nullable=False, server_default=text("'credit'"))
+    duration_days: Mapped[int] = mapped_column(Integer, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("now()"), onupdate=text("now()"))

@@ -129,7 +129,23 @@
 | `backend/app/repositories/abuse_flags.py` | دسترسی پرچم؛ درج اتمیک و حل شرطی. |
 | `backend/tests/test_fair_use_period.py` | تست واحد محاسبهٔ دورهٔ ماهانه (ADR-040). |
 | `backend/tests/test_fair_use_db.py` | تست‌های یکپارچهٔ Fair-Use روی PostgreSQL واقعی. |
+| `backend/alembic/versions/0012_plan_entitlements.py` | مهاجرت پلن/entitlement + grants + cancellation/refund (ADR-052). |
+| `backend/app/models/plan_entitlement.py` | مدل entitlement پلن. |
+| `backend/app/models/credit_grant.py` | مدل سبد اعتبار. |
+| `backend/app/models/cancellation_request.py` | مدل درخواست لغو. |
+| `backend/app/models/refund_record.py` | مدل رکورد بازپرداخت. |
+| `backend/app/repositories/entitlements.py` | دسترسی entitlement/grant/cancellation/refund. |
+| `backend/app/services/plans.py` | سرویس پلن: فعال‌سازی/تمدید/انقضا/لغو/بازپرداخت. |
+| `backend/tests/test_plans_db.py` | تست‌های یکپارچهٔ پلن روی PostgreSQL واقعی. |
+| `docs/adr/ADR-052-plan-entitlements.md` | مدل entitlement و تخصیص اعتبار (accepted). |
+| `backend/alembic/versions/0013_grant_allocation.py` | مهاجرت تخصیص grant→رزرو (reservation_credit_allocations؛ reserved_amount). |
+| `backend/app/models/reservation_allocation.py` | مدل تخصیص grant→رزرو. |
+| `backend/tests/test_grant_allocation_db.py` | تست‌های تخصیص/EFF/Unlimited/هم‌زمانی روی PostgreSQL واقعی. |
+| `docs/adr/ADR-053-grant-allocation.md` | تخصیص grant→رزرو و حسابداری منبع‌محور (accepted). |
 | `backend/tests/test_finance_db.py` | تست‌های یکپارچهٔ مالی روی PostgreSQL واقعی (Slice A). |
+| `backend/tests/test_concurrency_hardening_db.py` | تست‌های هم‌زمانی مرزهای reserve/settle در برابر admin_void + گاردهای post-void + natural_expiry (عکس ۲). |
+| `backend/tests/test_expiry_accounting_db.py` | تست‌های حسابداری انقضای طبیعی با رزروهای فعال: فقط بخش غیررزروشده باطل می‌شود (رفع نقص plans.py). |
+| `backend/tests/test_cancel_refund_accounting_db.py` | تست‌های حسابداری لغو فوری/refund با رزروهای فعال: فقط بخش غیررزروشده باطل می‌شود (رفع نقص plans.py). |
 | `backend/app/services/retrieval/.gitkeep` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/retrieval/__init__.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/settings_store.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
@@ -206,6 +222,7 @@
 | `docs/adr/ADR-048-free-credit-grant.md` | گرانت رایگان ۵ اعتبار یک‌بار (accepted). |
 | `docs/adr/ADR-049-unlimited-subscription.md` | اشتراک Unlimited و حفظ اعتبار Basic/Pro (accepted؛ با OQ باز). |
 | `docs/adr/ADR-050-fair-use-policy.md` | سیاست Fair-Use و abuse flag (accepted). |
+| `docs/ADMIN_CONSOLE_SPEC.md` | مشخصات جامع پنل Admin و مرکز کنترل عملیات Darsyar (Phase 7). |
 | `docs/licenses/README.md` | سیاست ثبت مجوز و منشأ منبع آموزشی. |
 | `frontend/.dockerignore` | ساخت/پیکربندی فرانت‌اند. |
 | `frontend/.npmrc` | ساخت/پیکربندی فرانت‌اند. |

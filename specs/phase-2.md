@@ -26,7 +26,10 @@ Create auditable credits and payment flows without double spending.
 - [ ] Ledger/projection/reconcile invariants hold.
 - [ ] Duplicate callback does not duplicate payment or credit.
 - [ ] Toman/rial conversion tests cover boundaries.
-- [ ] Partial-stream behavior matches accepted internal credit-compensation policy (ADR-039); broader customer-facing payment-refund terms remain a release gate (REFUND_POLICY).
+- [ ] Partial-stream financial policy (ADR-039) is accepted and preserved; service-level billing-boundary verification (incl. `MIN_BILLABLE_TOKENS`) and the settle/release decision matrix are covered by Phase 2 tests.
+- [ ] Reserve/settle/release behavior and its service-level test coverage remain in Phase 2.
+- [ ] Complete streaming-runtime integration and end-to-end acceptance of ADR-039 behavior are not Phase 2 obligations; they are deferred to Phase 3.
+- [ ] Broader customer-facing payment-refund terms remain a release gate (REFUND_POLICY).
 
 ## Required evidence
 

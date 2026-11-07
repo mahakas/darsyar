@@ -45,8 +45,10 @@ async def _reset_catalog() -> None:
         await session.execute(
             text(
                 "UPDATE product_catalog SET active = true, "
-                "price_toman = CASE product_id WHEN 'basic' THEN 500000 ELSE 1000000 END, "
-                "credit_grant = CASE product_id WHEN 'basic' THEN 500 ELSE 1200 END"
+                "plan_type = CASE product_id WHEN 'unlimited' THEN 'unlimited' ELSE 'credit' END, "
+                "duration_days = 30, "
+                "price_toman = CASE product_id WHEN 'basic' THEN 500000 WHEN 'pro' THEN 1000000 ELSE 1500000 END, "
+                "credit_grant = CASE product_id WHEN 'unlimited' THEN 0 WHEN 'basic' THEN 500 ELSE 1200 END"
             )
         )
         await session.commit()
@@ -494,8 +496,20 @@ async def test_catalog_update_success_writes_audit_atomically() -> None:
                 )
             )
         ).one()
-        assert row[0] == {"price_toman": 500000, "credit_grant": 500, "active": True}
-        assert row[1] == {"price_toman": 550000, "credit_grant": 550, "active": True}
+        assert row[0] == {
+            "price_toman": 500000,
+            "credit_grant": 500,
+            "active": True,
+            "plan_type": "credit",
+            "duration_days": 30,
+        }
+        assert row[1] == {
+            "price_toman": 550000,
+            "credit_grant": 550,
+            "active": True,
+            "plan_type": "credit",
+            "duration_days": 30,
+        }
 
 
 @pytest.mark.asyncio

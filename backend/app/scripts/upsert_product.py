@@ -25,11 +25,22 @@ async def upsert_product(
     credit_grant: int,
     actor_user_id: uuid.UUID,
     reason: str,
+    plan_type: str | None = None,
+    duration_days: int | None = None,
+    active: bool | None = None,
 ) -> None:
     if product_id not in catalog_repo.SUPPORTED_PRODUCT_IDS:
         raise AppError("unsupported_product", 422, "شناسهٔ محصول پشتیبانی نمی‌شود.")
-    if price_toman <= 0 or credit_grant <= 0:
-        raise AppError("invalid_catalog_values", 422, "قیمت و کردیت باید مثبت باشند.")
+    if price_toman <= 0 or credit_grant < 0:
+        raise AppError("invalid_catalog_values", 422, "قیمت باید مثبت و کردیت غیرمنفی باشد.")
+    if plan_type is not None and plan_type not in ("credit", "unlimited"):
+        raise AppError("invalid_plan_type", 422, "نوع پلن باید credit یا unlimited باشد.")
+    if duration_days is not None and duration_days <= 0:
+        raise AppError("invalid_duration", 422, "مدت اعتبار باید مثبت باشد.")
+    if plan_type == "unlimited" and credit_grant != 0:
+        raise AppError("contradictory_catalog", 422, "پلن unlimited باید کردیت صفر داشته باشد.")
+    if plan_type == "credit" and credit_grant == 0:
+        raise AppError("contradictory_catalog", 422, "پلن credit باید کردیت مثبت داشته باشد.")
     if not reason.strip():
         raise AppError("reason_required", 422, "دلیل تغییر الزامی است.")
 
@@ -37,13 +48,16 @@ async def upsert_product(
     if actor is None or actor.role != "admin":
         raise AppError("actor_required", 403, "تغییر کاتالوگ فقط برای ادمین مجاز است.")
 
-    before, after = await catalog_repo.update_price_and_grant(
+    before, after = await catalog_repo.update_catalog_full(
         session,
         product_id,
         price_toman=price_toman,
         credit_grant=credit_grant,
         actor_user_id=actor_user_id,
         reason=reason,
+        plan_type=plan_type,
+        duration_days=duration_days,
+        active=active,
     )
     if before is None or after is None:
         raise AppError("unknown_product", 404, "محصول یافت نشد.")
@@ -67,6 +81,9 @@ def main() -> int:
     parser.add_argument("--grant", required=True, type=int)
     parser.add_argument("--actor", required=True, help="admin user UUID")
     parser.add_argument("--reason", required=True)
+    parser.add_argument("--plan-type", dest="plan_type", default=None, choices=("credit", "unlimited"))
+    parser.add_argument("--duration", dest="duration_days", default=None, type=int)
+    parser.add_argument("--active", default=None, type=lambda s: s.lower() in ("1", "true", "yes"))
     args = parser.parse_args()
     try:
         actor_id = uuid.UUID(args.actor)
@@ -81,6 +98,9 @@ def main() -> int:
             credit_grant=args.grant,
             actor_user_id=actor_id,
             reason=args.reason,
+            plan_type=args.plan_type,
+            duration_days=args.duration_days,
+            active=args.active,
         )
     )
     return 0

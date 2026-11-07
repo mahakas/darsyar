@@ -1,0 +1,17 @@
+{
+  "maxEffortLevel": "medium",
+  "permissions": {
+    "defaultMode": "acceptEdits"
+  },
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.inceptionlabs.ai/v1/",
+    "ANTHROPIC_AUTH_TOKEN": "sk_0b42a5c32ef470452873a3e94a5b94f7c13fd75fde8a78ab7e8965201a5cef57",
+    "ANTHROPIC_API_KEY": "",
+    "ANTHROPIC_MODEL": "mercury-3",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "mercury-3",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "mercury-3",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "mercury-2.5",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "131072",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  }
+}

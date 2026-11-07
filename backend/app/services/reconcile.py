@@ -119,6 +119,64 @@ class ReconcileService:
             )
         return summary
 
+    async def reconcile_allocations(
+        self,
+        *,
+        batch_limit: int = 200,
+        user_id: uuid.UUID | None = None,
+    ) -> dict[str, object]:
+        """read-only: کشف ناسازگاری‌های cross-row allocation/grant (C2-05)."""
+        if batch_limit < 1 or batch_limit > 1000:
+            from app.core.errors import AppError
+
+            raise AppError("invalid_batch_limit", 422, "سقف دسته نامعتبر است.")
+        mismatches: list[dict[str, object]] = []
+        from sqlalchemy import select as _select
+
+        from app.models.credit_grant import CreditGrant
+        from app.models.reservation_allocation import ReservationAllocation
+
+        statement = _select(CreditGrant).order_by(CreditGrant.id.asc()).limit(batch_limit)
+        if user_id is not None:
+            statement = statement.where(CreditGrant.user_id == user_id)
+        grants = (await self._session.execute(statement)).scalars().all()
+        for grant in grants:
+            agg = (
+                await self._session.execute(
+                    _select(ReservationAllocation.allocated_amount, ReservationAllocation.status).where(
+                        ReservationAllocation.grant_id == grant.id
+                    )
+                )
+            ).all()
+            active_sum = sum(int(r[0]) for r in agg if r[1] == "active")
+            if active_sum != grant.reserved_amount:
+                mismatches.append(
+                    {
+                        "type": "reserved_vs_allocations",
+                        "grant_id": str(grant.id),
+                        "expected_reserved": grant.reserved_amount,
+                        "active_allocation_sum": active_sum,
+                    }
+                )
+            if grant.reserved_amount > grant.remaining_amount:
+                mismatches.append(
+                    {
+                        "type": "reserved_exceeds_remaining",
+                        "grant_id": str(grant.id),
+                        "reserved": grant.reserved_amount,
+                        "remaining": grant.remaining_amount,
+                    }
+                )
+            if int(active_sum) > grant.remaining_amount - grant.reserved_amount + grant.reserved_amount:
+                mismatches.append(
+                    {
+                        "type": "allocations_exceed_eligible",
+                        "grant_id": str(grant.id),
+                        "active_sum": active_sum,
+                    }
+                )
+        return {"scanned_grants": len(grants), "mismatches": mismatches, "mismatch_count": len(mismatches)}
+
     async def _reconcile_user(self, user_id: uuid.UUID) -> dict[str, int]:
         account = (
             await self._session.execute(select(CreditAccount).where(CreditAccount.user_id == user_id))

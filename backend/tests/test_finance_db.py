@@ -285,9 +285,32 @@ async def test_terminal_transition_blocked_by_db_trigger(user_with_balance) -> N
         await session.rollback()
 
 
+async def _activate_unlimited(session, user_id: uuid.UUID) -> None:
+    """فعال‌سازی entitlement Unlimited برای تست‌های رزرو unlimited (ADR-052)."""
+    from datetime import timedelta as _td
+
+    from app.repositories import entitlements as ent_repo
+
+    now = datetime.now(UTC)
+    await ent_repo.create_entitlement(
+        session,
+        user_id=user_id,
+        product_id="unlimited",
+        plan_type="unlimited",
+        activated_at=now,
+        expires_at=now + _td(days=30),
+        granted_credits=0,
+        payment_id=None,
+        snapshot={"product_id": "unlimited", "plan_type": "unlimited", "duration_days": 30},
+    )
+
+
 @pytest.mark.asyncio
 async def test_unlimited_reservation_does_not_change_balance(user_with_balance) -> None:
     user_id, _ = user_with_balance
+    async with TEST_SESSION_FACTORY() as session:
+        await _activate_unlimited(session, user_id)
+        await session.commit()
     async with TEST_SESSION_FACTORY() as session:
         service = FinanceService(session)
         reservation = await service.reserve_unlimited(user_id, idempotency_key="k11", payload_fingerprint="f11")
@@ -441,6 +464,9 @@ async def test_ledger_projection_consistency_settle_no_second_debit(user_with_ba
 @pytest.mark.asyncio
 async def test_ledger_projection_consistency_unlimited_no_effect(user_with_balance) -> None:
     user_id, _ = user_with_balance
+    async with TEST_SESSION_FACTORY() as session:
+        await _activate_unlimited(session, user_id)
+        await session.commit()
     async with TEST_SESSION_FACTORY() as session:
         service = FinanceService(session)
         await service.reserve_unlimited(user_id, idempotency_key="k23", payload_fingerprint="f23")
