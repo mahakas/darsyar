@@ -120,8 +120,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sigterm-logs
-          path: backend/server_stdout.log
-          if-no-files-found: ignore
+          path: |
+            backend/server_a_stdout.log
+            backend/server_a_stderr.log
+            backend/server_b_stdout.log
+            backend/server_b_stderr.log
+          if-no-files-found: warn
   frontend:
     runs-on: ubuntu-latest
     steps:

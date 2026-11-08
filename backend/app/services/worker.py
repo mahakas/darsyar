@@ -1,5 +1,6 @@
 """کارگر arq پایه؛ jobهای محصولی در فازهای مربوطه اضافه می‌شوند."""
 
+import logging
 from datetime import UTC, datetime, timedelta
 
 from arq.connections import RedisSettings
@@ -8,6 +9,7 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 ORPHAN_MESSAGE_STALE_MINUTES = 2
@@ -85,53 +87,69 @@ async def recover_orphan_stream_messages(ctx: dict[str, object]) -> dict[str, in
     batch_limit = int(str(raw_limit)) if raw_limit is not None else 200
     lease_cutoff = datetime.now(UTC) - timedelta(seconds=STREAM_LEASE_EXPIRY_SECONDS)
     recovered = 0
-    async with SessionFactory() as session:
+
+    # کاندیداها فقط برای انتخاب خوانده می‌شوند (بدون قفل).
+    async with SessionFactory() as select_session:
         orphans = (
-            await session.execute(
+            await select_session.execute(
                 select(Message).where(
                     Message.role == "assistant",
                     Message.status == "streaming",
                     Message.reservation_id.is_not(None),
                     (Message.heartbeat_at.is_(None)) | (Message.heartbeat_at < lease_cutoff),
-                ).limit(batch_limit)
+                ).order_by(Message.reservation_id.asc(), Message.id.asc()).limit(batch_limit)
             )
         ).scalars().all()
-        for msg in orphans:
-            if msg.reservation_id is None:
-                continue
-            reservation = await res_repo.get_by_id(session, msg.reservation_id)
-            if reservation is None:
-                continue
-            final_status: str | None = None
-            if reservation.status == "pending":
-                overdue = (datetime.now(UTC) - reservation.created_at) > timedelta(
-                    minutes=RESERVATION_DEADLINE_MINUTES
-                )
-                if not overdue:
+
+    # هر کاندیدا در یک session/تراکنش مستقل (هیچ قفلی بین کاندیداها زنده نمی‌ماند):
+    # ترتیب قفل جهانی Reservation → Message → Financial mutation → Commit.
+    for msg in orphans:
+        if msg.reservation_id is None:
+            continue
+        async with SessionFactory() as cand_session:
+            try:
+                reservation = await res_repo.get_by_id_for_update(cand_session, msg.reservation_id)
+                if reservation is None:
                     continue
-                try:
-                    await FinanceService(session).release(reservation.id, reason="crash_recovery")
-                except Exception:  # noqa: BLE001
+                final_status: str | None = None
+                if reservation.status == "pending":
+                    overdue = (datetime.now(UTC) - reservation.created_at) > timedelta(
+                        minutes=RESERVATION_DEADLINE_MINUTES
+                    )
+                    if not overdue:
+                        continue
+                    final_status = _terminal_status_for_recovery("released", msg.billable_output_seen)
+                else:
+                    final_status = _terminal_status_for_recovery(reservation.status, msg.billable_output_seen)
+
+                claimed_row = (
+                    await cand_session.execute(
+                        text(
+                            "UPDATE messages SET status = :status, stream_terminated = true, "
+                            "stream_owner_token = NULL "
+                            "WHERE id = :id AND status = 'streaming' "
+                            "AND (heartbeat_at IS NULL OR heartbeat_at < :lease_cutoff) "
+                            "AND stream_owner_token IS NOT DISTINCT FROM :observed_owner "
+                            "RETURNING id"
+                        ),
+                        {
+                            "status": final_status,
+                            "id": str(msg.id),
+                            "lease_cutoff": lease_cutoff,
+                            "observed_owner": msg.stream_owner_token,
+                        },
+                    )
+                ).first()
+                if claimed_row is None:
+                    await cand_session.rollback()
                     continue
-                final_status = _terminal_status_for_recovery("released", msg.billable_output_seen)
-            else:
-                final_status = _terminal_status_for_recovery(reservation.status, msg.billable_output_seen)
-            # fencing: فقط از streaming مجاز است؛ RETURNING id برای اطمینان از claim اتمیک
-            claimed_row = (
-                await session.execute(
-                    text(
-                        "UPDATE messages SET status = :status, stream_terminated = true, "
-                        "stream_owner_token = NULL "
-                        "WHERE id = :id AND status = 'streaming' RETURNING id"
-                    ),
-                    {"status": final_status, "id": str(msg.id)},
-                )
-            ).first()
-            if claimed_row is None:
-                continue
-            await session.flush()
-            recovered += 1
-        await session.commit()
+                if reservation.status == "pending":
+                    await FinanceService(cand_session).release(reservation.id, reason="crash_recovery")
+                await cand_session.commit()
+                recovered += 1
+            except Exception:  # noqa: BLE001 - isolate per-candidate failure
+                await cand_session.rollback()
+                logger.debug("recovery_per_message_skipped")
     return {"recovered": recovered}
 
 

@@ -365,6 +365,11 @@ class ChatStreamService:
         session = self._session_factory()
         try:
             finance = FinanceService(session)
+            # ۱) قفل رزرو ابتدا (SELECT ... FOR UPDATE) — ترتیب قفل جهانی Reservation → Message.
+            locked_reservation = await reservations_repo.get_by_id_for_update(session, reservation_id)
+            if locked_reservation is None:
+                await session.rollback()
+                return False, "reservation_not_found"
             settled = False
             if billable:
                 try:
@@ -483,23 +488,25 @@ class ChatStreamService:
             )
             await session.commit()
         heartbeat_task = asyncio.create_task(self._heartbeat_loop(assistant_id, owner_token))
-
+        # همهٔ چیزی که پس از heartbeat می‌آید (ACK/assistant_created yield، provider، استریم،
+        # cleanup) داخل try/finally بیرونی است تا heartbeat همیشه متوقف شود و cleanup مالی
+        # در صورت لغو زودهنگام/شکست provider نیز «دقیقاً یک بار» اجرا شود.
         request_id = str(uuid.uuid4())
         seq = 0
-        seq += 1
-        yield self._sse(seq, EVENT_ACK, {"request_id": request_id, "conversation_id": str(conv.id), "message_id": str(assistant_id)})
-        seq += 1
-        yield self._sse(seq, EVENT_ASSISTANT_CREATED, {"message_id": str(assistant_id), "sequence": seq})
-
-        provider = self._get_provider()
+        provider = None
         billable = False
         parts: list[str] = []
         terminal_status = "completed"
         terminal_error: str | None = None
         finalized = False
         lost_ownership = False
-
         try:
+            seq += 1
+            yield self._sse(seq, EVENT_ACK, {"request_id": request_id, "conversation_id": str(conv.id), "message_id": str(assistant_id)})
+            seq += 1
+            yield self._sse(seq, EVENT_ASSISTANT_CREATED, {"message_id": str(assistant_id), "sequence": seq})
+
+            provider = self._get_provider()
             attempts = 0
             while True:
                 emitted = False
@@ -561,12 +568,6 @@ class ChatStreamService:
             if not finalized:
                 finalized = True
                 content = "".join(parts)
-                # سیاست زمانی صریح دو-فازی (deadlineهای مستقل):
-                #   مرحله ۱: تا _CLEANUP_TIMEOUT_SECONDS (۱۵s) برای cleanup عادی.
-                #   مرحله ۲: اگر هنوز تمام نشده، cancel + حداکثر _CLEANUP_CANCEL_GRACE_SECONDS (۳s)
-                #             فرصت اضافی (deadline مستقل؛ از deadline منقضی‌شدهٔ مرحله ۱ استفاده نمی‌شود).
-                # خود task نیز hard-bounded است (wait_for داخلی ۱۵s) تا هیچ Task دارای DB access
-                # پس از dispose نماند و همه انتظارها کران‌دار باشند.
                 cleanup_task = asyncio.create_task(
                     asyncio.wait_for(
                         self._run_terminal_cleanup(

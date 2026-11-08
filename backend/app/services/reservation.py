@@ -288,52 +288,51 @@ class FinanceService:
         if batch_limit < 1:
             raise AppError("invalid_batch_limit", 422, "سقف دسته نامعتبر است.")
         deadline = self._now() - timedelta(minutes=RESERVATION_DEADLINE_MINUTES)
+        lease_cutoff = self._now() - timedelta(seconds=STREAM_LEASE_EXPIRY_SECONDS)
+        # کاندیداها فقط برای انتخاب خوانده می‌شوند (بدون قفل).
         overdue = await reservations_repo.list_pending_overdue(self._session, deadline, batch_limit, user_id)
         released = 0
-        lease_cutoff = self._now() - timedelta(seconds=STREAM_LEASE_EXPIRY_SECONDS)
+        # هر رزرو در یک session/تراکنش مستقل (هیچ قفلی بین کاندیداها زنده نمی‌ماند):
+        # ترتیب قفل جهانی Reservation → Message → Financial mutation → Commit.
+        from app.db.session import SessionFactory
+
         for reservation in overdue:
-            # الف) حفاظت از Stream فعال: اگر پیام streaming مرتبط heartbeat تازه دارد، رهاسازی نشود.
-            active = (
-                await self._session.execute(
-                    select(Message.id).where(
-                        Message.reservation_id == reservation.id,
-                        Message.status == "streaming",
-                        Message.heartbeat_at >= lease_cutoff,
-                    ).limit(1)
-                )
-            ).first()
-            if active is not None:
-                continue
-            # ب) مرتبط‌سازی پیام/رزرو: اگر هیچ پیامی برای این رزرو نیست → fail-closed (نباز نکن).
-            msg_row = (
-                await self._session.execute(
-                    select(Message.id).where(Message.reservation_id == reservation.id).limit(1)
-                )
-            ).first()
-            if msg_row is None:
-                continue
-            # ج) ادعای شرطی برای هم‌زمانی با Heartbeat (linearization):
-            #    فقط اگر (heartbeat قدیمی یا NULL) و streaming باشد، پیام را terminated/باطل
-            #    می‌کنیم. اگر heartbeat تازه‌ای بین خواندن و اینجا commit شده باشد، این UPDATE
-            #    هیچ سطری را هدف نمی‌گیرد و release انجام نمی‌شود؛ Heartbeat بعدی با owner قدیمی
-            #    نیز شکست می‌خورد (fencing).
-            claim = (
-                await self._session.execute(
-                    text(
-                        "UPDATE messages SET stream_terminated = true, stream_owner_token = NULL "
-                        "WHERE reservation_id = :rid AND status = 'streaming' "
-                        "AND (heartbeat_at IS NULL OR heartbeat_at < :cutoff) RETURNING id"
-                    ),
-                    {"rid": str(reservation.id), "cutoff": lease_cutoff},
-                )
-            ).first()
-            if claim is None:
-                continue
-            try:
-                await self.release(reservation.id, reason="reservation_deadline")
-                released += 1
-            except AppError:
-                continue
+            async with SessionFactory() as cand_session:
+                try:
+                    locked = await reservations_repo.get_by_id_for_update(cand_session, reservation.id)
+                    if locked is None:
+                        continue
+                    if locked.status != "pending":
+                        continue
+                    if self._now() < locked.created_at + timedelta(minutes=RESERVATION_DEADLINE_MINUTES):
+                        continue
+                    msg_row = (
+                        await cand_session.execute(
+                            select(Message.id).where(Message.reservation_id == reservation.id).limit(1)
+                        )
+                    ).first()
+                    if msg_row is None:
+                        await cand_session.rollback()
+                        continue
+                    claim = (
+                        await cand_session.execute(
+                            text(
+                                "UPDATE messages SET stream_terminated = true, stream_owner_token = NULL "
+                                "WHERE reservation_id = :rid AND status = 'streaming' "
+                                "AND (heartbeat_at IS NULL OR heartbeat_at < :cutoff) RETURNING id"
+                            ),
+                            {"rid": str(reservation.id), "cutoff": lease_cutoff},
+                        )
+                    ).first()
+                    if claim is None:
+                        await cand_session.rollback()
+                        continue
+                    await FinanceService(cand_session).release(reservation.id, reason="reservation_deadline")
+                    await cand_session.commit()
+                    released += 1
+                except AppError:
+                    await cand_session.rollback()
+                    continue
         return released
 
     async def reconcile_stale(

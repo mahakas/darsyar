@@ -21,6 +21,14 @@ async def get_by_id(session: AsyncSession, reservation_id: uuid.UUID) -> Reserva
     return result.scalar_one_or_none()
 
 
+async def get_by_id_for_update(session: AsyncSession, reservation_id: uuid.UUID) -> Reservation | None:
+    """قفل ردیف رزرو (SELECT ... FOR UPDATE) برای ترتیب قفل یکسان Reservation → Message."""
+    result = await session.execute(
+        select(Reservation).where(Reservation.id == reservation_id).with_for_update()
+    )
+    return result.scalar_one_or_none()
+
+
 async def get_by_idempotency_key(
     session: AsyncSession, user_id: uuid.UUID, key: str
 ) -> Reservation | None:
@@ -83,7 +91,7 @@ async def list_pending_overdue(
     statement = select(Reservation).where(Reservation.status == "pending", Reservation.created_at < deadline)
     if user_id is not None:
         statement = statement.where(Reservation.user_id == user_id)
-    statement = statement.order_by(Reservation.created_at.asc()).limit(limit)
+    statement = statement.order_by(Reservation.created_at.asc(), Reservation.id.asc()).limit(limit)
     result = await session.execute(statement)
     return result.scalars().all()
 

@@ -14,10 +14,10 @@ import pytest
 from app.core.config import get_settings
 from app.models.message import Message
 from app.repositories import conversations as conv_repo
+from app.repositories import credit_accounts as accounts_repo
 from app.repositories import reservations as res_repo
 from app.repositories import users as users_repo
 from app.services import worker as worker_mod
-from app.services.credit_accounts import create as _create_account
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -38,7 +38,7 @@ def _new_phone() -> str:
 async def _make_user() -> uuid.UUID:
     async with TEST_SESSION_FACTORY() as session:
         user = await users_repo.create(session, phone=_new_phone(), role="user")
-        await _create_account(session, user_id=user.id, available_balance=10)
+        await accounts_repo.create(session, user_id=user.id, available_balance=10)
         await session.commit()
         return user.id
 

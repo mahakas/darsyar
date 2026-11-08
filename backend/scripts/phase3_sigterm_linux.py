@@ -218,11 +218,16 @@ async def run_scenario(mode: str, tag: str) -> tuple[str, str]:
 
         final_status = await reservation_status(uid, key)
         expect = "released" if mode == "hang" else "settled"
+        exit_code = proc.returncode if proc.poll() is not None else None
+        diag = (
+            f"res_after={final_status} expect={expect} poll={status} elapsed={elapsed:.1f}s "
+            f"provider_calls={MOCK['calls']} exit_code={exit_code}"
+        )
         if final_status != expect:
-            return "FAIL", f"expected {expect}, got {final_status}"
+            return "FAIL", f"{diag} (expected {expect}, got {final_status})"
         if status != expect:
-            return "FAIL", f"terminal poll {status} != {expect}"
-        return "PASS", f"{final_status} after {elapsed:.1f}s"
+            return "FAIL", f"{diag} (terminal poll {status} != {expect})"
+        return "PASS", diag
     except Exception as exc:  # noqa: BLE001
         return "FAIL", f"unhandled: {type(exc).__name__}: {exc}"
     finally:
@@ -239,10 +244,10 @@ async def main() -> int:
     time.sleep(2)
 
     r_a, d_a = await run_scenario("hang", "a")
-    print(f"SCENARIO_A(open-no-billable)={r_a}")
+    print(f"SCENARIO_A(open-no-billable)={r_a} detail={d_a}")
     MOCK["calls"] = 0
     r_b, d_b = await run_scenario("delta", "b")
-    print(f"SCENARIO_B(open-after-billable)={r_b}")
+    print(f"SCENARIO_B(open-after-billable)={r_b} detail={d_b}")
 
     ok = r_a == "PASS" and r_b == "PASS"
     print("OVERALL_PASS" if ok else "OVERALL_FAIL")
