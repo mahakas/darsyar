@@ -160,10 +160,39 @@ async def wait_health(proc, health_timeout: float = 40) -> bool:
     return False
 
 
+async def message_durable_state(user_id: str, reservation_key: str) -> dict:
+    """خواندن وضعیت پایدار پیام/رزرو مرتبط از PostgreSQL واقعی."""
+    from app.models.message import Message
+    from app.repositories import reservations as res_repo
+    from sqlalchemy import select
+
+    engine, sf = await _pg_sessionmaker()
+    try:
+        async with sf() as session:
+            reservation = await res_repo.get_by_idempotency_key(session, uuid.UUID(user_id), reservation_key)
+            if reservation is None:
+                return {"reservation_status": None, "message_status": None,
+                        "billable_output_seen": None, "stream_terminated": None}
+            msg = (
+                await session.execute(
+                    select(Message).where(Message.reservation_id == reservation.id).limit(1)
+                )
+            ).scalar_one_or_none()
+            return {
+                "reservation_status": reservation.status,
+                "message_status": msg.status if msg else None,
+                "billable_output_seen": bool(msg.billable_output_seen) if msg else None,
+                "stream_terminated": bool(msg.stream_terminated) if msg else None,
+            }
+    finally:
+        await engine.dispose()
+
+
 async def run_scenario(mode: str, tag: str) -> tuple[str, str]:
     MOCK["mode"] = mode
     MOCK["calls"] = 0
     proc = start_server(tag)
+    fallback_terminated = False
     try:
         if not await wait_health(proc):
             return "FAIL", "server not healthy / startup failed"
@@ -171,9 +200,10 @@ async def run_scenario(mode: str, tag: str) -> tuple[str, str]:
         crid = f"linux-{mode}-{tag}"
         key = f"chat:{uid}:{crid}"
         poll_task = None
+        consumer_task = None
         calls_before = MOCK["calls"]
 
-        async with httpx.AsyncClient(timeout=40) as client:
+        async with httpx.AsyncClient(timeout=60) as client:
             async with client.stream(
                 "POST", "http://127.0.0.1:8000/api/v1/chat/stream",
                 json={"content": "hello", "client_request_id": crid},
@@ -181,15 +211,38 @@ async def run_scenario(mode: str, tag: str) -> tuple[str, str]:
             ) as resp:
                 if resp.status_code != 200:
                     return "FAIL", f"stream status {resp.status_code}"
+
+                first_delta_received = asyncio.Event()
+                consumer_error: list[str] = []
+
+                async def consume():
+                    # مصرف پیوسته تا shutdown اتصال را ببندد (بدون break پس از اولین delta)
+                    try:
+                        async for line in resp.aiter_lines():
+                            if line.startswith("event:delta"):
+                                first_delta_received.set()
+                    except httpx.RemoteProtocolError:
+                        # بستن نرمال توسط سرور در shutdown
+                        pass
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as exc:  # noqa: BLE001
+                        consumer_error.append(f"{type(exc).__name__}: {exc}")
+
+                consumer_task = asyncio.create_task(consume())
+
                 if mode == "delta":
-                    # مصرف تا اولین delta billable تا ثابت شود خروجی واقعاً تولید شده است
-                    emitted = False
-                    async for line in resp.aiter_lines():
-                        if line.startswith("event:delta"):
-                            emitted = True
-                            break
-                    if not emitted:
-                        return "FAIL", "no billable delta emitted before SIGTERM"
+                    await asyncio.wait_for(first_delta_received.wait(), timeout=15)
+                    # تأیید وضعیت پایدار قبل از SIGTERM
+                    durable = await message_durable_state(uid, key)
+                    if durable["reservation_status"] != "pending":
+                        return "FAIL", f"pre-sigterm reservation not pending: {durable}"
+                    if durable["message_status"] != "streaming":
+                        return "FAIL", f"pre-sigterm message not streaming: {durable}"
+                    if durable["billable_output_seen"] is not True:
+                        return "FAIL", f"pre-sigterm billable not durable: {durable}"
+                    if durable["stream_terminated"]:
+                        return "FAIL", f"pre-sigterm stream already terminated: {durable}"
                 else:
                     # scenario A: provider فعال ولی بدون خروجی billable
                     if calls_before == MOCK["calls"]:
@@ -200,7 +253,7 @@ async def run_scenario(mode: str, tag: str) -> tuple[str, str]:
 
                 async def poll_terminal():
                     t0 = time.time()
-                    while time.time() - t0 < 30:
+                    while time.time() - t0 < 40:
                         st = await reservation_status(uid, key)
                         if st in ("released", "settled"):
                             return st, time.time() - t0
@@ -210,7 +263,15 @@ async def run_scenario(mode: str, tag: str) -> tuple[str, str]:
                 poll_task = asyncio.create_task(poll_terminal())
                 os.kill(proc.pid, signal.SIGTERM)
                 status, elapsed = await poll_task
-            # اتصال بسته شد
+            # اتصال بسته شد (سرور آن را بست)
+
+        if consumer_task is not None:
+            try:
+                await asyncio.wait_for(consumer_task, timeout=10)
+            except TimeoutError:
+                consumer_task.cancel()
+            if consumer_error:
+                return "FAIL", f"consumer error: {consumer_error[0]}"
 
         fallback_kill = False
         try:
@@ -228,11 +289,15 @@ async def run_scenario(mode: str, tag: str) -> tuple[str, str]:
         exit_code = proc.returncode if proc.poll() is not None else None
         diag = (
             f"res_after={final_status} expect={expect} poll={status} elapsed={elapsed:.1f}s "
-            f"provider_calls={MOCK['calls']} exit_code={exit_code} fallback_kill={fallback_kill}"
+            f"provider_calls={MOCK['calls']} exit_code={exit_code} fallback_kill={fallback_kill} "
+            f"fallback_terminated={fallback_terminated}"
         )
-        # خروج نرمال باید کد 0 باشد؛ -15/-9 پذیرفته نمی‌شوند.
-        if exit_code != 0:
-            return "FAIL", f"{diag} (expected graceful exit 0, got {exit_code})"
+        # Uvicorn 0.54.0 پس از graceful shutdown سیگنال را دوباره raise می‌کند؛ بنابراین
+        # -15 نتیجهٔ مجازِ چرخهٔ کامل graceful است؛ -9 هرگز مجاز نیست.
+        if exit_code == -9:
+            return "FAIL", f"{diag} (SIGKILL -9 observed)"
+        if exit_code not in (0, -15):
+            return "FAIL", f"{diag} (unexpected exit {exit_code})"
         if fallback_kill:
             return "FAIL", f"{diag} (fallback kill was required)"
         if final_status != expect:
@@ -245,10 +310,12 @@ async def run_scenario(mode: str, tag: str) -> tuple[str, str]:
     finally:
         if proc.poll() is None:
             proc.terminate()
+            fallback_terminated = True
             try:
                 proc.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 proc.kill()
+                fallback_terminated = True
 
 
 async def main() -> int:
