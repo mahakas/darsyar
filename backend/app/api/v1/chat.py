@@ -4,6 +4,7 @@ Slice F: drain-aware admission, active-stream tracking, and low-cardinality metr
 """
 
 import asyncio
+import logging
 import time
 from collections.abc import AsyncIterator
 from typing import Annotated
@@ -21,6 +22,8 @@ from app.core.shutdown import SHUTDOWN_STATE
 from app.models.user import User
 from app.schemas.conversation import ChatStreamRequest
 from app.services.chat_service import ChatStreamService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -62,8 +65,12 @@ async def chat_stream(
         first_billable = None
         METRICS.chat_active.inc()
         METRICS.chat_started.inc()
+        from collections.abc import AsyncGenerator
+        from typing import cast
+
+        stream_iterator: AsyncGenerator[str] = cast(AsyncGenerator[str], service.stream_chat(payload, user, last_event_id))
         try:
-            async for event in service.stream_chat(payload, user, last_event_id):
+            async for event in stream_iterator:
                 if first_billable is None and "event:delta" in event:
                     first_billable = time.perf_counter()
                     METRICS.ttfb.observe(first_billable - started)
@@ -77,10 +84,21 @@ async def chat_stream(
         else:
             METRICS.chat_completed.inc()
         finally:
-            METRICS.chat_active.dec()
-            METRICS.stream_duration.observe(time.perf_counter() - started)
-            if task is not None:
-                SHUTDOWN_STATE.active_streams.discard(task)
+            # بستن صریح async generator داخلی تا finally مالی/Heartbeat آن اجرا شود.
+            # active_streams.discard در try/finally تو در تو همیشه اجرا می‌شود، حتی اگر
+            # aclose خود CancelledError بیندازد (بدون بلعیدن لغو).
+            try:
+                try:
+                    await stream_iterator.aclose()
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.exception("chat_stream_aclose_failed")
+            finally:
+                METRICS.chat_active.dec()
+                METRICS.stream_duration.observe(time.perf_counter() - started)
+                if task is not None:
+                    SHUTDOWN_STATE.active_streams.discard(task)
 
     return StreamingResponse(
         gen(),

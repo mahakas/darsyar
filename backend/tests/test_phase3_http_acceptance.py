@@ -77,17 +77,28 @@ def provider_mock():
     thread.join(timeout=10)
 
 
-@pytest.fixture(scope="module")
+def _test_db_url() -> str:
+    """حل fail-safe URL دیتابیس تست (هرگز به settings.database_url برنگرد).
+
+    ترتیب: ۱) TEST_DATABASE_URL (env) → ۲) settings.test_database_url → ۳) خطای روشن.
+    """
+    url = os.environ.get("TEST_DATABASE_URL")
+    if url:
+        return url.strip().strip('"')
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    url = (getattr(settings, "test_database_url", "") or "").strip().strip('"')
+    if not url:
+        raise RuntimeError(
+            "TEST_DATABASE_URL is not set and settings.test_database_url is empty; "
+            "refusing to fall back to settings.database_url"
+        )
+    return url
+
+
 def api_server(provider_mock):
-    # read test DB URL from repo .env (non-secret)
-    env_path = BACKEND_DIR.parent / ".env"
-    test_url = ""
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        if line.startswith("TEST_DATABASE_URL="):
-            test_url = line.split("=", 1)[1].strip().strip('"')
-            break
-    if not test_url:
-        pytest.skip("TEST_DATABASE_URL not found in .env")
+    test_url = _test_db_url()
     env = os.environ.copy()
     env["DATABASE_URL"] = test_url
     env["REDIS_URL"] = "redis://127.0.0.1:6379/0"
@@ -125,21 +136,17 @@ def api_server(provider_mock):
 
 
 class TestHarness:
-    def __init__(self, base: str) -> None:
+    def __init__(self, base: str, test_db_url: str | None = None) -> None:
         self.base = base
         self.token = ""
         self.user_id = ""
+        self._test_db_url = test_db_url or _test_db_url()
 
     def _new_phone(self) -> str:
         return f"+989{str(uuid.uuid4().int)[:9]}"
 
     def _test_url(self) -> str:
-        env_path = BACKEND_DIR.parent / ".env"
-        return next(
-            line.split("=", 1)[1].strip().strip('"')
-            for line in env_path.read_text(encoding="utf-8").splitlines()
-            if line.startswith("TEST_DATABASE_URL=")
-        )
+        return self._test_db_url
 
     async def create_user_and_token(self) -> str:
         from app.core.security import create_token
@@ -180,7 +187,7 @@ class TestHarness:
 
 @pytest.fixture(scope="module")
 def harness(api_server) -> TestHarness:
-    h = TestHarness(api_server)
+    h = TestHarness(api_server, _test_db_url())
     # create user/token synchronously inside a fresh event loop
     asyncio.run(h.create_user_and_token())
     return h
@@ -253,7 +260,7 @@ async def test_http_ownership_isolation(harness: TestHarness) -> None:
         conv_id = str(c.id)
     await engine.dispose()
     # second user token
-    h2 = TestHarness(harness.base)
+    h2 = TestHarness(harness.base, harness._test_url())
     await h2.create_user_and_token()
     resp = await _post_stream(h2, {"conversation_id": conv_id, "content": "x", "client_request_id": "http0000000002"})
     assert resp.status_code == 404
