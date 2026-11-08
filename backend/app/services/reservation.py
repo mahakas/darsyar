@@ -3,11 +3,13 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.models.credit_account import CreditAccount
+from app.models.message import Message
 from app.models.reservation import Reservation
 from app.repositories import credit_accounts as accounts_repo
 from app.repositories import credit_ledger as ledger_repo
@@ -16,6 +18,7 @@ from app.repositories import reservations as reservations_repo
 
 INSUFFICIENT_CREDIT = AppError("insufficient_credit", 409, "اعتبار کافی موجود نیست.")
 RESERVATION_DEADLINE_MINUTES = 15
+STREAM_LEASE_EXPIRY_SECONDS = 60.0
 RESERVATION_DEADLINE_PASSED = AppError("reservation_deadline_passed", 409, "مهلت ۱۵ دقیقه‌ای رزرو گذشته است.")
 IDEMPOTENCY_CONFLICT = AppError("idempotency_conflict", 409, "کلید یکتا با بار متفاوت استفاده شده است.")
 INVALID_RESERVATION_STATE = AppError("invalid_reservation_state", 409, "وضعیت رزرو اجازهٔ این گذار را نمی‌دهد.")
@@ -287,7 +290,45 @@ class FinanceService:
         deadline = self._now() - timedelta(minutes=RESERVATION_DEADLINE_MINUTES)
         overdue = await reservations_repo.list_pending_overdue(self._session, deadline, batch_limit, user_id)
         released = 0
+        lease_cutoff = self._now() - timedelta(seconds=STREAM_LEASE_EXPIRY_SECONDS)
         for reservation in overdue:
+            # الف) حفاظت از Stream فعال: اگر پیام streaming مرتبط heartbeat تازه دارد، رهاسازی نشود.
+            active = (
+                await self._session.execute(
+                    select(Message.id).where(
+                        Message.reservation_id == reservation.id,
+                        Message.status == "streaming",
+                        Message.heartbeat_at >= lease_cutoff,
+                    ).limit(1)
+                )
+            ).first()
+            if active is not None:
+                continue
+            # ب) مرتبط‌سازی پیام/رزرو: اگر هیچ پیامی برای این رزرو نیست → fail-closed (نباز نکن).
+            msg_row = (
+                await self._session.execute(
+                    select(Message.id).where(Message.reservation_id == reservation.id).limit(1)
+                )
+            ).first()
+            if msg_row is None:
+                continue
+            # ج) ادعای شرطی برای هم‌زمانی با Heartbeat (linearization):
+            #    فقط اگر (heartbeat قدیمی یا NULL) و streaming باشد، پیام را terminated/باطل
+            #    می‌کنیم. اگر heartbeat تازه‌ای بین خواندن و اینجا commit شده باشد، این UPDATE
+            #    هیچ سطری را هدف نمی‌گیرد و release انجام نمی‌شود؛ Heartbeat بعدی با owner قدیمی
+            #    نیز شکست می‌خورد (fencing).
+            claim = (
+                await self._session.execute(
+                    text(
+                        "UPDATE messages SET stream_terminated = true, stream_owner_token = NULL "
+                        "WHERE reservation_id = :rid AND status = 'streaming' "
+                        "AND (heartbeat_at IS NULL OR heartbeat_at < :cutoff) RETURNING id"
+                    ),
+                    {"rid": str(reservation.id), "cutoff": lease_cutoff},
+                )
+            ).first()
+            if claim is None:
+                continue
             try:
                 await self.release(reservation.id, reason="reservation_deadline")
                 released += 1

@@ -3,6 +3,7 @@
 از FakeProvider برای شبیه‌سازی استریم provider استفاده می‌شود؛ بدون تماس LLM واقعی.
 """
 
+import asyncio
 import os
 import uuid
 from types import SimpleNamespace
@@ -235,3 +236,89 @@ async def test_late_completion_after_deadline_falls_back_to_release() -> None:
     kinds = await _ledger_kinds(uid)
     assert kinds.count("refund") == 1
     assert (await _balance(uid)) == 10
+
+
+class _HangProvider:
+    """provider که هرگز terminal نمی‌شود (برای تست لغو مستقیم)."""
+
+    def __init__(self, deltas_first: int = 0) -> None:
+        self.deltas_first = deltas_first
+
+    async def stream_chat(self, req):
+        from app.services.llm import ChatChunk
+
+        for _ in range(self.deltas_first):
+            yield ChatChunk(delta="x")
+        await asyncio.Future()
+
+
+async def _assistant_for_reservation(uid, reservation_id):
+    from app.models.message import Message
+    from sqlalchemy import select
+
+    async with TEST_SESSION_FACTORY() as session:
+        msg = (
+            await session.execute(
+                select(Message).where(
+                    Message.reservation_id == reservation_id,
+                    Message.user_id == uid,
+                    Message.role == "assistant",
+                )
+            )
+        ).scalar_one_or_none()
+        return msg
+
+
+@pytest.mark.asyncio
+async def test_cancellation_before_billable_releases() -> None:
+    """لغو مستقیم (asyncio.Task.cancel) پیش از billable -> released."""
+    uid = await _make_user_with_credits()
+    bal_before = await _balance(uid)
+    service = ChatStreamService(provider=_HangProvider(), session_factory=TEST_SESSION_FACTORY)
+    req = ChatStreamRequest(content="hi", client_request_id="cancel-a-0001")
+
+    async def drain():
+        async for _ in service.stream_chat(req, _user(uid)):
+            pass
+
+    task = asyncio.create_task(drain())
+    await asyncio.sleep(0.8)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    res = await _reservation(uid, "cancel-a-0001")
+    assert res is not None and res.status == "released"
+    assert await _balance(uid) == bal_before
+    kinds = await _ledger_kinds(uid)
+    assert kinds.count("spend") == 1
+    assert kinds.count("refund") == 1
+    msg = await _assistant_for_reservation(uid, res.id)
+    assert msg is not None and msg.status == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_cancellation_after_billable_settles() -> None:
+    """لغو مستقیم پس از حداقل یک delta billable -> settled (ADR-039)."""
+    uid = await _make_user_with_credits()
+    bal_before = await _balance(uid)
+    service = ChatStreamService(provider=_HangProvider(deltas_first=1), session_factory=TEST_SESSION_FACTORY)
+    req = ChatStreamRequest(content="hi", client_request_id="cancel-b-0001")
+
+    async def drain():
+        async for _ in service.stream_chat(req, _user(uid)):
+            pass
+
+    task = asyncio.create_task(drain())
+    await asyncio.sleep(0.8)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    res = await _reservation(uid, "cancel-b-0001")
+    assert res is not None and res.status == "settled"
+    assert await _balance(uid) == bal_before - 1
+    kinds = await _ledger_kinds(uid)
+    assert kinds.count("spend") == 1
+    msg = await _assistant_for_reservation(uid, res.id)
+    assert msg is not None and msg.status == "partial"

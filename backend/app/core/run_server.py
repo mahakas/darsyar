@@ -18,6 +18,7 @@ from typing import Any
 
 from uvicorn import Config, Server
 
+from app.core.config import get_settings
 from app.core.shutdown import SHUTDOWN_STATE
 
 
@@ -28,11 +29,16 @@ class DrainingServer(Server):
 
 
 def main() -> None:
+    settings = get_settings()
+    # سیاست shutdown واحد: Uvicorn graceful timeout باید حداقل برابر grace برنامه + حاشیهٔ
+    # cleanup باشد. با تنظیم CHAT_STREAM_SHUTDOWN_GRACE_SECONDS (مثلاً در CI) قابل کوتاه‌کردن
+    # است و نیازی به انتظار ۴۵ ثانیه‌ای hardcoded نیست.
+    graceful_timeout = max(settings.chat_stream_shutdown_grace_seconds + 10, 15)
     config = Config(
         "app.main:app",
         host="0.0.0.0",
         port=8000,
-        timeout_graceful_shutdown=45,
+        timeout_graceful_shutdown=graceful_timeout,
         log_level="warning",
     )
     server = DrainingServer(config)

@@ -15,7 +15,7 @@ from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -44,6 +44,95 @@ EVENT_ERROR = "error"
 EVENT_CANCELLED = "cancelled"
 
 _PERSIST_EVERY = 25
+_CLEANUP_TIMEOUT_SECONDS = 15.0
+_CLEANUP_CANCEL_GRACE_SECONDS = 3.0
+PULSE_INTERVAL_SECONDS = 10.0
+LEASE_EXPIRY_SECONDS = 60.0
+
+
+def _outer_cancelled() -> bool:
+    """تشخیص لغو خارجی Task (نه لغوی داخلی cleanup)."""
+    task = asyncio.current_task()
+    if task is None:
+        return False
+    cancelling = getattr(task, "cancelling", None)
+    if callable(cancelling):
+        return int(cancelling()) > 0
+    return False
+
+
+def _consume_cleanup_result(cleanup_task: asyncio.Task[object]) -> None:
+    """دریافت نتیجه/exception cleanup در صورت پایان؛ بدون بلعیدن صامت."""
+    try:
+        cleanup_task.result()
+    except asyncio.CancelledError:
+        logger.warning("chat_terminal_cleanup_cancelled")
+    except BaseException:
+        logger.exception("chat_terminal_cleanup_exception")
+
+
+async def _bounded_cleanup_wait(
+    cleanup_task: asyncio.Task[object],
+    phase1_timeout: float,
+    phase2_grace: float,
+) -> bool:
+    """انتظار سه-فازی با deadlineهای مطلق و مستقل؛ True اگر لغو خارجی رخ داده باشد.
+
+    مرحله ۱ (تا `phase1_timeout` ثانیه): صبر برای تکمیل cleanup با تحمل لغو خارجی؛
+        لغو خارجی **هرگز** cleanup را cancel نمی‌کند (حفاظت shield).
+    مرحله ۲ (فقط پس از انقضای واقعی مهلت ۱): `cleanup_task.cancel()` + حداکثر
+        `phase2_grace` ثانیه فرصت اضافی (deadline مستقل).
+    مرحله ۳: اگر هنوز pending بود، reference قوی در `SHUTDOWN_STATE.pending_cleanups`
+        ثبت می‌شود و خطای بحرانی با شناسهٔ همبستگی لاگ می‌شود؛ DB disposal مسدود می‌ماند.
+
+    هیچ await نامحدودی در مسیر نیست؛ deadlineها بر پایه `loop.time()` محاسبه می‌شوند.
+    """
+    from app.core.shutdown import SHUTDOWN_STATE
+
+    loop = asyncio.get_running_loop()
+    cancelled = False
+
+    # ---- Phase 1: tolerate outer cancellations; never cancel cleanup here ----
+    deadline1 = loop.time() + phase1_timeout
+    while True:
+        if cleanup_task.done():
+            break
+        remaining = deadline1 - loop.time()
+        if remaining <= 0:
+            break
+        try:
+            await asyncio.wait({cleanup_task}, timeout=remaining)
+        except asyncio.CancelledError:
+            cancelled = cancelled or _outer_cancelled()
+            # ادامه انتظار روی هم‌ان cleanup؛ بدون cancel
+    if cleanup_task.done():
+        _consume_cleanup_result(cleanup_task)
+        return cancelled
+
+    # ---- Phase 2: only now (deadline genuinely expired) request cancellation ----
+    cleanup_task.cancel()
+    deadline2 = loop.time() + phase2_grace
+    while True:
+        if cleanup_task.done():
+            break
+        remaining = deadline2 - loop.time()
+        if remaining <= 0:
+            break
+        try:
+            await asyncio.wait({cleanup_task}, timeout=remaining)
+        except asyncio.CancelledError:
+            cancelled = cancelled or _outer_cancelled()
+    if cleanup_task.done():
+        _consume_cleanup_result(cleanup_task)
+        return cancelled
+
+    # ---- Phase 3: pending -> strong reference registry + fail-closed ----
+    SHUTDOWN_STATE.pending_cleanups.add(cleanup_task)
+    logger.critical(
+        "chat_terminal_cleanup_pending",
+        extra={"cleanup_task": repr(cleanup_task)},
+    )
+    return cancelled
 
 
 class ChatStreamService:
@@ -145,10 +234,57 @@ class ChatStreamService:
         async with self._session_factory() as session:
             return await conv_repo.get_message_by_reservation(session, reservation_id)
 
-    async def _persist_content(self, message_id: uuid.UUID, content: str) -> None:
+    async def _persist_content(self, message_id: uuid.UUID, content: str, owner_token: str) -> bool:
+        """ذخیرهٔ محتوای جزئی؛ فقط با مالکیت معتبر و وضعیت streaming (fencing)."""
         async with self._session_factory() as session:
-            await conv_repo.set_message_status(session, message_id, "streaming", content=content)
+            row = (
+                await session.execute(
+                    update(Message).where(
+                        Message.id == message_id,
+                        Message.status == "streaming",
+                        Message.stream_owner_token == owner_token,
+                    ).values(content=content).returning(Message.id)
+                )
+            ).first()
             await session.commit()
+            return row is not None
+
+    async def _assert_stream_owned(self, message_id: uuid.UUID, owner_token: str) -> bool:
+        """سازگاری مالکیت در لحظهٔ انتشار Delta (linearization point).
+
+        اگر Recovery مالکیت را باطل کرده باشد (owner=NULL / stream_terminated)، این بررسی
+        false برمی‌گرداند و Stream قدیمی باید بدون fallback abort شود.
+        """
+        async with self._session_factory() as session:
+            row = (
+                await session.execute(
+                    select(Message.id).where(
+                        Message.id == message_id,
+                        Message.status == "streaming",
+                        Message.stream_owner_token == owner_token,
+                    ).limit(1)
+                )
+            ).first()
+            return row is not None
+
+    async def _mark_billable_durable(self, message_id: uuid.UUID, owner_token: str) -> bool:
+        """ثبت پایدار نشانگر billable پیش از انتشار نخستین Delta.
+
+        اگر مالکیت از دست رفته باشد (recovery قبلاً ادعا کرده)، این درخواست باید no-op شود.
+        """
+        async with self._session_factory() as session:
+            row = (
+                await session.execute(
+                    update(Message).where(
+                        Message.id == message_id,
+                        Message.status == "streaming",
+                        Message.stream_owner_token == owner_token,
+                        Message.billable_output_seen.is_(False),
+                    ).values(billable_output_seen=True).returning(Message.id)
+                )
+            ).first()
+            await session.commit()
+            return row is not None
 
     async def _finalize(
         self, reservation_id: uuid.UUID, billable: bool
@@ -193,6 +329,107 @@ class ChatStreamService:
         finally:
             await s2.close()
 
+    async def _heartbeat_loop(self, message_id: uuid.UUID, owner_token: str) -> None:
+        """ضربان پایدار Stream؛ مستقل از تولید Token؛ فقط با مالکیت و وضعیت streaming."""
+        while True:
+            await asyncio.sleep(PULSE_INTERVAL_SECONDS)
+            try:
+                async with self._session_factory() as session:
+                    await session.execute(
+                        update(Message).where(
+                            Message.id == message_id,
+                            Message.status == "streaming",
+                            Message.stream_owner_token == owner_token,
+                        ).values(heartbeat_at=datetime.now(UTC))
+                    )
+                    await session.commit()
+            except Exception:  # noqa: BLE001
+                logger.debug("heartbeat_failed")
+
+    async def _finalize_atomic(
+        self,
+        reservation_id: uuid.UUID,
+        billable: bool,
+        assistant_id: uuid.UUID,
+        terminal_status: str,
+        content: str,
+        owner_token: str | None = None,
+    ) -> tuple[bool, str]:
+        """نهایی‌سازی مالی + پیام در یک تراکنش PostgreSQL (بدون شکاف Crash).
+
+        - بدون billable → release؛ با billable → settle (با حفظ deadline/late-completion).
+        - اگر settle به‌علت مهلت رد شود، rollback صافی (savepoint) و مسیر release امن.
+        - وضعیت Message در همان تراکنش به وضعیت نهایی معتبر منتقل می‌شود.
+        - متریک مالی فقط پس از commit در caller emit می‌شود.
+        """
+        session = self._session_factory()
+        try:
+            finance = FinanceService(session)
+            settled = False
+            if billable:
+                try:
+                    async with session.begin_nested():
+                        await finance.settle(reservation_id)
+                    settled = True
+                except AppError:
+                    # مهلت/late-completion (D-07/OQ-030): rollback nested + fallback release
+                    pass
+            if not settled:
+                await finance.release(reservation_id, reason="chat_terminal_release")
+            # وضعیت نهایی پیام در همان تراکنش؛ فقط از حالت streaming قابل تغییر است (fencing).
+            if settled:
+                msg_status = terminal_status
+            else:
+                msg_status = terminal_status if terminal_status in ("failed", "partial") else "cancelled"
+            values: dict[str, object] = {
+                "status": msg_status,
+                "content": content,
+                "billable_output_seen": billable,
+                "stream_terminated": True,
+            }
+            if settled:
+                values["settled_at"] = datetime.now(UTC)
+            # Fencing: فقط با مالکیت معتبر و وضعیت streaming قابل تغییر است.
+            message_where = [Message.id == assistant_id, Message.status == "streaming"]
+            if owner_token is not None:
+                message_where.append(Message.stream_owner_token == owner_token)
+            claimed_msg = (
+                await session.execute(update(Message).where(*message_where).values(**values).returning(Message.id))
+            ).first()
+            if claimed_msg is None:
+                # مالکیت از دست رفته (recovery پیشتر ادعا کرده)؛ از تعهد مالی ناقص جلوگیری کن.
+                await session.rollback()
+                return False, "lost_ownership"
+            await session.commit()
+            return settled, ("settled" if settled else "released")
+        except BaseException:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+    async def _run_terminal_cleanup(
+        self,
+        reservation_id: uuid.UUID,
+        billable: bool,
+        assistant_id: uuid.UUID,
+        terminal_status: str,
+        content: str,
+        owner_token: str | None = None,
+    ) -> None:
+        """نهایی‌سازی مالی + وضعیت پیام به‌صورت اتمیک (ایمن در برابر لغو).
+
+        متریک مالی فقط پس از commit موفق تراکنش emit می‌شود.
+        """
+        try:
+            settled, outcome = await self._finalize_atomic(
+                reservation_id, billable, assistant_id, terminal_status, content, owner_token
+            )
+            if outcome != "lost_ownership":
+                self._emit_financial(outcome)
+        except Exception:  # noqa: BLE001 - never report uncommitted outcome as success
+            logger.exception("chat_terminal_finalize_failed")
+
     async def _record_terminal(
         self, message_id: uuid.UUID, status: str, content: str, settled: bool
     ) -> None:
@@ -236,6 +473,17 @@ class ChatStreamService:
                 yield ev
             return
         user_msg_id, assistant_id = await self._create_messages(conv.id, user.id, req.content, req.client_request_id, reservation.id)
+        # مالکیت Stream + heartbeat اولیه (fencing برای recovery)
+        owner_token = str(uuid.uuid4())
+        async with self._session_factory() as session:
+            await session.execute(
+                update(Message).where(Message.id == assistant_id).values(
+                    stream_owner_token=owner_token, heartbeat_at=datetime.now(UTC)
+                )
+            )
+            await session.commit()
+        heartbeat_task = asyncio.create_task(self._heartbeat_loop(assistant_id, owner_token))
+
         request_id = str(uuid.uuid4())
         seq = 0
         seq += 1
@@ -249,6 +497,7 @@ class ChatStreamService:
         terminal_status = "completed"
         terminal_error: str | None = None
         finalized = False
+        lost_ownership = False
 
         try:
             attempts = 0
@@ -265,16 +514,32 @@ class ChatStreamService:
                         if chunk.done:
                             break
                         if chunk.delta:
+                            # قبل از هر Delta billable، مالکیت دوباره بررسی می‌شود (fencing هر Delta)
+                            if not await self._assert_stream_owned(assistant_id, owner_token):
+                                lost_ownership = True
+                                break
+                            if not billable:
+                                # ثبت پایدار billable پیش از انتشار نخستین Delta (fencing)
+                                if not await self._mark_billable_durable(assistant_id, owner_token):
+                                    lost_ownership = True
+                                    break
                             emitted = True
                             billable = True
                             parts.append(chunk.delta)
                             seq += 1
                             yield self._sse(seq, EVENT_DELTA, {"sequence": seq, "content": chunk.delta})
                             if len(parts) % _PERSIST_EVERY == 0:
-                                await self._persist_content(assistant_id, "".join(parts))
+                                await self._persist_content(assistant_id, "".join(parts), owner_token)
+                        if lost_ownership:
+                            break
                 except asyncio.CancelledError:
-                    terminal_status = "cancelled"
+                    # وضعیت terminal دقیق بر اساس ADR-039:
+                    # بدون خروجی billable -> cancelled؛ با خروجی billable -> partial (settle).
+                    terminal_status = "partial" if billable else "cancelled"
                     raise
+                if lost_ownership:
+                    terminal_status = "cancelled"
+                    break
                 if not emitted and err is None:
                     break
                 if not emitted and err is not None:
@@ -290,15 +555,33 @@ class ChatStreamService:
                     terminal_error = err
                 break
         finally:
+            if not heartbeat_task.done():
+                heartbeat_task.cancel()
+                await asyncio.gather(heartbeat_task, return_exceptions=True)
             if not finalized:
                 finalized = True
                 content = "".join(parts)
-                try:
-                    settled, outcome = await self._finalize(reservation.id, billable)
-                    await self._record_terminal(assistant_id, terminal_status, content, settled)
-                except Exception:  # noqa: BLE001 - never let cleanup mask cancellation
-                    # log and continue; do not suppress cancellation
-                    logger.exception("chat_terminal_finalize_failed")
+                # سیاست زمانی صریح دو-فازی (deadlineهای مستقل):
+                #   مرحله ۱: تا _CLEANUP_TIMEOUT_SECONDS (۱۵s) برای cleanup عادی.
+                #   مرحله ۲: اگر هنوز تمام نشده، cancel + حداکثر _CLEANUP_CANCEL_GRACE_SECONDS (۳s)
+                #             فرصت اضافی (deadline مستقل؛ از deadline منقضی‌شدهٔ مرحله ۱ استفاده نمی‌شود).
+                # خود task نیز hard-bounded است (wait_for داخلی ۱۵s) تا هیچ Task دارای DB access
+                # پس از dispose نماند و همه انتظارها کران‌دار باشند.
+                cleanup_task = asyncio.create_task(
+                    asyncio.wait_for(
+                        self._run_terminal_cleanup(
+                            reservation.id, billable, assistant_id, terminal_status, content, owner_token
+                        ),
+                        timeout=_CLEANUP_TIMEOUT_SECONDS,
+                    )
+                )
+                cancelled = await _bounded_cleanup_wait(
+                    cleanup_task,
+                    _CLEANUP_TIMEOUT_SECONDS,
+                    _CLEANUP_CANCEL_GRACE_SECONDS,
+                )
+                if cancelled:
+                    raise asyncio.CancelledError
 
         if terminal_error is not None:
             seq += 1

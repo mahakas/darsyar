@@ -24,6 +24,9 @@ dependencies = [
   "argon2-cffi>=25.0.0,<26.0.0",
   "PyJWT[crypto]>=2.10.0,<3.0.0",
   "tzdata>=2024.1,<2026.0",
+  # وابستگی مستقیم برای ماژول‌های inference (numpy در زمان import لازم است)؛
+  # نباید به transitive RAG وابسته باشد.
+  "numpy>=1.26,<3.0",
 ]
 
 [project.optional-dependencies]

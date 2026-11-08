@@ -43,9 +43,9 @@ async def test_metrics_endpoint_rejects_external_peer() -> None:
 
 def test_worker_schedules_stale_release_cron() -> None:
     settings_cls = WorkerSettings
-    assert len(settings_cls.cron_jobs) == 1
-    assert settings_cls.cron_jobs[0].name == "release-stale-reservations"
-    assert settings_cls.cron_jobs[0].run_at_startup is True
+    names = {cj.name for cj in settings_cls.cron_jobs}
+    assert names == {"release-stale-reservations", "recover-orphan-stream-messages"}
+    assert all(cj.run_at_startup is True for cj in settings_cls.cron_jobs)
 
 
 def test_draining_server_sets_draining_on_signal() -> None:

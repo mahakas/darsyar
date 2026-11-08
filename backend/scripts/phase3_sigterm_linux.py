@@ -1,12 +1,17 @@
 # ruff: noqa: ASYNC210,ASYNC221,ASYNC251,ASYNC110  (اسکریپت ارکستراسیون Linux CI؛ blocking عمدی است)
 """آزمون process-level Linux (GitHub CI): Open SSE + SIGTERM واقعی + تأیید مالی PostgreSQL.
 
-دو سناریو:
-  A) بدون خروجی billable → انتظار: reservation -> released (قبل از cron)
-  B) پس از یک delta billable → انتظار: settle طبق ADR-039
+هر سناریو سرورِ جداگانه‌ای (python -m app.core.run_server / Uvicorn 0.54.0) را در
+subprocess شروع می‌کند، SIGTERM واقعی به PID اصلی می‌دهد، و بعد از خروج، با اتصال
+مستقل PostgreSQL وضعیت نهایی رزرو را می‌خواند.
 
-سرور با `python -m app.core.run_server` (Uvicorn 0.54.0 + Early Draining) در subprocess
-واقعی اجرا می‌شود؛ SIGTERM به PID اصلی ارسال می‌شود. هیچ تماس پولی ارسال نمی‌شود.
+  A) بدون خروجی billable            -> reservation باید `released` شود
+  B) پس از حداقل یک delta billable   -> reservation باید `settled` شود (ADR-039)
+
+خروجی مورد انتظار:
+  SCENARIO_A(open-no-billable)=PASS
+  SCENARIO_B(open-after-billable)=PASS
+  OVERALL_PASS
 """
 
 import asyncio
@@ -28,6 +33,7 @@ from fastapi.responses import StreamingResponse
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 MOCK_PORT = 9191
 DEV_SECRET = "ci-only-signing-secret-never-use-outside-tests-39"
+GRACE_SECONDS = os.environ.get("CHAT_STREAM_SHUTDOWN_GRACE_SECONDS", "8")
 
 MOCK = {"mode": "hang", "calls": 0}
 
@@ -61,12 +67,12 @@ def provider_app() -> FastAPI:
     return app
 
 
-def _start_provider() -> None:
+def start_provider() -> None:
     config = uvicorn.Config(provider_app(), host="127.0.0.1", port=MOCK_PORT, log_level="warning")
     uvicorn.Server(config).run()
 
 
-async def _pg_conn():
+async def _pg_sessionmaker():
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
     from sqlalchemy.pool import NullPool
 
@@ -74,14 +80,14 @@ async def _pg_conn():
     return engine, async_sessionmaker(engine, expire_on_commit=False)
 
 
-async def _create_user() -> str:
+async def create_user() -> tuple[str, str]:
     from datetime import UTC, datetime
 
     import jwt as pyjwt
     from app.repositories import credit_accounts as accounts
     from app.repositories import users as users_repo
 
-    engine, sf = await _pg_conn()
+    engine, sf = await _pg_sessionmaker()
     try:
         async with sf() as session:
             phone = f"+989{str(uuid.uuid4().int)[:9]}"
@@ -100,10 +106,10 @@ async def _create_user() -> str:
     return uid, token
 
 
-async def _reservation_status(user_id: str, key: str) -> str | None:
+async def reservation_status(user_id: str, key: str) -> str | None:
     from app.repositories import reservations as res
 
-    engine, sf = await _pg_conn()
+    engine, sf = await _pg_sessionmaker()
     try:
         async with sf() as session:
             r = await res.get_by_idempotency_key(session, uuid.UUID(user_id), key)
@@ -112,7 +118,7 @@ async def _reservation_status(user_id: str, key: str) -> str | None:
         await engine.dispose()
 
 
-def _start_server() -> subprocess.Popen:
+def start_server(tag: str) -> subprocess.Popen:
     env = os.environ.copy()
     env.update(
         {
@@ -126,19 +132,19 @@ def _start_server() -> subprocess.Popen:
             "LLM_MAX_RETRIES": "0",
             "INFERENCE_MODE": "service",
             "EMBEDDING_BACKEND": "remote",
-            "CHAT_STREAM_SHUTDOWN_GRACE_SECONDS": "8",
+            "CHAT_STREAM_SHUTDOWN_GRACE_SECONDS": GRACE_SECONDS,
         }
     )
     return subprocess.Popen(
         [sys.executable, "-m", "app.core.run_server"],
         cwd=str(BACKEND_DIR),
         env=env,
-        stdout=open("server_stdout.log", "w"),
-        stderr=open("server_stderr.log", "w"),
+        stdout=open(f"server_{tag}_stdout.log", "w"),
+        stderr=open(f"server_{tag}_stderr.log", "w"),
     )
 
 
-async def _wait_health(proc, health_timeout: float = 40) -> bool:
+async def wait_health(proc, health_timeout: float = 40) -> bool:
     deadline = time.time() + health_timeout
     while time.time() < deadline:
         if proc.poll() is not None:
@@ -148,72 +154,95 @@ async def _wait_health(proc, health_timeout: float = 40) -> bool:
                 return True
         except Exception:
             pass
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.5)  # noqa: ASYNC110
     return False
 
 
-async def _run_scenario(mode: str, crid_suffix: str) -> tuple[str, str | None]:
+async def run_scenario(mode: str, tag: str) -> tuple[str, str]:
     MOCK["mode"] = mode
-    uid, token = await _create_user()
-    crid = f"linux-{mode}-{crid_suffix}"
-    key = f"chat:{uid}:{crid}"
-    poll_task = None
+    MOCK["calls"] = 0
+    proc = start_server(tag)
+    try:
+        if not await wait_health(proc):
+            return "FAIL", "server not healthy / startup failed"
+        uid, token = await create_user()
+        crid = f"linux-{mode}-{tag}"
+        key = f"chat:{uid}:{crid}"
+        poll_task = None
+        calls_before = MOCK["calls"]
 
-    async with httpx.AsyncClient(timeout=40, http2=False) as client:
-        async with client.stream(
-            "POST", "http://127.0.0.1:8000/api/v1/chat/stream",
-            json={"content": "hello", "client_request_id": crid},
-            headers={"Authorization": f"Bearer {token}"},
-        ) as resp:
-            if resp.status_code != 200:
-                return "FAIL", f"stream status {resp.status_code}"
-            await asyncio.sleep(0.5)
+        async with httpx.AsyncClient(timeout=40) as client:
+            async with client.stream(
+                "POST", "http://127.0.0.1:8000/api/v1/chat/stream",
+                json={"content": "hello", "client_request_id": crid},
+                headers={"Authorization": f"Bearer {token}"},
+            ) as resp:
+                if resp.status_code != 200:
+                    return "FAIL", f"stream status {resp.status_code}"
+                if mode == "delta":
+                    # مصرف تا اولین delta billable تا ثابت شود خروجی واقعاً تولید شده است
+                    emitted = False
+                    async for line in resp.aiter_lines():
+                        if line.startswith("event:delta"):
+                            emitted = True
+                            break
+                    if not emitted:
+                        return "FAIL", "no billable delta emitted before SIGTERM"
+                else:
+                    # scenario A: provider فعال ولی بدون خروجی billable
+                    if calls_before == MOCK["calls"]:
+                        await asyncio.sleep(0.5)  # noqa: ASYNC110
+                    if MOCK["calls"] <= calls_before:
+                        return "FAIL", "provider not invoked (no reservation flow)"
+                    await asyncio.sleep(0.3)  # noqa: ASYNC110
 
-            async def poll_release():
-                t0 = time.time()
-                while time.time() - t0 < 25:
-                    st = await _reservation_status(uid, key)
-                    if st is not None and st in ("released", "settled"):
-                        return st, time.time() - t0
-                    await asyncio.sleep(0.3)
-                return None, time.time() - t0
+                async def poll_terminal():
+                    t0 = time.time()
+                    while time.time() - t0 < 30:
+                        st = await reservation_status(uid, key)
+                        if st in ("released", "settled"):
+                            return st, time.time() - t0
+                        await asyncio.sleep(0.3)  # noqa: ASYNC110
+                    return None, time.time() - t0
 
-            poll_task = asyncio.create_task(poll_release())
-            # ارسال SIGTERM واقعی به PID اصلی
-            os.kill(proc.pid, signal.SIGTERM)
+                poll_task = asyncio.create_task(poll_terminal())
+                os.kill(proc.pid, signal.SIGTERM)
+                status, elapsed = await poll_task
+            # اتصال بسته شد
 
-            status, elapsed = await poll_task
-            # اتصال را ببند
-        # صبر برای خروج process
         try:
-            proc.wait(timeout=60)
+            proc.wait(timeout=40)
         except subprocess.TimeoutExpired:
             proc.kill()
             return "FAIL", "server did not exit in time"
-    # after proc exit, re-read reservation with independent connection
-    final_status = await _reservation_status(uid, key)
-    if mode == "hang":
-        expect = "released"
-    else:
-        expect = "settled"
-    if final_status != expect:
-        return "FAIL", f"expected {expect}, got {final_status}"
-    return "PASS", f"{final_status} after {elapsed:.1f}s"
+
+        final_status = await reservation_status(uid, key)
+        expect = "released" if mode == "hang" else "settled"
+        if final_status != expect:
+            return "FAIL", f"expected {expect}, got {final_status}"
+        if status != expect:
+            return "FAIL", f"terminal poll {status} != {expect}"
+        return "PASS", f"{final_status} after {elapsed:.1f}s"
+    except Exception as exc:  # noqa: BLE001
+        return "FAIL", f"unhandled: {type(exc).__name__}: {exc}"
+    finally:
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
 
 
 async def main() -> int:
-    threading.Thread(target=_start_provider, daemon=True).start()
+    threading.Thread(target=start_provider, daemon=True).start()
     time.sleep(2)
-    global proc
-    proc = _start_server()
-    if not await _wait_health(proc):
-        print("FAIL server not healthy")
-        return 2
 
-    r_a, d_a = await _run_scenario("hang", "a")
-    print(f"SCENARIO_A(open-no-billable)={r_a} detail={d_a}")
-    r_b, d_b = await _run_scenario("delta", "b")
-    print(f"SCENARIO_B(open-after-billable)={r_b} detail={d_b}")
+    r_a, d_a = await run_scenario("hang", "a")
+    print(f"SCENARIO_A(open-no-billable)={r_a}")
+    MOCK["calls"] = 0
+    r_b, d_b = await run_scenario("delta", "b")
+    print(f"SCENARIO_B(open-after-billable)={r_b}")
 
     ok = r_a == "PASS" and r_b == "PASS"
     print("OVERALL_PASS" if ok else "OVERALL_FAIL")
@@ -221,5 +250,4 @@ async def main() -> int:
 
 
 if __name__ == "__main__":
-    proc = None
     sys.exit(asyncio.run(main()))

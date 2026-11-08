@@ -61,8 +61,52 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 METRICS.shutdown_forced_cancellations.inc()
             await asyncio.gather(*remaining, return_exceptions=True)
         METRICS.shutdown_drain.observe(time.monotonic() - drain_started)
+
+        # ------------------------------------------------------------------
+        # سیاست Shutdown صریح برای pending cleanupها — Durable recovery (B):
+        #  1) انتظار bounded برای تکمیل cleanupهای ثبت‌شده.
+        #  2) دریافت نتیجه/exception همهٔ taskهای به‌پایان‌رسیده.
+        #  3) اگر همچنان pending: توقف کنترل‌شده (cancel) + تأیید پایان با مهلت محدود.
+        #  4) اگر بعد از توقف کنترل‌شده باز ادامه دارد: fail-closed — DB dispose انجام
+        #     نمی‌شود؛ reservation در وضعیت uncommitted باقی می‌ماند و Worker مستقل
+        #     (reconciliation cron) پس از راه‌اندازی مجدد آن را بازیابی می‌کند.
+        # ------------------------------------------------------------------
+        dispose_engine = True
+        pending_cleanups = [t for t in SHUTDOWN_STATE.pending_cleanups if not t.done()]
+        if pending_cleanups:
+            logger.warning(
+                "shutdown_pending_cleanups", extra={"count": len(pending_cleanups)}
+            )
+            done_set, _ = await asyncio.wait(set(pending_cleanups), timeout=grace)
+            for task in done_set:
+                try:
+                    task.result()
+                except asyncio.CancelledError:
+                    logger.warning("shutdown_pending_cleanup_cancelled")
+                except BaseException:
+                    logger.exception("shutdown_pending_cleanup_exception")
+            still_pending = [t for t in pending_cleanups if not t.done()]
+            if still_pending:
+                # توقف کنترل‌شده + تأیید پایان (مهلت محدود مستقل)
+                for task in still_pending:
+                    task.cancel()
+                confirm_done, _ = await asyncio.wait(
+                    set(still_pending), timeout=3.0
+                )
+                running = [t for t in still_pending if not t.done()]
+                if running:
+                    # fail-closed: DB dispose انجام نمی‌شود؛ recovery توسط Worker.
+                    logger.critical(
+                        "shutdown_pending_cleanups_fail_closed",
+                        extra={"count": len(running)},
+                    )
+                    dispose_engine = False
+
         await app.state.redis.aclose()
-        await engine.dispose()
+        if dispose_engine:
+            await engine.dispose()
+        else:
+            logger.critical("shutdown_db_dispose_skipped_durable_recovery")
         logger.info("shutdown_completed")
 
 
