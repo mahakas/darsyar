@@ -1,6 +1,6 @@
 # Phase 4: Knowledge Ingestion
 
-**Status:** Planned; requires license and grade mapping decisions  
+**Status:** Planned; governance decisions accepted on 2026-11-09; implementation not started. Production ingestion remains gated by source-specific license approval.  
 **Dependencies:** Phase 0 and phase 3 inference/worker interfaces
 
 ## Governance decisions (2026-11-09)
