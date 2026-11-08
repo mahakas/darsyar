@@ -1,8 +1,31 @@
 # ADR-037: نگاشت grade و محتوای نظام قدیم
 
-- Status: proposed
-- Context: شماره‌گذاری نظام آموزشی قدیم و جاری یکسان نیست و نگاشت خاموش می‌تواند grade ceiling را نقض کند.
-- Decision: grades جاری ۱–۱۲ canonical هستند؛ legacy pre-university به صورت خودکار به ۱۲ نرود تا metadata/مالکیت نگاشت تأیید شود.
-- Rejected alternatives: نسبت دادن هر مسیر legacy به ۱۲ بدون بررسی.
-- Consequences: manifest و صف review برای اسناد مبهم لازم است.
-- Affected files: `docs/GRADE_MAPPING.md`, ingestion metadata, tests.
+- Status: accepted
+- Decision date: 2026-11-09 (تصمیم صریح مالک)
+
+## Context
+
+شماره‌گذاری نظام آموزشی قدیم و جاری یکسان نیست و نگاشت خاموش می‌تواند محتوای نامتناسب را در سقف پایهٔ اشتباه قرار دهد. متن R-011 و R-152 پیش از این مسیرهای legacy را به پایهٔ ۱۲ نگاشت می‌کردند، در حالی که اعتبار این هم‌ارزی تأیید نشده بود.
+
+## Decision
+
+- پایه‌های جاری ۱ تا ۱۲، gradeهای canonical محصول باقی می‌مانند.
+- مسیرهای `pre_university` و `grade_pre` **به‌صورت خودکار به پایهٔ ۱۲ یا هر پایهٔ دیگری نگاشت نمی‌شوند**.
+- هر سند دارای این مسیرها تا بررسی انسانی، تأیید صریح مالک و ثبت `grade` canonical در manifest در وضعیت `needs_review` می‌ماند.
+- نام پوشه، عنوان فایل یا فرض کلی دربارهٔ نظام آموزشی به‌تنهایی مدرک تعیین grade نیست.
+- تا پیش از ثبت نگاشت صریح و تأییدشده برای همان سند، سند وارد corpus آمادهٔ بازیابی یا ingestion تولیدی نمی‌شود.
+
+## Rejected alternatives
+
+- نسبت دادن همهٔ مسیرهای legacy به پایهٔ ۱۲: رد شد، چون هم‌ارزی محتوایی و آموزشی هر منبع اثبات نشده و می‌تواند grade ceiling را نقض کند.
+- حدس grade از نام فایل یا پوشه: رد شد، چون metadata ناقص نباید به تخصیص خاموش تبدیل شود.
+
+## Consequences
+
+- `OQ-009` با این سیاست بسته می‌شود؛ وضعیت پیش‌فرض legacy همچنان `needs_review` است، نه grade ۱۲.
+- `docs/GRADE_MAPPING.md`, `AGENTS.md`, manifest و تست‌های ingestion باید با این تصمیم هم‌راستا باشند.
+- هر توسعهٔ دامنهٔ دانشگاه یا پیش‌دانشگاهی به‌عنوان دورهٔ مستقل به ADR و تأیید جداگانه نیاز دارد.
+
+## Affected files
+
+`AGENTS.md`, `docs/DECISIONS.md`, `docs/OPEN_QUESTIONS.md`, `docs/GRADE_MAPPING.md`, ingestion metadata و tests.
