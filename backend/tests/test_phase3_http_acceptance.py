@@ -97,6 +97,7 @@ def _test_db_url() -> str:
     return url
 
 
+@pytest.fixture(scope="module")
 def api_server(provider_mock):
     test_url = _test_db_url()
     env = os.environ.copy()
@@ -128,11 +129,16 @@ def api_server(provider_mock):
         proc.terminate()
         pytest.skip("API server did not become healthy")
     yield base
+    # teardown قابل اتکا: ابتدا terminate نرمال، صبر، سپس فقط پس از timeout force-kill.
     proc.terminate()
     try:
         proc.wait(timeout=15)
     except subprocess.TimeoutExpired:
         proc.kill()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
 
 
 class TestHarness:

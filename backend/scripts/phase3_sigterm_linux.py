@@ -52,11 +52,13 @@ def provider_app() -> FastAPI:
 
         async def hang():
             while True:
-                yield b""
-                await asyncio.sleep(5)
+                # comment معتبر SSE (بدون محتوای billable) تا پاسخ provider باز بماند
+                yield b": keepalive\n\n"
+                await asyncio.sleep(2)
 
         async def one_delta_then_hang():
             yield b'data: {"id":"mock","choices":[{"delta":{"content":"partial"}}]}\n\n'
+            await asyncio.sleep(0.5)
             async for _ in hang():
                 yield _
 
@@ -210,19 +212,29 @@ async def run_scenario(mode: str, tag: str) -> tuple[str, str]:
                 status, elapsed = await poll_task
             # اتصال بسته شد
 
+        fallback_kill = False
         try:
             proc.wait(timeout=40)
         except subprocess.TimeoutExpired:
             proc.kill()
-            return "FAIL", "server did not exit in time"
+            fallback_kill = True
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
 
         final_status = await reservation_status(uid, key)
         expect = "released" if mode == "hang" else "settled"
         exit_code = proc.returncode if proc.poll() is not None else None
         diag = (
             f"res_after={final_status} expect={expect} poll={status} elapsed={elapsed:.1f}s "
-            f"provider_calls={MOCK['calls']} exit_code={exit_code}"
+            f"provider_calls={MOCK['calls']} exit_code={exit_code} fallback_kill={fallback_kill}"
         )
+        # خروج نرمال باید کد 0 باشد؛ -15/-9 پذیرفته نمی‌شوند.
+        if exit_code != 0:
+            return "FAIL", f"{diag} (expected graceful exit 0, got {exit_code})"
+        if fallback_kill:
+            return "FAIL", f"{diag} (fallback kill was required)"
         if final_status != expect:
             return "FAIL", f"{diag} (expected {expect}, got {final_status})"
         if status != expect:

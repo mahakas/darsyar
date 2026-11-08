@@ -312,8 +312,12 @@ class FinanceService:
                         )
                     ).first()
                     if msg_row is None:
-                        await cand_session.rollback()
+                        # رزرو finance-only: هیچ پیامی ندارد؛ به‌صورت امن release می‌شود.
+                        await FinanceService(cand_session).release(reservation.id, reason="reservation_deadline")
+                        await cand_session.commit()
+                        released += 1
                         continue
+                    # پیام مرتبط وجود دارد → ادعای lease‑آگاه (اگر heartbeat تازه باشد، release نمی‌شود).
                     claim = (
                         await cand_session.execute(
                             text(
@@ -330,7 +334,7 @@ class FinanceService:
                     await FinanceService(cand_session).release(reservation.id, reason="reservation_deadline")
                     await cand_session.commit()
                     released += 1
-                except AppError:
+                except (AppError, Exception):
                     await cand_session.rollback()
                     continue
         return released

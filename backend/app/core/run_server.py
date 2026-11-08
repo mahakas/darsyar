@@ -15,12 +15,15 @@ subclass رسمی و محدود از `uvicorn.Server` است.
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from uvicorn import Config, Server
 
 from app.core.config import get_settings
 from app.core.shutdown import SHUTDOWN_STATE
+
+logger = logging.getLogger(__name__)
 
 
 class DrainingServer(Server):
@@ -40,21 +43,25 @@ class DrainingServer(Server):
         SHUTDOWN_STATE.draining = True
         settings = get_settings()
         grace = settings.chat_stream_shutdown_grace_seconds
+        logger.info("draining_server_shutdown_entered", extra={"grace": grace, "active": len(SHUTDOWN_STATE.active_streams)})
 
         # ۱) منتظر پایان جریان‌های ثبت‌شده تا مهلت باش
         if SHUTDOWN_STATE.active_streams:
             pending = set(SHUTDOWN_STATE.active_streams)
             await asyncio.wait(pending, timeout=grace)
+            logger.info("draining_server_grace_elapsed", extra={"active_after": len(SHUTDOWN_STATE.active_streams)})
 
         # ۲) باقی‌مانده‌ها را لغو کن و برای aclose/cleanup منتظر باش (bounded)
         still = [t for t in SHUTDOWN_STATE.active_streams if not t.done()]
         if still:
             for t in still:
                 t.cancel()
+            logger.warning("draining_server_forced_cancel", extra={"count": len(still)})
             await asyncio.wait(set(still), timeout=grace)
 
         # ۳) shutdown استاندارد Uvicorn (اتصال/تسک/lifespan)
         await super().shutdown(sockets)
+        logger.info("draining_server_shutdown_completed")
 
 
 def main() -> None:

@@ -61,6 +61,7 @@ async def chat_stream(
         task = asyncio.current_task()
         if task is not None:
             SHUTDOWN_STATE.active_streams.add(task)
+            logger.info("chat_stream_registered", extra={"active": len(SHUTDOWN_STATE.active_streams)})
         started = time.perf_counter()
         first_billable = None
         METRICS.chat_active.inc()
@@ -99,6 +100,7 @@ async def chat_stream(
                 METRICS.stream_duration.observe(time.perf_counter() - started)
                 if task is not None:
                     SHUTDOWN_STATE.active_streams.discard(task)
+                    logger.info("chat_stream_deregistered", extra={"active": len(SHUTDOWN_STATE.active_streams)})
 
     return StreamingResponse(
         gen(),
