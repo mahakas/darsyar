@@ -1,7 +1,12 @@
 # Phase 4: Knowledge Ingestion
 
-**Status:** Planned; requires license and grade mapping decisions  
+**Status:** Planned / Gated — ADR-024, ADR-037, ADR-038 accepted (owner approval 2026-11-09) and OQ-009 closed, but real per-source authorization and metadata are still prerequisites.  
 **Dependencies:** Phase 0 and phase 3 inference/worker interfaces
+
+### Remaining gates (not yet met)
+1. Real source-specific license evidence must be registered and reviewed (`docs/licenses/` currently has no registered source evidence).
+2. Each legacy source must carry explicit owner-approved grade metadata (per source, not automatic).
+3. Required manifest metadata (provenance, publisher, edition_year, license evidence) must be complete for each source in scope.
 
 ## Goal
 

@@ -18,7 +18,7 @@
 | ADR-010 | grade ceiling در SQL | accepted | هر دو شاخهٔ retrieval |
 | ADR-011 | seed admin با CLI auditدار | accepted | هم‌راستا با R-117 |
 | ADR-012 | وب fallback محدود و opt-in | accepted | SSRF و citation مستقل لازم است |
-| ADR-024 | ثبت مجوز و منشأ منبع آموزشی | proposed | قبل از ingestion تولیدی accepted شود |
+| ADR-024 | ثبت مجوز و منشأ منبع آموزشی | accepted (owner approval 2026-11-09) | `license_note` مرجع شاهد است نه اثبات مجوز |
 
 ## ADRهای نسخهٔ ۴ (ثبت برای بررسی)
 
@@ -29,8 +29,8 @@
 | ADR-034 | access memory و refresh cookie + CSRF | accepted (مشخص‌سازی ADR-003) |
 | ADR-035 | PostgreSQL reservation (مدل حسابداری، idempotency هیبرید، گذار اتمیک) | accepted (OQ-001/002/003 بسته) |
 | ADR-036 | INFERENCE_MODE: service یا remote | proposed |
-| ADR-037 | نگاشت پایه و سیاست legacy | proposed؛ OQ-009 باید حل شود |
-| ADR-038 | edition_year و active edition | proposed |
+| ADR-037 | نگاشت پایه و سیاست legacy | accepted (owner approval 2026-11-09)؛ OQ-009 بسته شد | نگاشت هر منبع legacy فقط با بازبینی سطح-منبع و تأیید مالک |
+| ADR-038 | edition_year و active edition | accepted (owner approval 2026-11-09) | `ACTIVE_EDITION_YEAR`/`ambiguous_edition` مطابق R-014 |
 | ADR-039 | سیاست داخلی پاسخ نیمه‌کاره و billable threshold | accepted (OQ-008 بسته؛ مرز با REFUND_POLICY مشتری حفظ شد) |
 | ADR-040 | دورهٔ ماهانهٔ Gregorian در Asia/Tehran (YYYY-MM؛ نیمه‌باز) | accepted |
 | ADR-048 | گرانت رایگان ۵ اعتبار یک‌بار (free_grant + ایندکس جزئی) | accepted |
