@@ -47,13 +47,35 @@ def env_inventory():
         "uname_m": sh(["uname", "-m"]).stdout.strip(),
         "os_release": (open("/etc/os-release", encoding="utf-8").read() if Path("/etc/os-release").exists() else "NOT_AVAILABLE"),
         "glibc_musl": "UNKNOWN",
+        "libc_name": "UNKNOWN",
+        "libc_version": "UNKNOWN",
     }
     for name in ("ldd", "readelf", "file", "getconf"):
         info[name] = "PRESENT" if shutil.which(name) else "NOT_AVAILABLE"
-    # glibc vs musl detection via ldd if present
+    # libc detection: platform.libc_ver(), CS_GNU_LIBC_VERSION, then ldd --version (stdout+stderr)
+    try:
+        libc_name, libc_version = platform.libc_ver()
+        if libc_name:
+            info["libc_name"] = libc_name
+            info["libc_version"] = libc_version or "UNKNOWN"
+    except Exception:
+        pass
+    if info["libc_name"] == "UNKNOWN":
+        try:
+            cs = os.confstr("CS_GNU_LIBC_VERSION")
+            if cs:
+                parts = cs.split(None, 1)
+                info["libc_name"] = parts[0]
+                info["libc_version"] = parts[1] if len(parts) > 1 else "UNKNOWN"
+        except (ValueError, OSError):
+            pass
     if shutil.which("ldd"):
-        out = sh(["ldd", "--version"]).stdout
-        info["glibc_musl"] = "glibc" if "glibc" in out else ("musl" if "musl" in out else "UNKNOWN")
+        res = sh(["ldd", "--version"])
+        combined = (res.stdout or "") + (res.stderr or "")
+        if "glibc" in combined:
+            info["glibc_musl"] = "glibc"
+        elif "musl" in combined:
+            info["glibc_musl"] = "musl"
     return info
 
 
@@ -145,8 +167,10 @@ def native_lib_inspection():
     return rec
 
 
-def license_inventory():
-    out = {}
+def license_inventory() -> str:
+    md = ["# License / Notice Inventory — pypdfium2 5.15.2 + Pillow 12.3.0 (isolated)", ""]
+    md.append("> This is a **technical inventory only** and is NOT legal or production approval. Presence of a license file is not equivalent to legal clearance.")
+    md.append("")
     for pkg in ("pypdfium2", "Pillow"):
         sp = subprocess.run([str(VENV / "bin" / "python"), "-c",
                              f"import importlib.metadata as m;print(m.distribution('{pkg}')._path)"],
@@ -156,8 +180,17 @@ def license_inventory():
         for f in root.rglob("*"):
             if f.is_file() and (f.name.lower().startswith(("license", "notice", "copying")) or "licenses" in str(f).lower()):
                 licenses.append(str(f.relative_to(root)))
-        out[pkg] = licenses
-    return out
+        md.append(f"## {pkg}")
+        md.append("")
+        if licenses:
+            for lic in sorted(licenses):
+                md.append(f"- `{lic}`")
+        else:
+            md.append("- (no license/notice files found)")
+        md.append("")
+    md.append("### Missing / ambiguous notices")
+    md.append("- Any package without discovered notices is flagged as `REQUIRES_EXTERNAL_REVIEW`.")
+    return "\n".join(md)
 
 
 def main():
@@ -273,7 +306,7 @@ def main():
     results["malformed_handled"] = malformed_ok
 
     results["native_library"] = native_lib_inspection()
-    write_json("license-inventory.md", {"_note": "see compatibility-report.md", "per_package": license_inventory()})
+    (OUT / "license-inventory.md").write_text(license_inventory(), encoding="utf-8")
     write_json("compatibility-report.md", {"_note": "see compatibility-report.md"})
 
     # outcome

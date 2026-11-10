@@ -315,6 +315,7 @@
 | `docs/ingestion/OWNER_DECISIONS.md` | بستهٔ تصمیم مالک برای سه گیت (renderer، محدودیت‌های امنیتی، آزمون هم‌ارزی) — آماده‌سازی، بدون تصمیم. |
 | `.github/workflows/ingestion-pdfium-linux-preflight.yml` | workflow دستی (workflow_dispatch) برای preflight Linux pypdfium2+Pillow در `python:3.13-slim` (فقط دستی؛ بدون اجرا توسط KiloCode). |
 | `scripts/ci/pdfium_linux_preflight.py` | هارنس CI-only برای تست Linux pypdfium2 5.15.2 + Pillow 12.3.0 (ماژول کاربردی نیست). |
+| `docs/ingestion/PDFIUM_LINUX_PREFLIGHT.md` | ثبت شواهد Run #6 (PASS فنی؛ بدون تأیید Production؛ Gate A OPEN). |
 | `backend/tests/test_inference_real_models.py` | تست واقعی مدل‌ها (skip-gated؛ فقط وقتی هر دو مدل cache شده باشند). |
 | `docs/adr/ADR-054-remote-inference-support.md` | تصمیم پذیرفته‌شده: پشتیبانی رسمی Remote Embedding/Inference (accepted؛ 2026-11-08). |
 
