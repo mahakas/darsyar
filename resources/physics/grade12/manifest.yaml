@@ -1,0 +1,21 @@
+path: resources/physics/grade12/C112209.pdf
+subject: physics
+grade: 12
+edition_year: 1405
+title: "فیزیک (۳) — پایۀ دوازدهم — رشتۀ ریاضی و فیزیک"
+publisher: "شرکت چاپ و نشر کتاب‌های درسی ایران"
+license_note: "owner-provided authorization reference: docs/licenses/13529.md (record_status: pending_evidence_and_scope_review; not independently verified). Not proof of permission by itself (ADR-024)."
+ingestion_status: needs_review
+
+# Provenance / integrity (ADR-024, R-150, R-153, R-157)
+book_code: "112209"
+track: "رشته ریاضی و فیزیک"
+education_level: "دورۀ دوم متوسطه"
+authoring_organization: "سازمان پژوهش و برنامه‌ریزی آموزشی"
+rights_holder: "سازمان پژوهش و برنامه‌ریزی آموزشی، وزارت آموزش و پرورش"
+edition_statement: "چاپ نهم 1405"
+original_filename: "C112209.pdf"
+file_size_bytes: 12821822
+sha256: "f103161cde97a272e1433ba429705ef95d307b1c05c2d16637119a981a253a2e"
+physical_pdf_pages: 176
+source_transport: "user-supplied PDF upload (exact catalogue URL not supplied; none invented)"

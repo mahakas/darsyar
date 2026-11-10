@@ -1,0 +1,23 @@
+path: resources/math/grade2/C2051.pdf
+subject: math
+grade: 2
+edition_year: 1405
+title: "ریاضی دوست‌داشتنی (۱) (اجرای آزمایشی) — دوم دبستان"
+publisher: "شرکت افست"
+license_note: "owner-provided authorization reference: docs/licenses/13529.md (record_status: pending_evidence_and_scope_review; not independently verified). Not proof of permission by itself (ADR-024)."
+ingestion_status: needs_review
+
+# Provenance / integrity (ADR-024, R-150, R-153, R-157)
+book_code: "2051"
+authoring_organization: "سازمان پژوهش و برنامه‌ریزی آموزشی"
+rights_holder: "سازمان پژوهش و برنامه‌ریزی آموزشی، وزارت آموزش و پرورش"
+edition_statement: "چاپ اول 1405"
+academic_year: "1405-1406"
+original_filename: "C2051.pdf"
+file_size_bytes: 37478046
+sha256: "7e2c581682469da95f636a5366b0c629943328b7e863fc02184ccbb9055c4089"
+physical_pdf_pages: 188
+official_pdf_source: "http://www.chap.sch.ir/sites/default/files/lbooks/1405-1406/9/C2051.pdf"
+
+# Note: the Files text parser earlier reported 187 pages; direct inspection of the supplied PDF binary reports 188.
+# The physical PDF count (188) is the current reference. If the local PDF differs in hash/page count, report mismatch.
