@@ -50,6 +50,9 @@ jobs:
         id: test
         run: |
           IMAGE_ID="${{ steps.image.outputs.image_id }}"
+
+          set +e
+
           docker run \
             --rm \
             --init \
@@ -67,12 +70,18 @@ jobs:
             -v "$WORK_DIR:/work" \
             -w /work \
             "$IMAGE_ID" \
-            python /work/scripts/pdfium_linux_preflight.py 2>&1 | tee "$WORK_DIR/output/container.log"
+            python /work/scripts/pdfium_linux_preflight.py 2>&1 \
+            | tee "$WORK_DIR/output/container.log"
 
-          set +e
-          container_exit="${PIPESTATUS[0]}"
+          pipeline_status=("${PIPESTATUS[@]}")
+
           set -e
+
+          container_exit="${pipeline_status[0]:-1}"
+          tee_exit="${pipeline_status[1]:-1}"
+
           echo "container_exit=$container_exit" >> "$GITHUB_OUTPUT"
+          echo "tee_exit=$tee_exit" >> "$GITHUB_OUTPUT"
 
       - name: Upload artifacts (always)
         if: always()
@@ -83,7 +92,7 @@ jobs:
           retention-days: 7
 
       - name: Fail job for non-PASS outcome
-        if: steps.test.outputs.container_exit != '0'
+        if: steps.test.outputs.container_exit != '0' || steps.test.outputs.tee_exit != '0'
         run: |
-          echo "PDFium Linux preflight did not pass (container exit=${{ steps.test.outputs.container_exit }})."
+          echo "PDFium Linux preflight did not pass (container_exit=${{ steps.test.outputs.container_exit }}, tee_exit=${{ steps.test.outputs.tee_exit }})."
           exit 1

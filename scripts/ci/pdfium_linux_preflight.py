@@ -18,9 +18,6 @@ import tracemalloc
 from importlib.metadata import version as _version
 from pathlib import Path
 
-import pypdfium2 as pdfium
-from PIL import Image
-
 WORK = Path("/work")
 OUT = WORK / "output"
 RENDERED = OUT / "rendered-pages"
@@ -174,6 +171,22 @@ def main():
         write_json("renderer-results.json", results)
         (OUT / "compatibility-report.md").write_text("# Compatibility Report — BLOCKED (install)\n", encoding="utf-8")
         return 1
+
+    # import ابسته‌گی‌ها فقط پس از نصب موفق در virtual environment (نه در سیستم)
+    site_result = sh([str(VENV / "bin" / "python"), "-c", "import site; print(site.getsitepackages()[0])"])
+    if site_result.returncode != 0:
+        results["errors"].append("venv_site_packages_lookup_failed:" + site_result.stderr[-800:])
+        write_json("renderer-results.json", results)
+        return 1
+    site_packages = Path(site_result.stdout.strip())
+    if not site_packages.is_dir():
+        results["errors"].append(f"venv_site_packages_missing:{site_packages}")
+        write_json("renderer-results.json", results)
+        return 1
+    sys.path.insert(0, str(site_packages))
+
+    import pypdfium2 as pdfium
+    from PIL import Image
 
     results["versions"] = {"pypdfium2": _version("pypdfium2"), "Pillow": _version("Pillow")}
 
