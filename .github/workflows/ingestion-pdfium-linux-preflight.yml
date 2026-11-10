@@ -29,13 +29,19 @@ jobs:
           WORK_DIR="$RUNNER_TEMP/darsyar-pdfium-linux-preflight"
           mkdir -p "$WORK_DIR/output/rendered-pages" "$WORK_DIR/source" "$WORK_DIR/scripts" "$WORK_DIR/wheels"
           cp scripts/ci/pdfium_linux_preflight.py "$WORK_DIR/scripts/"
-          # runner host inventory
+          # runner host inventory (valid JSON)
+          RUNNER_UID="$(id -u)"
+          RUNNER_GID="$(id -g)"
+          cat > "$WORK_DIR/output/runner-host.json" <<EOF
           {
-            echo "runner_os=$(uname -s)"
-            echo "runner_arch=$(uname -m)"
-            echo "runner_python=$(python3 --version 2>&1)"
-            echo "runner_docker=$(docker --version 2>&1)"
-          } > "$WORK_DIR/output/runner-host.json"
+            "runner_os": "$(uname -s)",
+            "runner_arch": "$(uname -m)",
+            "runner_python": "$(python3 --version 2>&1)",
+            "runner_docker": "$(docker --version 2>&1)",
+            "runner_uid": ${RUNNER_UID},
+            "runner_gid": ${RUNNER_GID}
+          }
+          EOF
           echo "WORK_DIR=$WORK_DIR" >> "$GITHUB_ENV"
 
       - name: Pull and pin base image
@@ -50,12 +56,15 @@ jobs:
         id: test
         run: |
           IMAGE_ID="${{ steps.image.outputs.image_id }}"
+          CONTAINER_UID="$(id -u)"
+          CONTAINER_GID="$(id -g)"
 
           set +e
 
           docker run \
             --rm \
             --init \
+            --user "${CONTAINER_UID}:${CONTAINER_GID}" \
             --read-only \
             --cap-drop ALL \
             --security-opt no-new-privileges \
@@ -70,7 +79,7 @@ jobs:
             -v "$WORK_DIR:/work" \
             -w /work \
             "$IMAGE_ID" \
-            python /work/scripts/pdfium_linux_preflight.py 2>&1 \
+            sh -c 'id; for d in /work /work/output /work/source /work/wheels; do [ -w "$d" ] || { echo "preflight_error:work_mount_not_writable:$d"; exit 1; }; done; python /work/scripts/pdfium_linux_preflight.py' 2>&1 \
             | tee "$WORK_DIR/output/container.log"
 
           pipeline_status=("${PIPESTATUS[@]}")
