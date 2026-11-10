@@ -1,0 +1,88 @@
+name: Ingestion PDFium Linux Preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ingestion-pdfium-linux-preflight
+  cancel-in-progress: false
+
+env:
+  WORK_DIR: ${{ runner.temp }}/darsyar-pdfium-linux-preflight
+  IMAGE: python:3.13-slim
+  PYPY_ARTIFACT: darsyar-pdfium-linux-preflight
+
+jobs:
+  linux-pdfium-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout (host only)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Prepare isolated temporary workspace
+        run: |
+          mkdir -p "$WORK_DIR/output/rendered-pages" "$WORK_DIR/source" "$WORK_DIR/scripts" "$WORK_DIR/wheels"
+          cp scripts/ci/pdfium_linux_preflight.py "$WORK_DIR/scripts/"
+          # runner host inventory
+          {
+            echo "runner_os=$(uname -s)"
+            echo "runner_arch=$(uname -m)"
+            echo "runner_python=$(python3 --version 2>&1)"
+            echo "runner_docker=$(docker --version 2>&1)"
+          } > "$WORK_DIR/output/runner-host.json"
+
+      - name: Pull and pin base image
+        id: image
+        run: |
+          docker pull "$IMAGE"
+          docker inspect --format='{{json .Id}}' "$IMAGE" > "$WORK_DIR/output/docker-image.json"
+          {
+            echo "image_id=$(docker inspect --format='{{.Id}}' "$IMAGE")"
+            echo "repo_digests=$(docker inspect --format='{{json .RepoDigests}}' "$IMAGE")"
+            echo "arch=$(docker inspect --format='{{.Architecture}}' "$IMAGE")"
+          } >> "$WORK_DIR/output/docker-image.json"
+          echo "image_id=$(docker inspect --format='{{.Id}}' "$IMAGE")" >> "$GITHUB_OUTPUT"
+
+      - name: Run disposable PDFium runtime test
+        id: test
+        run: |
+          IMAGE_ID="${{ steps.image.outputs.image_id }}"
+          docker run \
+            --rm \
+            --init \
+            --read-only \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 128 \
+            --memory 2g \
+            --cpus 2 \
+            --tmpfs /tmp:rw,nosuid,nodev,size=512m,mode=1777 \
+            -e HOME=/tmp \
+            -e PIP_NO_CACHE_DIR=1 \
+            -e PIP_DISABLE_PIP_VERSION_CHECK=1 \
+            -e PYTHONDONTWRITEBYTECODE=1 \
+            -v "$WORK_DIR:/work" \
+            -w /work \
+            "$IMAGE_ID" \
+            python /work/scripts/pdfium_linux_preflight.py 2>&1 | tee "$WORK_DIR/output/container.log"
+          echo "container_exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifacts (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PYPY_ARTIFACT }}
+          path: ${{ env.WORK_DIR }}/output
+          retention-days: 7
+
+      - name: Fail job for non-PASS outcome
+        if: steps.test.outputs.container_exit != '0'
+        run: |
+          echo "PDFium Linux preflight did not pass (container exit=${{ steps.test.outputs.container_exit }})."
+          exit 1

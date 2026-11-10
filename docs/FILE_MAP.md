@@ -298,6 +298,23 @@
 | `backend/tests/test_deployment_hardening.py` | تست‌های سخت‌سازی Deployment: امنیت Metrics، Early Draining و زمان‌بندی بازیابی worker. |
 | `backend/app/core/run_server.py` | Runner حداقلی Uvicorn با Early Draining (فعال‌سازی draining از لحظه SIGTERM). |
 | `backend/scripts/phase3_sigterm_linux.py` | آزمون process-level Linux CI: Open SSE + SIGTERM واقعی + تأیید مالی PostgreSQL. |
+| `resources/math/grade2/manifest.yaml` | manifest آزمایشی ریاضی دوم دبستان (کد 2051)؛ حالت needs_review. |
+| `resources/physics/grade12/manifest.yaml` | manifest آزمایشی فیزیک ۳ دوازدهم (کد 112209)؛ حالت needs_review. |
+| `docs/PHASE4_INGEST_PILOT.md` | معیارهای پذیرش pilot ingestion برای دو کتاب (مانifest/PDF/OCR/تصاویر/فرمول/chunking/state). |
+| `docs/licenses/13529.md` | ثبت مرجع مجوز تأمینی توسط مالک (reference 13529؛ pending_evidence_and_scope_review). |
+| `docs/ingestion/README.md` | فهرست/هدف طراحی ingestion Phase 4 (design). |
+| `docs/ingestion/ARCHITECTURE.md` | معماری ingestion: مؤلفه‌ها، مرزها، جریان داده، امنیت (design). |
+| `docs/ingestion/PIPELINE_STAGES.md` | قرارداد مرحله‌به‌مرحله pipeline (design). |
+| `docs/ingestion/EXTRACTION_STRATEGY.md` | راهبرد استخراج ریاضی/فیزیک/عمومی (design). |
+| `docs/ingestion/CHUNKING_AND_PROVENANCE.md` | سلسله‌مراتب chunk و حفظ R-150 (design). |
+| `docs/ingestion/AUTHORIZATION_GATE.md` | گیت مجوز per-resource/per-operation و ارجاع 13529 (design). |
+| `docs/ingestion/STATE_MACHINE_AND_FAILURES.md` | R-156 state machine، خطاها، retry/recovery (design). |
+| `docs/ingestion/ACCEPTANCE_CRITERIA.md` | معیارهای پذیرش طراحی‌شده (غیراجرا) (design). |
+| `docs/ingestion/DESIGN_REVIEW.md` | ممیزی مستقل طراحی ingestion (PASS WITH CONDITIONS؛ فهرست اصلاحات لازم). |
+| `docs/ingestion/SECOND_AUDIT.md` | دومین ممیزی مستقل پس از remediation (PASS WITH CONDITIONS؛ گیت‌های خارجی باز). |
+| `docs/ingestion/OWNER_DECISIONS.md` | بستهٔ تصمیم مالک برای سه گیت (renderer، محدودیت‌های امنیتی، آزمون هم‌ارزی) — آماده‌سازی، بدون تصمیم. |
+| `.github/workflows/ingestion-pdfium-linux-preflight.yml` | workflow دستی (workflow_dispatch) برای preflight Linux pypdfium2+Pillow در `python:3.13-slim` (فقط دستی؛ بدون اجرا توسط KiloCode). |
+| `scripts/ci/pdfium_linux_preflight.py` | هارنس CI-only برای تست Linux pypdfium2 5.15.2 + Pillow 12.3.0 (ماژول کاربردی نیست). |
 | `backend/tests/test_inference_real_models.py` | تست واقعی مدل‌ها (skip-gated؛ فقط وقتی هر دو مدل cache شده باشند). |
 | `docs/adr/ADR-054-remote-inference-support.md` | تصمیم پذیرفته‌شده: پشتیبانی رسمی Remote Embedding/Inference (accepted؛ 2026-11-08). |
 
