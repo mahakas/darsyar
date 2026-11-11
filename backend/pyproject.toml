@@ -38,6 +38,12 @@ dev = [
   "ruff>=0.14,<0.15",
   "mypy>=1.18,<2.0",
   "testcontainers[postgres]>=4.13,<5.0",
+  "pypdf>=7.0.1,<8.0",
+  "PyYAML>=6.0,<7.0",
+]
+ingestion = [
+  "pypdf>=7.0.1,<8.0",
+  "PyYAML>=6.0,<7.0",
 ]
 rag = [
   "langgraph>=1.0,<2.0",
