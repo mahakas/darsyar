@@ -28,7 +28,7 @@ def test_two_normal_docs_sequential_separate_children() -> None:
     rb = run_doc_child(DOC_B)
     assert ra.ok and ra.result is not None and ra.result.outcome is ChildProcessingOutcome.SUCCESS
     assert rb.ok and rb.result is not None and rb.result.outcome is ChildProcessingOutcome.SUCCESS
-    assert ra.result.pypdf_version == "6.21.3"
+    assert ra.result.pypdf_version == "7.0.1"
     assert ra.result.page_count == 1
     assert rb.result.page_count == 2
 
