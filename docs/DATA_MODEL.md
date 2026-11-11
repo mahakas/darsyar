@@ -45,3 +45,11 @@ UUID برای شناسه‌های عمومی. تمام FKها `ondelete` صری�
 
 ### رابطهٔ رزرو با grantها — وضعیت فعلی
 - **پیاده‌سازی‌نشده:** رزروها هنوز `grant_id`/allocation ندارند (C-02؛ OQ-026). مدل پیشنهادی تخصیص چند-grant (reservation_id، grant_id، allocated/consumed/released، state، idempotency) **پیشنهادی است، نه پیاده‌سازی‌شده**.
+
+
+## User grade selection (R-019 — implemented schema)
+
+- `users.selected_grade` is nullable and constrained to 1..12 when set.
+- New/legacy users remain `NULL`; no default or inferred grade is written.
+- The authenticated user profile endpoint is the only supported self-service writer. Chat reads the persisted value from the authenticated user record and rejects missing/invalid grade before any credit reservation.
+- Client-supplied grade values are not authoritative.
