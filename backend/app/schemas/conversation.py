@@ -73,6 +73,8 @@ class ConversationListOut(BaseModel):
 class HistoryMessageOut(BaseModel):
     """Safe message history shape; excludes provider and internal billing identifiers."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: uuid.UUID
     conversation_id: uuid.UUID
     role: str
