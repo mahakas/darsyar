@@ -27,6 +27,7 @@ class FakeUser:
         self.phone = "+989121234567"
         self.name = None
         self.role = "user"
+        self.selected_grade = None
 
 
 class FakeSms:
