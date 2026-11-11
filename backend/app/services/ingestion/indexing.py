@@ -75,7 +75,9 @@ async def index_document_chunks(
         )
         session.add(chunk)
         await session.flush()
-        parent_ids[parent.child_start] = chunk.id
+        # Link every child covered by this parent, not only the first child.
+        for child_index in range(parent.child_start, parent.child_end + 1):
+            parent_ids[child_index] = chunk.id
 
     child_base = len(chunking.parents)
     for idx, child in enumerate(chunking.children):
