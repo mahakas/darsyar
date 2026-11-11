@@ -32,6 +32,7 @@ class RetrievedChunk:
     chunk_id: str
     document_id: str
     chunk_index: int
+    is_parent: bool
     grade_level: int
     subject: str
     page_number: int | None
@@ -54,7 +55,8 @@ async def _dense_search(session: AsyncSession, query_vec: list[float], grade: in
         "grade": grade,
         "limit": limit,
     }
-    where = ["grade_level <= :grade", "embedding IS NOT NULL"]
+    # Parent chunks are context containers, never retrieval candidates (R-158).
+    where = ["grade_level <= :grade", "is_parent = false", "embedding IS NOT NULL"]
     if edition_year is not None:
         where.append("edition_year = :edition_year")
         params["edition_year"] = edition_year
@@ -62,7 +64,7 @@ async def _dense_search(session: AsyncSession, query_vec: list[float], grade: in
         where.append("subject = :subject")
         params["subject"] = subject
     sql = (
-        "SELECT id::text AS chunk_id, document_id::text AS document_id, chunk_index, "
+        "SELECT id::text AS chunk_id, document_id::text AS document_id, chunk_index, is_parent, "
         "grade_level, subject, page_number, title, content, "
         "1 - (embedding <=> (:vec)::vector) AS dense_score "
         "FROM ingestion_chunks WHERE " + " AND ".join(where) +
@@ -78,7 +80,8 @@ async def _lexical_search(session: AsyncSession, query: str, grade: int, edition
         "grade": grade,
         "limit": limit,
     }
-    where = ["grade_level <= :grade", "content_normalized % :q"]
+    # Parent chunks are context containers, never retrieval candidates (R-158).
+    where = ["grade_level <= :grade", "is_parent = false", "content_normalized % :q"]
     if edition_year is not None:
         where.append("edition_year = :edition_year")
         params["edition_year"] = edition_year
@@ -86,7 +89,7 @@ async def _lexical_search(session: AsyncSession, query: str, grade: int, edition
         where.append("subject = :subject")
         params["subject"] = subject
     sql = (
-        "SELECT id::text AS chunk_id, document_id::text AS document_id, chunk_index, "
+        "SELECT id::text AS chunk_id, document_id::text AS document_id, chunk_index, is_parent, "
         "grade_level, subject, page_number, title, content, "
         "similarity(content_normalized, :q) AS lexical_score "
         "FROM ingestion_chunks WHERE " + " AND ".join(where) +
@@ -117,11 +120,20 @@ async def hybrid_retrieve(
     subject: str | None = None,
     top_k: int = TOP_K_RERANK,
     rerank: RerankFn | None = None,
+    min_retrieval_score: float = MIN_RETRIEVAL_SCORE,
     min_rerank_score: float = MIN_CONFIDENCE,
     dense_limit: int = 40,
     lexical_limit: int = 40,
 ) -> RetrievalResult:
-    """Hybrid retrieve with SQL grade filter in both branches, RRF fusion, rerank."""
+    """Hybrid retrieve child chunks with grade-filtered SQL, RRF and two thresholds."""
+    if not 1 <= selected_grade <= 12:
+        raise AppError("invalid_selected_grade", 422, "پایهٔ انتخاب‌شده باید بین ۱ و ۱۲ باشد.")
+    if not query.strip():
+        raise AppError("empty_retrieval_query", 422, "پرس‌وجوی بازیابی خالی است.")
+    if top_k < 1 or dense_limit < 1 or lexical_limit < 1:
+        raise AppError("invalid_retrieval_limit", 422, "محدودیت تعداد نتایج بازیابی نامعتبر است.")
+    if not 0.0 <= min_retrieval_score <= 1.0 or not 0.0 <= min_rerank_score <= 1.0:
+        raise AppError("invalid_retrieval_threshold", 422, "آستانهٔ بازیابی نامعتبر است.")
     q_norm = normalize_persian(query)
     dense = await _dense_search(session, query_vector, selected_grade, edition_year, subject, dense_limit)
     lexical = await _lexical_search(session, q_norm, selected_grade, edition_year, subject, lexical_limit)
@@ -148,7 +160,9 @@ async def hybrid_retrieve(
         if cid in lexical_rank:
             rrf += _rrf_rank(lexical_rank[cid])
         row["rrf_score"] = rrf
-        candidates.append(row)
+        # R-163: only candidates meeting MIN_RETRIEVAL_SCORE enter reranking.
+        if rrf >= min_retrieval_score:
+            candidates.append(row)
 
     # deterministic sort: RRF desc, then (document_id, chunk_index)
     candidates.sort(key=lambda c: (-c["rrf_score"], c["document_id"], c["chunk_index"]))
@@ -174,6 +188,7 @@ async def hybrid_retrieve(
             chunk_id=c["chunk_id"],
             document_id=c["document_id"],
             chunk_index=int(c["chunk_index"]),
+            is_parent=bool(c["is_parent"]),
             grade_level=int(c["grade_level"]),
             subject=str(c["subject"]),
             page_number=int(c["page_number"]) if c.get("page_number") is not None else None,
