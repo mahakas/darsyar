@@ -32,5 +32,14 @@ export const ar = {
   "privacyDesc": "بيانات شخصية ومصادر بصلاحيات مضبوطة",
   "foundationNote": "هذه مجرد واجهة أولية؛ ستُربط المحادثة في مرحلتها المحددة.",
   "sendQuestion": "إرسال السؤال",
-  "footerNote": "بيئة تطوير أولية"
+  "footerNote": "بيئة تطوير أولية",
+  "selectGradeTitle": "حدّد صفك الدراسي",
+  "selectGradeIntro": "لحماية النطاق التعليمي، يتطلب درسيار تحديد الصف صراحةً قبل بدء المحادثة.",
+  "saveGrade": "حفظ الصف",
+  "savingGrade": "جارٍ الحفظ…",
+  "profileError": "تعذّر حفظ الصف. حاول مرة أخرى.",
+  "signOut": "تسجيل الخروج",
+  "signedIn": "تم تسجيل الدخول",
+  "sessionLoading": "جارٍ استعادة الجلسة…",
+  "currentGrade": "الصف المحدد"
 } as const
