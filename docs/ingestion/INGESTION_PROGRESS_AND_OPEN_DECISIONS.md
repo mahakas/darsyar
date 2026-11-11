@@ -1,6 +1,6 @@
 # Darsyar Ingestion — Consolidated Progress & Open Decisions
 
-**Last verification (2026-11-10).** Documentation-only snapshot; no production/runtime
+**Consolidated update (2026-11-12).** Historical details below retain their original dates; this update adds the current implementation and CI snapshot. No production/runtime
 deployment performed. The Outbox Publisher + Reconciliation (Slice 3) is implemented and
 validated with synthetic events only (PostgreSQL + dedicated Redis queue namespace);
 no real PDF worker/consumer is registered.
@@ -134,8 +134,8 @@ eeds_review`; real PDF processing restricted (no open/render/extract here).
 
 ```text
 Phase 3: COMPLETE
-Phase 4: PLANNED / GATED          (ROADMAP: “برنامهریزیشده / گیتشده”)
-Phase 5: NOT STARTED
+Phase 4: PARTIAL (synthetic building blocks) / GATED — not accepted
+Phase 5: PARTIAL SYNTHETIC PROTOTYPE — not accepted; ADR-043/golden set/evidence integration remain open
 
 Gate A: OPEN
 Gate B: OPEN / OWNER_DECISION_REQUIRED
@@ -163,12 +163,12 @@ Licensing and authorization: PENDING
 Production: NOT_APPROVED
 ```
 
-(Exact ROADMAP wording retained; Phase 4 not opened; Phase 5 not started.)
+(The synthetic Phase 4/5 code prototypes exist, but neither phase is accepted; real-source ingestion and production retrieval remain gated.)
 
 ## 9. Dependency-ordered future backlog
 
 1. **Owner decisions first:** Gate B numeric limits; Gate A renderer + licensing; Gate C equivalence approval; 13529 evidence/scope; outbox retention policy.
-2. **Synthetic-safe work (no Gate A/textbook auth needed):** outbox schema/publisher design reviews; additional synthetic tests; observability/metrics design.
+2. **Synthetic-safe work:** the manifest/chunk/embedding/indexing/retrieval prototypes and PostgreSQL synthetic tests now exist; remaining safe work includes worker/route contract design, evidence snapshots, observability and additional fault/security tests. This does not authorize live ingestion.
 3. **Slice 3 (completed):** durable outbox publisher + reconciliation implemented and validated (synthetic only). Owner decision B2 = APPROVE_MANUAL_ONE_SHOT (2026-11-11): manual/one-shot invocation is the approved initial mode; automatic scheduling cadence remains unapproved; the one-shot `publish_pending_outbox_events` / `reconcile_pending_outbox_events` services are callable but not invoked by B2.
 4. **Blocked by Gate A/B/C:** real PDF rendering/metrics/limits enforcement.
 5. **Requires authorization evidence:** any real-textbook processing.
@@ -224,3 +224,27 @@ No migrations, schema changes, runtime config changes, container start/stop, Com
 | Runtime config | PENDING_OWNER_APPROVAL |
 | Licensing/authorization | PENDING |
 | Production | NOT_APPROVED |
+
+
+## 13. Consolidated implementation and CI update — 2026-11-12
+
+This update corrects the phase labels above without changing the governance gates:
+
+- **Phase 4 is partial, not complete.** Synthetic PostgreSQL-backed building blocks exist for manifest validation, two-level chunking, Persian normalization, embedding adapter validation, chunk indexing and hybrid retrieval. The durable document/job/outbox slices and publisher/reconciliation are also implemented for synthetic events. The ingestion pipeline is not yet an operational product flow: the documents API remains a placeholder, no real PDF worker consumer is registered, and source-specific license/grade metadata, Gate A/B/C and pilot acceptance remain open.
+- **Phase 5 is a synthetic prototype, not a completed phase.** Hybrid dense/lexical retrieval, SQL grade filtering in both branches, deterministic RRF and a provider rerank callback exist. The required versioned golden dataset of at least 150 reviewed questions, accepted ADR-043, evidence-set snapshot/citation allowlisting, calibrated thresholds, context budgeting, cache and real chat-response integration are not yet accepted.
+- **Phase 6 is an initial UI/chat prototype.** The React shell, multilingual direction switching and initial SSE chat component exist. Full authentication/session integration, conversation history, source cards, safe Markdown/KaTeX/Mermaid, accessibility and responsive acceptance are outstanding.
+- **Phase 7 remains specification-only.** Admin Console specification and proposed ADR-051 exist; admin endpoints/UI and the required MFA/acting-session decisions are not complete.
+- **Phase 8 remains intentionally deferred.**
+- **Phase 9 remains planned.** No Production release is approved.
+
+### Current CI evidence
+
+GitHub Actions run **43113026123**, commit `571fc2e09f31e361e9773ecf794601930e21349b`, completed successfully on 2026-11-11:
+- Backend: **463 passed, 21 skipped**.
+- Frontend: success.
+- Linux SIGTERM acceptance: success.
+- Alembic migration smoke and Ruff: success.
+
+The skipped tests are explicitly environment-gated (restricted Linux sandbox/cgroup probes and real model loading). A green CI run is not proof that those skipped controls passed, and does not close Gate A/B/C, grant textbook rights, or approve Production.
+
+The current pinned `pypdf` runtime version is **7.0.1**. Historical Gate B experiments performed under 6.21.3/6.21.4 remain historical evidence and must not be read as the current lock version.
