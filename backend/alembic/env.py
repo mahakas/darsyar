@@ -1,6 +1,15 @@
-"""محیط Alembic با اتصال async؛ اجرای migration فقط صریح است."""
+"""محیط Alembic با اتصال async؛ اجرای migration فقط صریح است.
+
+Forward-only guard (R-241): `downgrade` به‌طور پیش‌فرض رد می‌شود تا schema/داده
+برگشت‌ناپذیر دست‌نخورده بماند. مهاجرت برگشت‌پذیر همچنان نوشته می‌شود، ولی اجرای
+downgrade فقط با متغیر صریح `DARSYAR_ALLOW_DOWNGRADE=1` (محیط/بازیابی کنترل‌شده)
+مجاز است. این قیچ با تست‌های `*_downgrade_guard` (returncode≠0 و stderr حاوی
+"forward-only") سازگار است.
+"""
 
 import asyncio
+import os
+import sys
 from logging.config import fileConfig
 
 from alembic import context
@@ -10,12 +19,22 @@ from app.db.base import Base
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+ALLOW_DOWNGRADE_ENV = "DARSYAR_ALLOW_DOWNGRADE"
+
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 settings = get_settings()
 config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 target_metadata = Base.metadata
+
+
+def _is_downgrade_invocation() -> bool:
+    return "downgrade" in sys.argv
+
+
+if _is_downgrade_invocation() and os.environ.get(ALLOW_DOWNGRADE_ENV) != "1":
+    raise SystemExit("forward-only: downgrade blocked unless DARSYAR_ALLOW_DOWNGRADE=1")
 
 
 def run_migrations_offline() -> None:

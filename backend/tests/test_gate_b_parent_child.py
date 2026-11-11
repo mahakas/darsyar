@@ -21,8 +21,8 @@ from app.services.ingestion.parent_supervisor import FORBIDDEN_ENV_FRAGMENTS, ru
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# The child must use the locked version (isolated venv provides 6.21.3).
-EXPECTED_PYPDF = "6.21.3"
+# The child must use the locked version (project lock is now 7.0.1).
+EXPECTED_PYPDF = "7.0.1"
 
 
 def _compressed_pdf(payload: bytes | None = None) -> bytes:

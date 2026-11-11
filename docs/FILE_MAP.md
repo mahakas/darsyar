@@ -235,6 +235,8 @@
 | `frontend/src/App.tsx` | رابط React/TypeScript اولیه. |
 | `frontend/src/api/.gitkeep` | لایهٔ یگانهٔ HTTP و fetch streaming. |
 | `frontend/src/api/client.ts` | لایهٔ یگانهٔ HTTP و fetch streaming. |
+| `frontend/src/api/chat.ts` | API چت استریم (fetch-SSE؛ idempotent؛ access-token reader؛ history). |
+| `frontend/src/components/ChatPanel.tsx` | پنل چت (استریم شده؛ انتخاب پایه؛ خطا/توقف؛ RTL). |
 | `frontend/src/api/sse.ts` | لایهٔ یگانهٔ HTTP و fetch streaming. |
 | `frontend/src/components/.gitkeep` | رابط React/TypeScript اولیه. |
 | `frontend/src/context/.gitkeep` | رابط React/TypeScript اولیه. |
@@ -358,7 +360,9 @@
 | docs/ingestion/GATE_B_S4_AGGREGATE_DECOMPRESSION_AND_CGROUP_EVIDENCE.md | آزمایش آزمایشگاهی Gate B-S4 (Approve_With_Conditions): بودجه decompression کل سند (256 MiB candidate: قابل‌اجرا، بدون تأیید) + شواهد شمارنده cgroup v2 مستقیم (memory OOM/CPU throttling/PID). |
 | docs/ingestion/GATE_B_S4_1_AGGREGATE_DECOMPRESSION_COVERAGE.md | آزمایش Gate B-S4.1 (Approve_With_Conditions): پوشش/کشف جریان‌ها، حسابداری شکست‌ها، ایزوله‌سازی هم‌زمانی؛ Q1=PARTIALLY؛ بدون تأیید GB-04. |
 | docs/ingestion/GATE_B_S4_2_PARSE_TIME_DECOMPRESSION_AND_PYPDF_SECURITY_REVIEW.md | آزمایش Gate B-S4.2 (Approve_With_Conditions): decompression ضمنی هنگام parse، ایزوله‌سازی فرایند per-document، بازبینی نسخه/مشاوره pypdf (4 نسخه)؛ قفل 6.21.3 بدون تغییر؛ **LAB_VALIDATION_PARTIAL** (شکاف‌های شواهد ثبت‌شده). |
-| docs/ingestion/GATE_B_S5_PDF_PARSER_DECODER_ARCHITECTURE_COMPARISON.md | مقایسه معماری/امنیت پارسر-دیکودر Gate B-S5 (Approve_With_Conditions): 4 نامزد (pypdf 6.21.3/7.0.1، pypdfium2/PDFium، PyMuPDF/MuPDF، orchestration مستقل)؛ بازبینی رسمی pypdf (7 advisory)؛ بدون انتخاب/ارتقا؛ **ARCHITECTURE_REVIEW_PARTIAL**. |
+| docs/ingestion/GATE_B_S5_PDF_PARSER_DECODER_ARCHITECTURE_COMPARISON.md | مقایسه معماری/امنیت پارسر-دیکودر Gate B-S5 (Approve_With_Conditions): 4 نامزد (pypdf 6.21.3/7.0.1، pypdfium2/PDFium، PyMuPDF/MuPDF، orchestration مستقل)؛ بازبینی رسمی pypdf (8 advisory scope) + pypdfium2/PyMuPDF/qpdf؛ بدون انتخاب/ارتقا؛ **ARCHITECTURE_REVIEW_COMPLETE**. |
+| docs/reports/AUTONOMOUS_PROJECT_COMPLETION_REPORT.md | گزارش تحویل نهایی خودگردان: وضعیت واقعی، فازها (0–3 کامل؛ 4–9 گیت‌شده)، شواهد تست/استاتیک/build، گیت‌ها، تصمیمات در انتظار مالک. |
+| docs/reports/AUTONOMOUS_EXECUTION_STATE.md | چک‌پوینت وضعیت اجرای خودگردان (directive §9): وضعیت فازها/گیت‌ها، ارزیابی ایزوله pypdf 7.0.1 (57 passed؛ 2 delta مورد انتظار)، ثبت تصمیمات تفویض‌شده، بلاک‌کننده 13529، اقدام بعدی دقیق. |
 | docs/ingestion/PYPDF_RESOURCE_LIMITS_AUDIT.md | ممیزی منابع pypdf (per-filter/stream caps؛ نه بودجهٔ کلی) و رفتار validator (شمارش صفحه بدون decode جریان)؛ یکسانی رفتاری 6.21.3 و 6.21.4 تأییدشده (22 تست در هر دو). |
 | backend/app/services/ingestion/pdf_validation.py | لایهٔ اعتبارسنجی مشترک PDF (Gate B-S0): امضا/ساختار/صفحه/رمزنگاری/محدودیت‌های صریح؛ بدون استخراج متن/رندر. |
 | backend/app/services/ingestion/parent_child_contract.py | قرارداد نسخه‌دار Parent/Child (IPC v1؛ Gate B-S0/S1). |
@@ -374,6 +378,19 @@
 | backend/tests/sandbox/s4_cgroup_lib.py | کتابخانهٔ probeهای cgroup (test-only). |
 | backend/tests/sandbox/s4_cgroup_probe.py | درایور چاپ شواهد cgroup (test-only). |
 | backend/tests/sandbox/s4_1_lib.py | کتابخانهٔ test-only S4.1 (builders/Orchestratorها). |
+| backend/app/models/ingestion_chunk.py | مدل chunk سند (R-150؛ parent/child، Vector(1024)، متادیتا). |
+| backend/app/services/ingestion/manifest.py | اعتبارسنجی manifest (R-153/154). |
+| backend/app/services/ingestion/chunking.py | chunking دو سطحی (R-158/159). |
+| backend/app/services/ingestion/normalize.py | نرمال‌سازی فارسی (R-164). |
+| backend/app/services/ingestion/embedding_service.py | سرویس embedding (batch/timeout/retry/dim). |
+| backend/app/services/ingestion/indexing.py | ایندکس idempotent اتمیک chunk+embedding. |
+| backend/app/services/ingestion/retrieval.py | بازیابی هیبرید (pgvector+pg_trgm، RRF k=60، فیلتر grade در SQL، rerank top-20). |
+| backend/alembic/versions/0020_ingestion_chunks.py | مهاجرت جدول ingestion_chunks (فاز 4). |
+| backend/alembic/versions/0021_ingestion_chunks_indexes.py | مهاجرت ایندکس‌های سنگین HNSW/GIN (فاز 4). |
+| backend/tests/test_phase4_ingestion_pipeline_db.py | تست‌های یکپارچه فاز 4 (10 تست؛ PostgreSQL واقعی). |
+| backend/app/services/ingestion/retrieval_service.py | سرویس orchestration بازیابی فاز 5 (provider wiring + citation guard). |
+| backend/app/services/ingestion/evaluation.py | ارزیابی gold مصنوعی RAG (فاز 5؛ grade leakage/citation). |
+| backend/tests/test_phase5_rag_evaluation_db.py | تست‌های فاز 5 (گیت‌های RAG روی دادهٔ مصنوعی). |
 | backend/tests/test_gate_b_s4_1_stream_coverage.py | آزمایش A S4.1: پوشش/کشف جریان‌ها. |
 | backend/tests/test_gate_b_s4_1_failure_accounting.py | آزمایش B S4.1: حسابداری شکست/partial. |
 | backend/tests/test_gate_b_s4_1_concurrency_isolation.py | آزمایش C S4.1: ایزوله‌سازی هم‌زمانی (threads/async). |

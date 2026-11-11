@@ -47,21 +47,25 @@ def _source_of(module: object, cls_name: str) -> str:
 
 
 def test_locked_pypdf_version() -> None:
-    assert pypdf.__version__ == "6.21.3"
+    assert pypdf.__version__ == "7.0.1"
 
 
-def test_configuration_has_no_xfa_work_limit_field() -> None:
-    # GHSA-cmpx (XFA) is fixed in 7.0.0; 6.21.3 exposes no XFA work-limit field.
-    fields = {f.name for f in dataclasses.fields(Configuration)}
-    assert not any("xfa" in f.lower() for f in fields), fields
+def test_configuration_has_xfa_work_limit_field() -> None:
+    # GHSA-cmpx (XFA) is fixed in 7.0.0; the limit field must be present and
+    # numeric in the locked 7.0.1 baseline (control exists, not just a fix claim).
+    fields = {f.name: f.type for f in dataclasses.fields(Configuration)}
+    xfa = [name for name in fields if "xfa" in name.lower()]
+    assert xfa, "expected an XFA work-limit field in Configuration"
+    # At least one XFA field must be an integer limit (bounded work).
+    assert any("int" in str(fields[n]).lower() for n in xfa)
 
 
-def test_advisory_paths_present_in_6213() -> None:
-    # Record which vulnerable-path markers exist in 6.21.3 source.
+def test_advisory_fix_paths_present_in_701() -> None:
+    # In the locked 7.0.1 baseline, the security fixes must be present:
+    # rfv5 (image size estimation via bits-per-component) and cmpx (XFA handling).
     combined = _package_text()
-    # rfv5 marker: image byte-per-component estimation absent in 6.21.3 (vulnerable).
-    assert ADVISORY_MARKERS["rfv5_image_large_memory"] not in combined
-    # cmpx marker: XFA handling present in the package source.
+    # The image-fix implementation uses bits-per-component accounting.
+    assert "bits_per_component" in combined
     assert ADVISORY_MARKERS["cmpx_xfa"] in combined.lower()
 
 

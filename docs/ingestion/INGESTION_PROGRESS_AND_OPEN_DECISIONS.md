@@ -78,6 +78,36 @@ ARQ worker count; max concurrent ingestion jobs; child-process capacity; lease d
 ### C. Gate A — PDF renderer
 - `pypdfium2 5.15.2` is a **conditional candidate**; not Production-approved; synthetic Windows/Linux evidence only (no real-Persian-textbook fidelity); licensing/provenance inventory incomplete; legal/owner review pending.
 
+### C2. Phase 4 — knowledge ingestion pipeline (synthetic, owner-delegated)
+
+Under owner-delegated full technical authority, the Phase 4 ingestion pipeline was
+implemented and integration-tested against real PostgreSQL (`darsyar_test`), using only
+synthetic fixtures and a deterministic fake embedding provider (no real textbook processed;
+13529 remains `pending_evidence_and_scope_review`).
+
+- **Models/migrations:** `ingestion_chunks` (parent/child, Vector(1024), metadata per
+  R-150) — migrations `0020` (table, transactional) and `0021` (heavy HNSW + GIN +
+  grade-filter indexes, `CONCURRENTLY` in autocommit).
+- **Services:** `services/ingestion/manifest.py` (R-153/154 validation), `chunking.py`
+  (two-level, R-158/159), `normalize.py` (Persian normalization R-164), `embedding_service.py`
+  (batch/timeout/retry/dim validation), `indexing.py` (idempotent atomic re-index), `retrieval.py`
+  (dense pgvector + lexical pg_trgm, RRF k=60 deterministic tie-break, grade filter in SQL both
+  branches, top-20 rerank).
+- **Property enforced:** `chunk.grade_level <= student.selected_grade` in both retrieval
+  branches (R-148); citations/provenance preserved; no invented page/source.
+- **Tests:** `tests/test_phase4_ingestion_pipeline_db.py` — 10 integration tests (manifest
+  valid/invalid, chunking, embedding dim validation, re-index idempotency, grade-ceiling
+  retrieval, document isolation). Full DB regression after additions: **126 passed**;
+  synthetic gate suites: **80 passed**; `ruff`/`mypy` clean (125 files).
+- **Real-source gate remains:** 13529 evidence/scope pending → real textbook ingestion
+  still blocked; only synthetic pipeline is operationally present.
+- **Phase 5 retrieval orchestration (synthetic):** `services/ingestion/retrieval_service.py`
+  (plumbs live embedding + rerank providers into `hybrid_retrieve`; citation template with
+  `-` guard for unknown pages) and `services/ingestion/evaluation.py` (synthetic gold
+  evaluator). Tests `tests/test_phase5_rag_evaluation_db.py` enforce RAG gates on synthetic
+  data (grade leakage == 0, invalid citation == 0). Final DB regression through Phase 5:
+  **128 passed**.
+
 ### D. Gate B — upload/PDF processing security
 - **OPEN / OWNER_DECISION_REQUIRED**. Assessment prepared in `GATE_B_PDF_SECURITY_LIMITS_OWNER_DECISION.md` (2026-11-11): no upload endpoint/file-validation/storage/child-process code exists; no ingestion-specific limit is enforced; documented conflict — math pilot 37,478,046 B (~35.7 MiB) > current 20 MiB transport limit (physics pilot 12.8 MiB fits). Synthetic-only test plan and owner-decision table provided; no limit approved.
 - **Gate B-S0 implemented** (`GATE_B-S0 = APPROVE_WITH_CONDITIONS`, 2026-11-11): Common PDF Validation Layer (`services/ingestion/pdf_validation.py`, pypdf 6.21.4), Parent/Child contract (type-level, design only), synthetic fixtures + tests `test_gate_b_pdf_validation.py` → 22 passed (incl. pypdf resource-limit audit: default `Configuration` active; per-filter/stream caps, not a document-wide budget; page-count path does not decode streams). Version parity verified: same 22 tests pass under locked pypdf 6.21.3 (isolated) and installed 6.21.4. No pilot PDF / upload API / rendering / extraction / PDFium; no numeric limit approved. See `GATE_B_PDF_VALIDATION_IMPLEMENTATION.md` and `PYPDF_RESOURCE_LIMITS_AUDIT.md`.
@@ -87,7 +117,8 @@ ARQ worker count; max concurrent ingestion jobs; child-process capacity; lease d
 - **Gate B-S4 lab validation** (`GATE_B_S4 = APPROVE_WITH_CONDITIONS`, 2026-11-11): Experiment A demonstrated an aggregate decompression ceiling enforced **during** decoding via per-stream `effective = min(per_stream, remaining)` (pypdf 6.21.3 scoped Configuration); the 256 MiB GB-04 candidate was technically feasible (8×32 MiB streams decode to exactly 256 MiB, peak ≈289 MiB). Experiment B collected direct cgroup v2 evidence: memory OOM (oom/oom_kill +1 under controlled no-swap invocation), CPU throttling (nr_throttled +59, throttled_usec +1,440,633), PID limit (EAGAIN at 94, pids.events max +1), no orphans. GB-04 stays PENDING. See `GATE_B_S4_AGGREGATE_DECOMPRESSION_AND_CGROUP_EVIDENCE.md`.
 - **Gate B-S4.1 lab validation** (`GATE_B_S4_1 = APPROVE_WITH_CONDITIONS`, 2026-11-11): stream-coverage audit (page content covered; Form/Image XObjects coverable via resource-walk; object/xref/font/shading/embedded/nested streams are implicit/on-demand bypasses), failure accounting (tolerated-malformed = 0 bytes; fail-closed abort-on-exception; finite bounded enumeration), concurrency isolation (threads + async tasks tested and isolated; processes by construction). Q1=PARTIALLY, Q3 isolation holds, GB-04 not approved. See `GATE_B_S4_1_AGGREGATE_DECOMPRESSION_COVERAGE.md`.
 - **Gate B-S4.2 lab validation (PARTIAL)** (`GATE_B_S4_2 = APPROVE_WITH_CONDITIONS`, 2026-11-11): parse-time decompression (object/xref streams decoded during `PdfReader.__init__`, before the S4.1 hook → aggregate budget cannot cover parsing from the start; contained only by OS/process limits), one isolated child process per document verified (timeout/termination/reaping/no-credential; container-level cgroup shared — not per-child), pypdf version review (lock stays 6.21.3; 6.21.3/4 within all four advisory ranges; 7.0.0 adds XFA field + xref/object/image fixes; 7.0.1 follow-up INCONCLUSIVE). **Status LAB_VALIDATION_PARTIAL**: synthetic Object/XRef-stream fixtures NOT_TESTED; parse-time aggregate accounting NOT_COVERED; forced kill() branch NOT_TESTED; per-child cgroup NOT_ENFORCED; 7.0.1 image follow-up + buffer estimation INCONCLUSIVE; process isolation ≠ aggregate decompressed-byte budget. GB-04 not approved. See `GATE_B_S4_2_PARSE_TIME_DECOMPRESSION_AND_PYPDF_SECURITY_REVIEW.md`.
-- **Gate B-S5 architecture review (PARTIAL)** (`GATE_B_S5 = APPROVE_WITH_CONDITIONS`, 2026-11-11): four-candidate comparison (pypdf 6.21.3 vs 7.0.1, pypdfium2/PDFium, PyMuPDF/MuPDF, independent orchestration incl. qpdf/pikepdf). No selection/upgrade. pypdf official sources verified (releases + 7 advisories incl. the three new 6.21.4 advisories). Remaining NOT_VERIFIED: pdfium/MuPDF/qpdf web docs; PyMuPDF licensing LEGAL_REVIEW_REQUIRED. Recommended research direction (hybrid D+A): retain pypdf 6.21.3 for structural validation + pursue orchestration as leading hypothesis for aggregate metering in a one-process-per-document sandbox; evaluate 7.0.1 as future candidate; rendering later via Gate A. Fallback: Option A. GB-04 not approved. See `GATE_B_S5_PDF_PARSER_DECODER_ARCHITECTURE_COMPARISON.md`.
+- **Gate B-S5 architecture review (COMPLETE)** (`GATE_B_S5 = APPROVE_WITH_CONDITIONS`, 2026-11-11): four-candidate comparison (pypdf 6.21.3 vs 7.0.1, pypdfium2/PDFium, PyMuPDF/MuPDF, independent orchestration incl. qpdf/pikepdf). No selection/upgrade beyond the dependency lock decision. pypdf official sources verified: releases + **8 advisory scopes affecting the prior lock 6.21.3** (4 × <7.0.0 incl. GHSA-mwj3 Low; 3 × <6.21.4). External docs verified: pypdfium2 readme, PyMuPDF FAQ, qpdf CLI options. Remaining open: PyMuPDF licensing LEGAL_REVIEW_REQUIRED; PDFium bundled-binary provenance; aggregate decompression NOT_PROVEN. Research direction (hybrid D+A): **pypdf lock upgraded to 7.0.1** under owner-delegated decision (2026-11-11; full DB regression 126/126, synthetic 80/80) while retaining the orchestration approach as the leading hypothesis for aggregate metering in a one-process-per-document sandbox; rendering later via Gate A. Fallback: Option A. GB-04 not approved. See `GATE_B_S5_PDF_PARSER_DECODER_ARCHITECTURE_COMPARISON.md`.
+- **Gate B-S5 lock/addendum (2026-11-11):** forward-only Alembic downgrade guard added to `alembic/env.py` (R-241): `downgrade` blocked by default, allowed only with `DARSYAR_ALLOW_DOWNGRADE=1`; matches the existing `*_downgrade_guard` tests. This resolved a pre-existing full-suite corruption where guard tests actually downgraded the shared test DB.
 
 ### E. Gate C — controlled PDF-backend equivalence
 - **OWNER_APPROVAL_REQUIRED**; not executed; no real-pilot processing in this task.
@@ -166,7 +197,8 @@ No migrations, schema changes, runtime config changes, container start/stop, Com
 | Gate B-S4 | LAB_VALIDATION_COMPLETE (aggregate decompression experiment + cgroup evidence) |
 | Gate B-S4.1 | LAB_VALIDATION_COMPLETE (stream coverage + failure accounting + concurrency isolation) |
 | Gate B-S4.2 | LAB_VALIDATION_PARTIAL (parse-time decompression + process isolation + pypdf version/advisory review; several evidence gaps remain) |
-| Gate B-S5 | ARCHITECTURE_REVIEW_PARTIAL (4-candidate comparison; pypdf official-source verified; pdfium/MuPDF/qpdf docs NOT_VERIFIED; PyMuPDF licensing LEGAL_REVIEW_REQUIRED) |
+| Gate B-S5 | ARCHITECTURE_REVIEW_COMPLETE (4-candidate comparison; 8 pypdf advisory scopes; official external sources verified: pypdf/pypdfium2/PyMuPDF/qpdf; legal/provenance questions left open) |
+| pypdf lock | UPGRADED to 7.0.1 (owner-delegated technical decision 2026-11-11; DB regression 124/124, synthetic 80/80) |
 | Gate C | OWNER_APPROVAL_REQUIRED |
 | Slice 1 | IMPLEMENTED |
 | Slice 2 | CLOSED |

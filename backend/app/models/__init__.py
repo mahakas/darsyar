@@ -8,6 +8,7 @@ from app.models.credit_account import CreditAccount
 from app.models.credit_grant import CreditGrant
 from app.models.credit_ledger import CreditLedger
 from app.models.index_meta import IndexMeta
+from app.models.ingestion_chunk import IngestionChunk
 from app.models.ingestion_document import IngestionDocument
 from app.models.ingestion_job import IngestionJob
 from app.models.message import Message
@@ -34,6 +35,7 @@ __all__ = [
     "CreditGrant",
     "CreditLedger",
     "IndexMeta",
+    "IngestionChunk",
     "IngestionDocument",
     "IngestionJob",
     "Message",

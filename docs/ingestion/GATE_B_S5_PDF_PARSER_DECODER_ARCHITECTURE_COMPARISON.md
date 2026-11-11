@@ -14,8 +14,10 @@ qpdf/pikepdf where evidence supports). Documentation-only; not a selection.
 
 ## 2. Current project baseline (preserved)
 
-- Dependency lock: **pypdf==6.21.3** (`uv.lock` line 2052-2053; `pyproject.toml`
-  `pypdf>=6.0,<7.0`). `PYPDF_UPGRADE: NOT_AUTHORIZED`.
+- Dependency lock (after owner-delegated technical decision, 2026-11-11): **pypdf==7.0.1**
+  (`uv.lock`; `pyproject.toml` `pypdf>=7.0.1,<8.0`). Upgraded from 6.21.3 after an
+  isolated evaluation (7.0.1 API-compatible; full DB regression 124/124 passed; synthetic
+  suites 80/80 passed under 7.0.1).
 - S0/S1/S2/S3/S4/S4.1 evidence as documented; **S4.2 = LAB_VALIDATION_PARTIAL**.
 - Parse-time Object/XRef stream processing is **not** covered by S4.1 aggregate accounting.
 - Process-per-document provides process containment, not an aggregate decompressed-byte
@@ -63,6 +65,7 @@ No rename was required.
 | GHSA-cggf-277g-3q54 | page-tree large memory usage | <6.21.4 | >=6.21.4 | CVE-2026-119204 | VULNERABLE_PATH_PRESENT | FIX_PRESENT_SOURCE_ONLY | N/A | N/A |
 | GHSA-5849-834g-hvw5 | XRef EOF infinite loop | <6.21.4 | >=6.21.4 | CVE-2026-119203 | VULNERABLE_PATH_PRESENT | FIX_PRESENT_SOURCE_ONLY | N/A | N/A |
 | GHSA-mfr5-77xh-9j7h | Dictionary clone infinite loop | <6.21.4 | >=6.21.4 | CVE-2026-119205 | VULNERABLE_PATH_PRESENT | FIX_PRESENT_SOURCE_ONLY | N/A | N/A |
+| GHSA-mwj3-fpmc-hjcv | File-identifier placeholder recovery (encrypted templated docs) | <7.0.0 | >=7.0.0 | none (Low severity) | VULNERABLE_PATH_PRESENT | same | FIX_PRESENT_SOURCE_ONLY | same |
 
 - The three additional 6.21.4 advisories were verified against the official pages; their
   patch PRs are #4290 (page-tree), #4289 (XRef EOF), #4288 (Dictionary clone) — matching
@@ -70,8 +73,15 @@ No rename was required.
 - The 7.0.1 release note confirms "Determine image buffer sizes using the actual bytes per
   pixel (#4374)" → the GHSA-fhff follow-up fix is present in 7.0.1. Exact runtime behavior
   was not reproduced here → `FIX_PRESENT_SOURCE_ONLY` for 7.0.1.
+- The eighth advisory `GHSA-mwj3-fpmc-hjcv` (verified 2026-11-11) is severity **Low**,
+  CWE-200, no CVE; it concerns placeholder recovery in encrypted templated documents
+  (CWE-200 exposure), **classified separately** from the memory/availability issues above.
+  Its patch PR is #4366 (matches 7.0.0 release "Make file identifiers non-deterministic").
 - Source patches are **not** runtime-verified regression tests; only the per-filter zlib
   limit was runtime-verified (S4/S4.1/S4.2).
+- **Total: 8 identified advisory scopes whose affected ranges include pypdf 6.21.3.** This
+  is not an exhaustive list of every historical pypdf advisory; these are the eight scopes
+  identified as applicable to the current lock.
 
 ### Parser/decoder architecture
 
@@ -86,75 +96,111 @@ No rename was required.
 
 ### Locked-version risk statement
 
-The current lock `pypdf==6.21.3` is a **historical project baseline**, not an approved
-version for processing untrusted real PDFs. It remains within all **seven** advisory
-ranges (four `<7.0.0` + three `<6.21.4`). It is not upgraded; `PYPDF_UPGRADE:
-NOT_AUTHORIZED`.
+The **prior** lock `pypdf==6.21.3` was a historical baseline that fell within all eight
+identified advisory scopes. Under the owner-delegated technical decision it was upgraded to
+**7.0.1** (which patches all seven `<7.0.0` scopes; the GHSA-fhff follow-up is addressed in
+7.0.1 per its release note). The 7.0.1 lock is now the project baseline; real-PDF safety
+still requires Gate A/C and licensing evidence, independent of the parser version.
 
-## 6. Candidate B — pypdfium2 / PDFium
+## 6. Candidate B — pypdfium2 / PDFium (verified sources, access 2026-11-11)
 
-- Native (bundled PDFium) wrapper; permissive wrapper license; **low provenance /
-  license clearance** requires verifying the exact wheel's THIRD_PARTY notices and the
-  bundled binary SHA-256 (PDFIUM_LICENSE_INVENTORY.md already flags gaps).
-- Low-level bindings; page rendering with explicit width/height/DPI/buffers; **PDFium is
-  not thread-safe** — official docs recommend processes; fits our one-process-per-document
-  model and Linux sandbox.
-- No public API enforces a document-wide decompressed-byte budget; bounded rendering is
-  not a decompression budget. Native crash containment requires process termination.
+Verified against `https://pypdfium2.readthedocs.io/en/stable/readme.html` (and referenced
+API/changelog pages):
 
-## 7. Candidate C — PyMuPDF / MuPDF
+1. PDFium is **not thread-safe for simultaneous calls across different threads**, including
+   across different documents; documentation recommends **processes** for parallel work.
+2. pypdfium2 provides both a **raw ctypes API** and a helper/support API.
+3. Raw API use requires **explicit attention to native object lifetime**.
+4. Helper objects **must typically be closed explicitly** to release memory/file handles.
+5. Accessing detached/already-closed raw handles can cause **use-after-free** behavior.
+6. pypdfium2 is **dual-licensed Apache-2.0 / BSD-3-Clause**.
+7. PDFium uses a **BSD-style license**; **third-party dependency notices must be shipped**
+   with binary distributions.
+8. `BUILD_LICENSES/` and exact wheel contents are relevant to licensing review.
+9. Build configuration may affect linked dependencies, including **possible libgcc runtime
+   linkage** (libgcc license must be evaluated if present).
 
-- Rich native binding; AGPL (open) plus commercial licensing; MuPDF embedded; official docs
-  advise separate processes over threads.
-- Resource/cache controls exist (e.g., `TOOLS.store_shrink()`), but that is **cache
-  management, not a hard memory bound**; no demonstrated pre-output aggregate
-  decompressed-byte budget.
-- AGPL/commercial implications require qualified legal/licensing review for Darsyar's
-  web/service model; no legal conclusion offered; commercial scope/cost not verified.
-- Not selected; not installed.
+What these prove: thread-safety constraints (documented), process-parallelism
+recommendation (documented), native-lifetime requirements (documented). What they do **not**
+prove: a per-document memory guarantee or **any aggregate decompressed-byte limit** (none
+demonstrated). Renderer dimension limits ≠ decompression-byte limits. **`PDFIUM_SELECTION:
+NOT_APPROVED`.**
 
-## 8. Candidate D — independent parser/decoder orchestration
+## 7. Candidate C — PyMuPDF / MuPDF (verified sources, access 2026-11-11)
 
-- Approaches: structural parser exposing every stream pre-output; explicit decoder pipeline
-  with a bounded output sink; custom stream-filter registration/callbacks; low-level
-  object/xref parser + independently controlled filters; qpdf/pikepdf as reference.
-- qpdf (C++ library, JSON output, object/xref streams, container-size and filter-count
-  limits, stream-filter registration) provides **useful building blocks**, but does not by
-  itself expose a strict aggregate decoded-byte budget before expansion (`NOT_PROVEN`).
-- **qpdf clarification:** qpdf's *container size* is an object-count (and nesting) limit;
-  its *maximum stream-filter count* is a filter-count limit. Neither, by itself, is a
-  document-wide decoded-byte budget. No claim is made that qpdf enforces an aggregate
-  decompression budget; its API is not fully verified for that purpose (`NOT_VERIFIED`
-  for the specific aggregate-metering question).
-- Independent orchestration is the **leading hypothesis** for meter-every-decode-before-
-  output-allocation (including parse-time Object/XRef streams) — it is not proven and not
-  selected. It requires a complete stream census and a bounded sink; substantial new
-  engineering; custom crypto/compression implementations are to be avoided (maintenance/
-  security cost); prefer reusing well-audited filter primitives.
+Verified against `https://pymupdf.readthedocs.io/en/latest/faq/index.html` (referenced
+about/tools/multiprocessing pages):
+
+1. PyMuPDF and MuPDF are available under **AGPL and commercial licensing**.
+2. **Artifex is the exclusive commercial licensing agent for MuPDF**.
+3. PyMuPDF **does not support multithreaded use**; documentation recommends **separate
+   processes** for parallel work.
+4. Each process must **open its own Document objects**.
+5. `TOOLS.store_shrink()` reduces the **MuPDF storables cache** — this is cache shrinking,
+   **not a hard process-memory cap**; documented cache size ≠ actual process RSS.
+6. PyMuPDF and embedded MuPDF versions correspond in **major/minor**, but **patch numbers
+   may differ**.
+
+Legal status remains `LEGAL_REVIEW_REQUIRED` (AGPL + commercial via Artifex). No legal
+conclusion is issued. The exact PyMuPDF/MuPDF release pairing is not selected. Persian/math/
+diagram fidelity remains `NOT_TESTED`. **`PYMUPDF_SELECTION: NOT_APPROVED`.**
+
+## 8. Candidate D — independent parser/decoder orchestration (qpdf verified, access 2026-11-11)
+
+Verified against `https://qpdf.readthedocs.io/en/stable/qpdf-options.html` (referenced
+library/release-notes pages):
+
+1. `--parser-max-container-size` limits the **number of top-level objects in a container**.
+2. `--parser-max-container-size-damaged` also applies to **damaged containers and XRef
+   stream parsing**.
+3. `--max-stream-filters` limits the **number of filters in an individual stream**.
+4. qpdf supports **user-provided modular stream filters** via `QPDFStreamFilter` and
+   `QPDF::registerStreamFilter`.
+5. Existence of custom stream filters does not automatically prove every built-in Decode
+   path can be intercepted before output allocation.
+6. qpdf library is documented **safe for multiple threads when distinct QPDF object
+   instances are used**; an individual QPDF object must not be used simultaneously in
+   multiple threads.
+7. qpdf is licensed **Apache-2.0**; pikepdf package/dependency licenses must be inspected
+   separately if discussed.
+
+**Critical classification:** container-size = object-count limit; max-stream-filters =
+per-stream filter-count limit; parser nesting = nesting limit; custom filter API = extension
+mechanism; **aggregate document decompressed-byte budget = `NOT_PROVEN`**. We do not claim
+qpdf cannot implement aggregate metering; we state the reviewed public documentation does
+not yet demonstrate complete aggregate metering from the beginning of parsing. The library
+docs direct developers to installed public headers for deeper details. No qpdf benchmark or
+hostile-fixture test was run (not authorized). **`QPDF_SELECTION: NOT_APPROVED`.**
+
+Independent orchestration is the **leading hypothesis** for meter-every-decode-before-
+output-allocation (including parse-time Object/XRef streams) — it is not proven and not
+selected. It requires a complete stream census and a bounded sink; substantial new
+engineering; custom crypto/compression implementations are to be avoided (maintenance/
+security cost); prefer reusing well-audited filter primitives.
 
 ## 9. Mandatory comparison matrix
 
-| Criterion | pypdf 7.0.1 | pypdfium2/PDFium | PyMuPDF/MuPDF | Independent orchestration |
+| Criterion | pypdf 6.21.3 (locked) / 7.0.1 | pypdfium2/PDFium | PyMuPDF/MuPDF | Independent orchestration |
 |---|---|---|---|---|
 | Parser type / native deps | Pure Python / none | Native (bundled PDFium) | Native (MuPDF) | Custom (or qpdf/pikepdf reference) |
-| Parse-time Object/XRef visibility | Hidden (SOURCE_REVIEWED) | Exposed at lib level; wrapper-level aggregate not proven | Hidden at high level; native internals inaccessible | Designed to expose (SOURCE_REVIEWED / NOT_IMPLEMENTED) |
-| Stream discovery completeness | Partial (S4.1: content; gaps) | Not proven for infl | Not proven | Fully designed; not implemented |
+| Parse-time Object/XRef visibility | Hidden (SOURCE_REVIEWED) | Raw API exposes objects; aggregate not proven | Hidden at high level; native internals inaccessible | Designed to expose (SOURCE_REVIEWED / NOT_IMPLEMENTED) |
+| Stream discovery completeness | Partial (S4.1: content; gaps) | Not proven | Not proven | Fully designed; not implemented |
 | Per-stream output control | YES (Configuration caps) | Bounded render; no decompress-agg | Partial/cache-level | YES (bounded sink) |
 | Aggregate decompression feasibility | NOT_PROVEN (needs orchestration) | NOT_PROVEN | NOT_PROVEN | Most plausible; NOT_IMPLEMENTED |
 | Image pixel/buffer constraints | `image_maximum_buffer_size` (SOURCE_REVIEWED) | Explicit DPI/size (SOURCE_REVIEWED) | Resource controls (SOURCE_REVIEWED) | To be implemented |
 | XFA/resource handling | cap from 7.0.0 (SOURCE_REVIEWED) | Not proven | Not proven | To be implemented |
-| Memory containment | Process/container | Process/container | Process/container | Process/container + sink |
+| Memory containment | Process/container | Process/container | Process/container (cache shrink ≠ hard cap) | Process/container + sink |
 | CPU/time containment | Container cgroup | Container cgroup | Container cgroup | Container cgroup + budget |
-| Process isolation compatibility | YES (S1/S4.2) | YES (recommended) | YES (recommended) | YES |
-| Thread-safety constraints | safe (pure) | NOT thread-safe | advises processes | n/a |
+| Process isolation compatibility | YES (S1/S4.2) | YES (recommended: processes) | YES (recommended: processes) | YES |
+| Thread-safety constraints | safe (pure) | NOT thread-safe (verified) | multithreading unsupported (verified) | n/a |
 | Crash containment | via process | requires process | requires process | via process |
 | Persian/Unicode text | NOT_TESTED | NOT_TESTED (Gate A open) | NOT_TESTED | NOT_TESTED |
 | Math/formula preservation | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED |
 | Diagram/image handling | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED |
 | Linux deployment | YES | YES (wheels) | YES | YES |
 | Windows development | YES | YES | YES | YES |
-| Dependency/binary provenance | sdist/wheel hashed (uv.lock) | needs wheel SHA-256 + notices | needs source/binary provenance | none (custom) |
-| License obligations | BSD-3-Clause (permissive) | wrapper permissive + PDFium notices; verify | AGPL + commercial | project-owned |
+| Dependency/binary provenance | sdist/wheel hashed (uv.lock); 8 advisory scopes on 6.21.3 | needs wheel SHA-256 + THIRD_PARTY/BUILD_LICENSES; libgcc check | needs source/binary provenance; MuPDF version pairing | none (custom) |
+| License obligations | BSD-3-Clause (permissive) | wrapper Apache-2.0/BSD-3 + PDFium BSD-style + notices; verify | AGPL + commercial (Artifex) — LEGAL_REVIEW_REQUIRED | qpdf Apache-2.0; pikepdf separate; custom portion project-owned |
 | Operational complexity | Low | Medium (native lifetime) | Medium (native) | High (build/maintain) |
 | Aggregate-budget evidence quality | NOT_PROVEN | NOT_PROVEN | NOT_PROVEN | DESIGN (not proven) |
 
@@ -244,15 +290,26 @@ strengthening OS/process + container containment; do not claim GB-04 enforceabil
   (original four) — previously reviewed; re-referenced.
 - GHSA-cggf-277g-3q54 (CVE-2026-119204), GHSA-5849-834g-hvw5 (CVE-2026-119203),
   GHSA-mfr5-77xh-9j7h (CVE-2026-119205) — verified this task.
+- GHSA-mwj3-fpmc-hjcv (Low, CWE-200, no CVE) — verified this task.
+
+**Also verified this task (fetched):**
+- pypdfium2 readme: https://pypdfium2.readthedocs.io/en/stable/readme.html
+  (thread-safety, raw API lifetime, dual Apache/BSD, PDFium BSD-style + notices,
+  BUILD_LICENSES, libgcc note).
+- PyMuPDF FAQ: https://pymupdf.readthedocs.io/en/latest/faq/index.html
+  (AGPL/commercial, Artifex exclusive agent, no multithreading, processes recommended,
+  store_shrink cache vs RSS).
+- qpdf CLI options: https://qpdf.readthedocs.io/en/stable/qpdf-options.html
+  (parser-max-container-size, parser-max-container-size-damaged, max-stream-filters).
 
 **Cited, not fetched (NOT_VERIFIED):**
-- pypdfium2 readme/API/changelog: https://pypdfium2.readthedocs.io/en/stable/readme.html etc.
-- PDFium: https://pdfium.googlesource.com/pdfium/
-- PyMuPDF about/FAQ/tools: https://pymupdf.readthedocs.io/en/latest/about.html etc.
-- qpdf docs/library: https://qpdf.readthedocs.io/en/stable/ and /library.html
+- PDFium source: https://pdfium.googlesource.com/pdfium/
+- pypdfium2 python_api/changelog deep pages (referenced; specifics from readme used).
+- PyMuPDF about/tools/multiprocessing (referenced; FAQ used for verified claims).
+- qpdf library.html / release-notes.html (referenced; options page used for verified claims).
 
 Local source probes (S4.2) remain the evidence base for parser behavior; official pages
-verified here provide advisory/release confirmation.
+verified here provide advisory/release/constraint confirmation.
 
 ## 15. Decision packet status
 
@@ -264,7 +321,12 @@ GATE_B_S3: DECISION_PACKET_COMPLETE
 GATE_B_S4: LAB_VALIDATION_COMPLETE
 GATE_B_S4_1: LAB_VALIDATION_COMPLETE
 GATE_B_S4_2: LAB_VALIDATION_PARTIAL
-GATE_B_S5: ARCHITECTURE_REVIEW_PARTIAL
+GATE_B_S5: ARCHITECTURE_REVIEW_COMPLETE
+
+PYPDF_LOCKED_VERSION: 7.0.1
+PYPDF_UPGRADE: APPLIED (owner-delegated technical decision, 2026-11-11)
+PDF_PARSER_SELECTION: NOT_APPROVED
+PDF_RENDERER_SELECTION: NOT_APPROVED
 
 GB_01: APPROVED_WITH_CONDITIONS
 GB_02: APPROVED_WITH_CONDITIONS
@@ -286,10 +348,6 @@ GB_15: PENDING_OWNER_DECISION
 GB_16: PENDING_OWNER_DECISION
 GB_17: PENDING_OWNER_DECISION
 
-PYPDF_LOCKED_VERSION: 6.21.3
-PYPDF_UPGRADE: NOT_AUTHORIZED
-PDF_PARSER_SELECTION: NOT_APPROVED
-PDF_RENDERER_SELECTION: NOT_APPROVED
 GB_04: NOT_APPROVED
 
 GATE_B: OPEN / OWNER_DECISION_REQUIRED
@@ -303,10 +361,12 @@ PHASE_5: NOT_STARTED
 PRODUCTION: NOT_APPROVED
 ```
 
-`GATE_B_S5: ARCHITECTURE_REVIEW_PARTIAL` — the four-way comparison packet exists and the
-pypdf official-source portion is verified, but external verification of pypdfium2/PDFium,
-PyMuPDF, and qpdf documentation remains `NOT_VERIFIED`, and PyMuPDF licensing remains
-`LEGAL_REVIEW_REQUIRED`. It may be promoted to `ARCHITECTURE_REVIEW_COMPLETE` only after
-those official-source corrections are documented. This does not approve a parser, renderer,
-dependency upgrade, aggregate budget, Gate B closure, real PDF processing, or Production
-deployment.
+`GATE_B_S5: ARCHITECTURE_REVIEW_COMPLETE` — the four-way comparison packet is complete: all
+four candidates compared, the eight applicable pypdf advisory scopes recorded, and official
+external sources verified for pypdf (releases + 8 advisories), pypdfium2 (readme),
+PyMuPDF (FAQ), and qpdf (CLI options). Remaining binary-provenance and legal questions
+(PyMuPDF AGPL/commercial; PDFium bundled-binary notices) are explicitly left open as
+`LEGAL_REVIEW_REQUIRED`/`NOT_VERIFIED`. Completion means the comparison packet is complete;
+it does **not** mean every legal or technical risk is resolved, and it does not approve a
+parser, renderer, dependency upgrade, aggregate budget, Gate B closure, real PDF processing,
+or Production deployment.

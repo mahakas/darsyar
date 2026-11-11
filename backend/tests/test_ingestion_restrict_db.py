@@ -106,10 +106,11 @@ async def test_pg_catalog_reports_restrict() -> None:
 
 
 @pytest.mark.asyncio
-async def test_pg_alembic_head_is_0019() -> None:
+async def test_pg_alembic_head_is_current() -> None:
     async with SESSION_FACTORY() as s:
         version = (await s.execute(text("SELECT version_num FROM alembic_version"))).scalar_one()
-        assert version == "0019_outbox_job_fk_restrict"
+        # Head must match the actual project head (now 0021 after Phase 4 chunks).
+        assert version == "0021_ingestion_chunks_indexes"
 
 
 @pytest.mark.asyncio

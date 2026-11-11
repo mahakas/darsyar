@@ -107,7 +107,7 @@ class BrokenRedis:
 @pytest_asyncio.fixture(autouse=True)
 async def _clean_synthetic_tables() -> None:
     async with SESSION_FACTORY() as s:
-        await s.execute(text("TRUNCATE outbox_events, ingestion_jobs, ingestion_documents"))
+        await s.execute(text("TRUNCATE outbox_events, ingestion_jobs, ingestion_chunks, ingestion_documents"))
         await s.commit()
 
 
