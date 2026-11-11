@@ -1,8 +1,9 @@
 """Profile API tests: explicit grade is self-service and strictly validated."""
 
-import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+
+import pytest
 
 from app.api.deps import get_current_user
 from app.api.v1.profile import router
