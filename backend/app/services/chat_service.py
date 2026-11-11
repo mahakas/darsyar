@@ -447,6 +447,16 @@ class ChatStreamService:
 
     # ------------------------------------------------------------- preflight (pre-stream validation)
 
+    @staticmethod
+    def _require_selected_grade(user: User) -> int:
+        """پایهٔ انتخاب‌شدهٔ معتبر را فقط از پروفایل server-side می‌خواند (R-019)."""
+        grade = getattr(user, "selected_grade", None)
+        if grade is None:
+            raise AppError("grade_required", 409, "برای شروع گفت‌وگو ابتدا پایهٔ تحصیلی خود را انتخاب کنید.")
+        if not isinstance(grade, int) or not 1 <= grade <= 12:
+            raise AppError("invalid_selected_grade", 422, "پایهٔ تحصیلی ثبت‌شده معتبر نیست.")
+        return grade
+
     async def preflight(self, req: ChatStreamRequest, user: User) -> None:
         """اعتبارسنجیِ قبل از شروع stream (برای بازگرداندن خطای JSON مناسب).
 
@@ -454,6 +464,7 @@ class ChatStreamService:
         شروع StreamingResponse بررسی شوند تا خطاها به‌جای قطعِ پس از 200، به‌صورت
         پاسخ استاندارد (404/409) بازگردند.
         """
+        self._require_selected_grade(user)
         await self._resolve_conversation(req.conversation_id, user.id)
         fp = self._fingerprint(req.content, req.model)
         key = f"chat:{user.id}:{req.client_request_id}"
@@ -467,6 +478,7 @@ class ChatStreamService:
     # ------------------------------------------------------------- main stream
 
     async def stream_chat(self, req: ChatStreamRequest, user: User, last_event_id: str | None = None) -> AsyncIterator[str]:
+        self._require_selected_grade(user)
         conv = await self._resolve_conversation(req.conversation_id, user.id)
         fp = self._fingerprint(req.content, req.model)
         key = f"chat:{user.id}:{req.client_request_id}"
