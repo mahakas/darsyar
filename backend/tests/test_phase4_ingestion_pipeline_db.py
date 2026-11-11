@@ -160,6 +160,15 @@ async def test_index_then_hybrid_retrieve_grade_ceiling() -> None:
         )
         await s.commit()
 
+        # Every child chunk must reference the parent that contains its child range.
+        indexed = (
+            await s.execute(select(IngestionChunk).where(IngestionChunk.document_id == doc.id))
+        ).scalars().all()
+        parent_ids = {c.id for c in indexed if c.is_parent}
+        child_chunks = [c for c in indexed if not c.is_parent]
+        assert child_chunks
+        assert all(c.parent_id in parent_ids for c in child_chunks)
+
         # grade ceiling: selected_grade=6 includes all; selected_grade=1 excludes
         q = "مفهوم ریاضی"
         qv = _fake_embed_vec(len(q) + 1)
