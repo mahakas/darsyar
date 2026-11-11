@@ -23,6 +23,7 @@ Current stack evidence:
 | Candidate | Status | Notes |
 |---|---|---|
 | `pypdf` (existing) | `ALREADY_APPROVED` (parse only) | cannot render pages |
+| `pypdfium2` | `OWNER_APPROVED_CONDITIONAL_CANDIDATE` | Owner decision 2026-11-10: conditional candidate for continued Gate A evaluation; **not** production approval. Evidence below; assessment: `GATE_A_RENDERER_DECISION.md`; license inventory: `PDFIUM_LICENSE_INVENTORY.md` (INCOMPLETE — ELF/PE independently confirmed; PyPI attestation not available for 5.15.2; component provenance not independently verified; owner/legal review required) |
 | PyMuPDF (`pymupdf`) | `AVAILABLE_BUT_NOT_APPROVED` | used for preflight; needs approval, packaging, licensing review |
 | OS renderer (e.g., poppler/mutool) | `REQUIRES_EXTERNAL_REVIEW` | separate binary; Docker+licensing impact; no repo evidence |
 | Other (UNKNOWN) | `UNKNOWN` | no repository evidence to compare |
@@ -142,28 +143,18 @@ Meaning: both intake methods are required product capabilities and converge on *
 
 ## 10. Temporary PDFium Feasibility Evidence — 2026-11-10
 
-Preliminary, isolated Windows experiment for `pypdfium2`. This is **evidence only**, not production approval.
+Isolated experiments for `pypdfium2` (Windows + Linux). This is **evidence only**, not production approval.
 
-### Environment
+### Windows
 - Windows 10; CPython 3.13.14; x86_64.
-- Isolated temporary environment: `%TEMP%\darsyar-pdfium-preflight\`.
-- `pypdfium2==5.15.2`; bundled PDFium version `159.0.8149`.
-- Native Windows binary loads successfully. No project dependency modified.
+- `pypdfium2==5.15.2`; `Pillow==12.3.0`; bundled PDFium `159.0.8149`.
+- Synthetic 3-page PDF (portrait/landscape/90°-rotated); 72 and 150 DPI rendering; **PNG conversion/save/reopen succeeded**; 20/20 lifecycle cycles; malformed PDF controlled rejection.
 
-### Synthetic test
-- Three-page synthetic PDF (stdlib-generated): portrait, landscape, and 90°-rotated page; dimensions and rotation detected.
-- SHA-256: `3b467358e751db62c691dc34ba4606ee5e035fb0c5a0ba3d662e5a9d8e8c3017`.
-
-### Rendering
-- Rendering at 72 and 150 DPI succeeded for portrait, landscape, and rotated pages.
-- Bitmap output available as raw BGR bytes.
-- PNG export **NOT RUN** (Pillow intentionally not installed).
-- 30 sequential open/render/close cycles completed without reported exception.
-- Python tracemalloc peak: 2.91 MB (does **not** prove absence of native PDFium memory leaks).
-
-### Linux packaging
-- Linux manylinux x86_64 wheel downloaded to temp only: `pypdfium2-5.15.2-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl`.
-- **NOT RUN** inside the Darsyar Linux/Docker runtime; download availability ≠ runtime compatibility.
+### Linux (GitHub Actions Run #6)
+- Run ID `42771524378`; Artifact ID `13742495529`; commit `fffd51bc…`.
+- Python 3.13.18; x86_64; `pypdfium2==5.15.2`; `Pillow==12.3.0`.
+- 6 PNG outputs (3 pages × 2 DPI), 30/30 lifecycle, malformed rejection, native library with no missing dependency per `ldd`.
+- Source of exact evidence: `docs/ingestion/PDFIUM_LINUX_PREFLIGHT.md`.
 
 ### Licensing / thread safety
 - Package and bundled third-party notices inventoried; legal/distribution review **pending**; no production license clearance claimed.
@@ -172,9 +163,12 @@ Preliminary, isolated Windows experiment for `pypdfium2`. This is **evidence onl
 ### Gate A status
 ```text
 Windows basic rendering feasibility: PASS
-Linux production runtime compatibility: NOT VERIFIED
-PNG serialization compatibility: NOT VERIFIED
+Linux synthetic runtime compatibility: PASS
+Linux PNG serialization compatibility: PASS
 Persian/textbook visual fidelity: NOT VERIFIED
+Real textbook rendering: NOT RUN
+Concurrent rendering: NOT RUN
+Native PDFium memory-leak proof: NOT ESTABLISHED
 Production dependency approval: NOT APPROVED
 Licensing review: PENDING
 Gate A: OPEN

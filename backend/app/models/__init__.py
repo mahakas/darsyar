@@ -8,8 +8,11 @@ from app.models.credit_account import CreditAccount
 from app.models.credit_grant import CreditGrant
 from app.models.credit_ledger import CreditLedger
 from app.models.index_meta import IndexMeta
+from app.models.ingestion_document import IngestionDocument
+from app.models.ingestion_job import IngestionJob
 from app.models.message import Message
 from app.models.otp_challenge import OtpChallenge
+from app.models.outbox_event import OutboxEvent
 from app.models.payment_transaction import PaymentTransaction
 from app.models.plan_entitlement import PlanEntitlement
 from app.models.product_catalog import ProductCatalog
@@ -31,7 +34,10 @@ __all__ = [
     "CreditGrant",
     "CreditLedger",
     "IndexMeta",
+    "IngestionDocument",
+    "IngestionJob",
     "Message",
+    "OutboxEvent",
     "OtpChallenge",
     "PaymentTransaction",
     "PlanEntitlement",

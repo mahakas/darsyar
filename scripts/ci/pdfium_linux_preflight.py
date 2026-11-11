@@ -69,9 +69,17 @@ def env_inventory():
                 info["libc_version"] = parts[1] if len(parts) > 1 else "UNKNOWN"
         except (ValueError, OSError):
             pass
-    if shutil.which("ldd"):
+    # تعیین glibc_musl از libc_name قطعی (case-insensitive)
+    name_folded = info["libc_name"].casefold()
+    if "glibc" in name_folded:
+        info["glibc_musl"] = "glibc"
+    elif "musl" in name_folded:
+        info["glibc_musl"] = "musl"
+
+    # fallback: ldd --version (stdout + stderr), case-insensitive
+    if info["glibc_musl"] == "UNKNOWN" and shutil.which("ldd"):
         res = sh(["ldd", "--version"])
-        combined = (res.stdout or "") + (res.stderr or "")
+        combined = ((res.stdout or "") + (res.stderr or "")).casefold()
         if "glibc" in combined:
             info["glibc_musl"] = "glibc"
         elif "musl" in combined:

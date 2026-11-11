@@ -101,6 +101,14 @@ class Histogram:
 
 class MetricsRegistry:
     def __init__(self) -> None:
+        self.outbox_publisher_invocations = Counter("outbox_publisher_invocations", "Outbox publisher run counts by source")
+        self.outbox_reconciliation_attempts = Counter("outbox_reconciliation_attempts", "Outbox reconciliation run counts")
+        self.outbox_events_discovered = Counter("outbox_events_discovered", "Eligible outbox events claimed")
+        self.outbox_events_published = Counter("outbox_events_published", "Outbox events published to ARQ")
+        self.outbox_events_deferred = Counter("outbox_events_deferred", "Outbox events deferred on transient Redis failure")
+        self.outbox_events_failed = Counter("outbox_events_failed", "Outbox events failed permanently (contract)")
+        self.outbox_duplicate_enqueue = Counter("outbox_duplicate_enqueue", "Duplicate ARQ enqueue tolerated")
+        self.outbox_pg_commit_failure_after_enqueue = Counter("outbox_pg_commit_failure_after_enqueue", "Postgres commit failure after enqueue")
         self.chat_active = Gauge("chat_streams_active", "Active streaming chat requests")
         self.chat_started = Counter("chat_streams_started", "Accepted stream requests")
         self.chat_completed = Counter("chat_streams_completed", "Successfully completed streams")
@@ -118,6 +126,14 @@ class MetricsRegistry:
     def as_prometheus_text(self) -> str:
         lines = ["# HELP darsyar backend metrics", "# TYPE darsyar_counter counter"]
         counters: list[Counter] = [
+            self.outbox_publisher_invocations,
+            self.outbox_reconciliation_attempts,
+            self.outbox_events_discovered,
+            self.outbox_events_published,
+            self.outbox_events_deferred,
+            self.outbox_events_failed,
+            self.outbox_duplicate_enqueue,
+            self.outbox_pg_commit_failure_after_enqueue,
             self.chat_started,
             self.chat_completed,
             self.chat_failed,

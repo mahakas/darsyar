@@ -316,6 +316,19 @@
 | `.github/workflows/ingestion-pdfium-linux-preflight.yml` | workflow دستی (workflow_dispatch) برای preflight Linux pypdfium2+Pillow در `python:3.13-slim` (فقط دستی؛ بدون اجرا توسط KiloCode). |
 | `scripts/ci/pdfium_linux_preflight.py` | هارنس CI-only برای تست Linux pypdfium2 5.15.2 + Pillow 12.3.0 (ماژول کاربردی نیست). |
 | `docs/ingestion/PDFIUM_LINUX_PREFLIGHT.md` | ثبت شواهد Run #6 (PASS فنی؛ بدون تأیید Production؛ Gate A OPEN). |
+| `docs/ingestion/GATE_A_RENDERER_DECISION.md` | ارزیابی نهایی Gate A؛ توصیه pypdfium2 به‌عنوان پیشنهاد تأیید مالک (نه Production). |
+| `docs/ingestion/PDFIUM_LICENSE_INVENTORY.md` | موجودی فنی مجوز/notices برای pypdfium2 5.15.2 (ایعزلوله/Windows)؛ تأیید حقوقی نیست. |
+| `docs/ingestion/PDFIUM_OWNER_LEGAL_REVIEW.md` | خلاصه یادمند مالک/حقوقی برای pypdfium2 5.15.2 (چک‌لیست تصمیم‌ها؛ بدون تصمیم‌گیری). |
+| `docs/ingestion/PDFIUM_CONCURRENCY_DECISION.md` | ارزیابی فرایندهای isolated/هم‌زمانی برای pypdfium2 (پیشنهاد Option C؛ بدون تصمیم مالک). |
+| `docs/ingestion/ARQ_PDF_JOB_INTEGRATION_AUDIT.md` | ممیزی یکپارچه‌سازی arq↔PDF (BLOCKED_BY_MISSING_IDEMPOTENCY_OR_RECOVERY؛ بدون تصمیم مالک). |
+| `docs/ingestion/INGESTION_JOB_IDEMPOTENCY_DESIGN.md` | طراحی durable ingestion jobs/idempotency/outbox/fencing (READY_FOR_OWNER_DESIGN_REVIEW). |
+| `docs/ingestion/INGESTION_ARCHITECTURE_OWNER_DECISION.md` | بستهٔ تصمیم یکپارچه مالک برای معماری ingestion (Group 1/2/3؛ Owner decision PENDING). |
+| `docs/ingestion/DURABLE_INGESTION_JOB_IMPLEMENTATION_SPEC.md` | مشخصات پیاده‌سازی durable ingestion job/outbox/fencing (OWNER_APPROVED_WITH_CONDITIONS؛ Slice 1 IMPLEMENTED). |
+| `backend/app/models/ingestion_document.py` | مدل هویت canonical سند (R-157). |
+| `backend/app/models/ingestion_job.py` | مدل durable ingestion job (persistence only). |
+| `backend/app/models/outbox_event.py` | مدل transactional outbox (publisher در Slice بعدی). |
+| `backend/alembic/versions/0018_ingestion_persistence.py` | مهاجرت Slice 1 (ingestion_documents/jobs/outbox_events). |
+| `backend/tests/test_ingestion_persistence.py` | تست ساختاری + PostgreSQL برای persistence ingestion. |
 | `backend/tests/test_inference_real_models.py` | تست واقعی مدل‌ها (skip-gated؛ فقط وقتی هر دو مدل cache شده باشند). |
 | `docs/adr/ADR-054-remote-inference-support.md` | تصمیم پذیرفته‌شده: پشتیبانی رسمی Remote Embedding/Inference (accepted؛ 2026-11-08). |
 
@@ -325,3 +338,48 @@
 |---|---|
 | `backend/uv.lock` | lockfile دقیق پایتون؛ تولیدشده با `uv lock` از PyPI واقعی. |
 | `frontend/package-lock.json` | lockfile دقیق npm؛ تولیدشده با `npm install --package-lock-only` از registry واقعی. |
+| ackend/app/services/ingestion_creation.py | سرویس Slice 2: ایجاد اتمیک job+outbox با idempotency درخواست. |
+| ackend/tests/test_ingestion_creation_db.py | تست PostgreSQL Slice 2 (ایجاد اتمیک، idempotency، هم‌زمانی). |
+| docs/ingestion/INGESTION_PROGRESS_AND_OPEN_DECISIONS.md | گزارش یکپارچه پیشرفت و تصمیم‌های باز مالک (snapshot 2026-11-10). |
+| docs/ingestion/OUTBOX_RETENTION_AND_SLICE_3_OWNER_DECISION.md | بستهٔ تصمیم مالک برای retention outbox و دامنهٔ Slice 3 (سنتزیک). |
+| docs/ingestion/SLICE_3_OUTBOX_PUBLISHER_IMPLEMENTATION.md | مشخصات پیاده‌سازی Slice 3: outbox publisher/reconciliation (S-1/S-2 APPROVED_WITH_CONDITIONS؛ CLOSED). |
+| backend/app/repositories/outbox_events.py | دسترسی outbox: claim FOR UPDATE SKIP LOCKED + گذارهای publish/fail (Slice 3). |
+| backend/app/services/outbox_publisher.py | سرویس انتشار outbox به صف ARQ اختصاصی (synthetic)؛ at-least-once (Slice 3). |
+| backend/app/services/outbox_reconciliation.py | سرویس یک‌بارمصرف تطبیق/بازانتشار outbox (Slice 3). |
+| backend/tests/test_outbox_publisher_db.py | تست یکپارچهٔ PostgreSQL + Redis/ARQ انتشار outbox و تطبیق (Slice 3؛ 13 تست). |
+| docs/ingestion/NEXT_INGESTION_READINESS_OWNER_DECISIONS.md | بستهٔ تصمیم یکپارچه مالک برای مرحلهٔ بعد ingestion (R-1، Publisher runtime، Gate A/B/C، 13529؛ صرفاً اسنادی/ارزیابی). |
+| docs/ingestion/OUTBOX_PUBLISHER_BATCH_BENCHMARK.md | شواهد benchmark سنتزی batch-size Publisher (B1؛ 10/50/100) روی darsyar_test + Redis DB15؛ B1=OWNER_APPROVED_WITH_CONDITIONS با batch_size=50 برای manual one-shot. |
+| docs/ingestion/OUTBOX_PUBLISHER_RUNTIME_PARAMETERS.md | ارزیابی فنی read-only پارامترهای runtime Publisher (B3): فهرست پارامترها، پروفایل‌های manual/scheduled/Production، جدول تصمیم مالک؛ B3=OWNER_DECIDED_DEFER_UNTIL_SCHEDULING_OR_PRODUCTION؛ بدون انتخاب مقدار. |
+| docs/ingestion/GATE_B_PDF_SECURITY_LIMITS_OWNER_DECISION.md | بستهٔ تصمیم مالک Gate B: ماتریس امنیت/محدودیت منابع PDF (آپلود/گسترش/رندر/اجرا/ذخیره موقت/سوءاستفاده)، مغایرت pilot-37.5MB با سقف 20MiB، تست‌های synthetic-only، جدول تصمیم مالک؛ بدون تأیید هیچ محدودیتی. |
+| docs/ingestion/GATE_B_PDF_VALIDATION_IMPLEMENTATION.md | پیاده‌سازی Gate B-S0 (Approve_With_Conditions): Common PDF Validation Layer (pypdf 6.21.4/6.21.3)، Parent/Child contract (طراحی)، تست‌های synthetic-only (22 passed)؛ بدون pilot/آپلود/رندر. |
+| docs/ingestion/GATE_B_S1_PARENT_CHILD_PROTOTYPE.md | پیاده‌سازی Gate B-S1 (Approve_With_Conditions): Parent Supervisor + PDF Child ایزوله (IPC v1، pypdf 6.21.3، timeout/خاتمه/بازیابی، ایزوله‌سازی env)؛ تست‌های synthetic-only (17 passed)؛ بدون pilot/آپلود/رندر/Production. |
+| docs/ingestion/GATE_B_S2_LINUX_SANDBOX_PROTOTYPE.md | پیاده‌سازی Gate B-S2 (Approve_With_Conditions): sandbox ایزولهٔ Linux (network none، read-only rootfs، memory/CPU/PID limits، cap-drop، non-root) با شواهد probe؛ 52 passed در کانتینر؛ غیر از Deployment Dockerfile/Compose. |
+| docs/ingestion/GATE_B_S3_NUMERIC_POLICY_OWNER_DECISION.md | بستهٔ تصمیم مالک Gate B-S3: 18 تصمیم عددی/امنیتی؛ `GATE_B_S3_PARTIAL_OWNER_DECISION=APPROVE_WITH_CONDITIONS` (6 تأییدشده: GB-01/02/03/08/09/18؛ 12 PENDING)؛ بدون پیاده‌سازی/فعال‌سازی. |
+| docs/ingestion/GATE_B_S4_AGGREGATE_DECOMPRESSION_AND_CGROUP_EVIDENCE.md | آزمایش آزمایشگاهی Gate B-S4 (Approve_With_Conditions): بودجه decompression کل سند (256 MiB candidate: قابل‌اجرا، بدون تأیید) + شواهد شمارنده cgroup v2 مستقیم (memory OOM/CPU throttling/PID). |
+| docs/ingestion/GATE_B_S4_1_AGGREGATE_DECOMPRESSION_COVERAGE.md | آزمایش Gate B-S4.1 (Approve_With_Conditions): پوشش/کشف جریان‌ها، حسابداری شکست‌ها، ایزوله‌سازی هم‌زمانی؛ Q1=PARTIALLY؛ بدون تأیید GB-04. |
+| docs/ingestion/GATE_B_S4_2_PARSE_TIME_DECOMPRESSION_AND_PYPDF_SECURITY_REVIEW.md | آزمایش Gate B-S4.2 (Approve_With_Conditions): decompression ضمنی هنگام parse، ایزوله‌سازی فرایند per-document، بازبینی نسخه/مشاوره pypdf (4 نسخه)؛ قفل 6.21.3 بدون تغییر؛ **LAB_VALIDATION_PARTIAL** (شکاف‌های شواهد ثبت‌شده). |
+| docs/ingestion/PYPDF_RESOURCE_LIMITS_AUDIT.md | ممیزی منابع pypdf (per-filter/stream caps؛ نه بودجهٔ کلی) و رفتار validator (شمارش صفحه بدون decode جریان)؛ یکسانی رفتاری 6.21.3 و 6.21.4 تأییدشده (22 تست در هر دو). |
+| backend/app/services/ingestion/pdf_validation.py | لایهٔ اعتبارسنجی مشترک PDF (Gate B-S0): امضا/ساختار/صفحه/رمزنگاری/محدودیت‌های صریح؛ بدون استخراج متن/رندر. |
+| backend/app/services/ingestion/parent_child_contract.py | قرارداد نسخه‌دار Parent/Child (IPC v1؛ Gate B-S0/S1). |
+| backend/app/services/ingestion/parent_supervisor.py | سرپرست Parent (Gate B-S1): spawn فرایند ایزوله، allowlist محیط، timeout/خاتمه/بازیابی، اعتبارسنجی نتیجه. |
+| backend/app/services/ingestion/pdf_child.py | فرایند فرزند PDF (Gate B-S1): `python -m ...pdf_child`؛ scoped Configuration pypdf؛ decode جریان؛ نتیجهٔ ساخت‌یافته. |
+| backend/app/services/ingestion/linux_sandbox.py | پروب/رانر sandbox Linux (Gate B-S2): اندازه‌گیری و تأیید enforcement (network/fs/memory/CPU/PID) و run_sandboxed_child. |
+| backend/tests/test_gate_b_pdf_validation.py | تست‌های synthetic-only اعتبارسنجی PDF (Gate B-S0؛ 22 تست). |
+| backend/tests/test_gate_b_parent_child.py | تست‌های synthetic-only Parent/Child (Gate B-S1؛ 17 تست). |
+| backend/tests/test_gate_b_linux_sandbox.py | تست‌های synthetic-only sandbox Linux (Gate B-S2؛ 13 تست enforcement). |
+| backend/tests/sandbox/Dockerfile.sandbox | ایمیج مستقل آزمایشی sandbox Linux (Gate B-S2؛ pypdf 6.21.3؛ نه بخش Deployment). |
+| backend/tests/test_gate_b_s4_aggregate_decompression.py | آزمایش A (Gate B-S4): بودجه decompression کل/جریان با pypdf 6.21.3 (8 تست). |
+| backend/tests/test_gate_b_s4_cgroup_evidence.py | آزمایش B (Gate B-S4): شواهد شمارنده cgroup v2 (memory/CPU/PID) (7 تست). |
+| backend/tests/sandbox/s4_cgroup_lib.py | کتابخانهٔ probeهای cgroup (test-only). |
+| backend/tests/sandbox/s4_cgroup_probe.py | درایور چاپ شواهد cgroup (test-only). |
+| backend/tests/sandbox/s4_1_lib.py | کتابخانهٔ test-only S4.1 (builders/Orchestratorها). |
+| backend/tests/test_gate_b_s4_1_stream_coverage.py | آزمایش A S4.1: پوشش/کشف جریان‌ها. |
+| backend/tests/test_gate_b_s4_1_failure_accounting.py | آزمایش B S4.1: حسابداری شکست/partial. |
+| backend/tests/test_gate_b_s4_1_concurrency_isolation.py | آزمایش C S4.1: ایزوله‌سازی هم‌زمانی (threads/async). |
+| backend/tests/sandbox/s4_2_lib.py | کتابخانهٔ test-only S4.2 (فرایند فرزند per-document). |
+| backend/tests/sandbox/pypdf_version_probe.py | درایور مستقل version-matrix (S4.2). |
+| backend/tests/test_gate_b_s4_2_parse_time_decompression.py | آزمایش A S4.2: decompression ضمنی هنگام parse. |
+| backend/tests/test_gate_b_s4_2_process_isolation.py | آزمایش B S4.2: فرایند فرزند per-document. |
+| backend/tests/test_gate_b_s4_2_security_regressions.py | آزمایش C/D S4.2: مشاوره/فیلترها (6.21.3). |
+| backend/alembic/versions/0019_outbox_job_fk_restrict.py | مهاجرت R-1: تغییر FK `fk_outbox_events_job` از CASCADE به RESTRICT (برگشت‌پذیر؛ R1-IMPL؛ روی `darsyar` اعمال شد 2026-11-11). |
+| backend/tests/test_ingestion_restrict_db.py | تست PostgreSQL R-1: metadata/catalog/RESTRICT، رد حذف SQL و ORM، حفظ والد/فرزند، حذف job بی‌outbox، head 0019 (7 تست). |
