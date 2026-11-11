@@ -1,5 +1,5 @@
 /** Chat streaming + history API for the Darsyar UI (Phase 6). */
-import { apiFetch } from './client'
+import { apiFetch, getAccessToken } from './client'
 import { readSseStream } from './sse'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '')
@@ -25,32 +25,27 @@ export function makeClientRequestId(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-/**
- * Stream a chat turn against POST /chat/stream (fetch-based SSE).
- * The access token is read from the in-memory reader registered on window.
- */
+/** Stream a turn; grade is read only from the authenticated server-side profile. */
 export async function streamChat(
   content: string,
-  selectedGrade: number,
   conversationId: string | null,
   handlers: ChatStreamHandlers,
 ): Promise<void> {
   const headers = new Headers({ Accept: 'text/event-stream', 'Content-Type': 'application/json' })
-  const access = (globalThis as { __darsyarAccessTokenReader?: () => string | null }).__darsyarAccessTokenReader
-  const auth = access?.()
+  const auth = getAccessToken()
   if (auth) headers.set('Authorization', `Bearer ${auth}`)
 
   const body = JSON.stringify({
     conversation_id: conversationId || null,
     content,
     client_request_id: makeClientRequestId(),
-    grade_level: selectedGrade,
   })
 
   const response = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
     headers,
     body,
+    credentials: 'include',
     signal: handlers.signal,
   })
 
