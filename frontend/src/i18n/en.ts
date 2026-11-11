@@ -32,5 +32,14 @@ export const en = {
   "privacyDesc": "Personal data and sources with controlled access",
   "foundationNote": "This is a UI scaffold only; chat will be connected in its planned phase.",
   "sendQuestion": "Send question",
-  "footerNote": "Initial development environment"
+  "footerNote": "Initial development environment",
+  "selectGradeTitle": "Select your school grade",
+  "selectGradeIntro": "To protect the learning boundary, Darsyar requires an explicit grade before chat can start.",
+  "saveGrade": "Save grade",
+  "savingGrade": "Saving…",
+  "profileError": "The grade could not be saved. Please try again.",
+  "signOut": "Sign out",
+  "signedIn": "Signed in",
+  "sessionLoading": "Restoring your session…",
+  "currentGrade": "Selected grade"
 } as const
