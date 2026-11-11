@@ -180,6 +180,8 @@ async def test_index_then_hybrid_retrieve_grade_ceiling() -> None:
         assert r6.grade_ceiling_applied
         assert len(r6.chunks) > 0
         assert all(c.grade_level <= 6 for c in r6.chunks)
+        # R-158: search returns child chunks only; parent chunks are for model context.
+        assert all(not c.is_parent for c in r6.chunks)
 
         r1 = await hybrid_retrieve(s, query=q, query_vector=qv, selected_grade=1, rerank=_rerank)
         assert len(r1.chunks) == 0  # grade 5 chunks excluded for grade-1 student

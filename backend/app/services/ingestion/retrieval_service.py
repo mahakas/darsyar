@@ -13,6 +13,7 @@ from collections.abc import Awaitable, Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.services.ingestion.embedding_service import embed_batch
 from app.services.ingestion.retrieval import RetrievalResult, hybrid_retrieve
@@ -34,8 +35,13 @@ class RetrievalService:
     ) -> None:
         self._embed = embed
         self._rerank = rerank
+        settings = get_settings()
         self._embedding_model = embedding_model
         self._embedding_dim = embedding_dim
+        # Keep the two R-163 thresholds independent and source them from validated settings.
+        self._min_retrieval_score = settings.min_retrieval_score
+        self._min_confidence = settings.min_confidence
+        self._top_k = settings.reranker_top_k
 
     async def retrieve(
         self,
@@ -45,7 +51,7 @@ class RetrievalService:
         selected_grade: int,
         edition_year: int | None = None,
         subject: str | None = None,
-        top_k: int = 20,
+        top_k: int | None = None,
     ) -> RetrievalResult:
         if selected_grade < 1 or selected_grade > 12:
             raise AppError("invalid_selected_grade", 422, "پایهٔ دانش‌آموز نامعتبر است.")
@@ -62,7 +68,9 @@ class RetrievalService:
             selected_grade=selected_grade,
             edition_year=edition_year,
             subject=subject,
-            top_k=top_k,
+            top_k=top_k if top_k is not None else self._top_k,
+            min_retrieval_score=self._min_retrieval_score,
+            min_rerank_score=self._min_confidence,
             rerank=self._rerank,
         )
 

@@ -82,14 +82,16 @@ async def test_retrieval_service_meets_rag_gates() -> None:
         r5 = await service.retrieve(s, query=q, selected_grade=5)
         r1 = await service.retrieve(s, query=q, selected_grade=1)
 
-        # grade leakage must be 0: all retrieved chunks <= selected grade
+        # grade leakage must be 0 and retrieval contains child chunks only (R-148/R-158)
         assert all(c.grade_level <= 5 for c in r5.chunks)
         assert all(c.grade_level <= 1 for c in r1.chunks)
+        assert all(not c.is_parent for c in r5.chunks)
+        assert all(not c.is_parent for c in r1.chunks)
         # a grade-1 student must not retrieve grade-5 chunks
         assert len(r1.chunks) == 0
 
         # synthetic gold: query at grade 5 should recall the math chunks
-        gold = [GoldItem(query=q, grade=5, ground_truth_chunk_keys={(5, i) for i in range(0, len(chunking.children))})]
+        gold = [GoldItem(query=q, grade=5, ground_truth_chunk_keys={(5, len(chunking.parents) + i) for i in range(len(chunking.children))})]
         evalr = evaluate_retrieval(gold, [r5])
         assert evalr.grade_leakage == 0.0
         assert evalr.invalid_citation_rate == 0.0
@@ -100,3 +102,55 @@ async def test_retrieval_service_meets_rag_gates() -> None:
 async def test_citation_format_guards_missing_page() -> None:
     c = RetrievalService.format_citation(title="ریاضی پنجم", grade=5, page=None, chunk_index=3)
     assert "[کتاب: ریاضی پنجم | پایه 5 | صفحه - | قطعه 3]" == c
+
+
+
+@pytest.mark.asyncio
+async def test_retrieval_score_threshold_precedes_reranking_and_confidence_is_separate() -> None:
+    async with SESSION_FACTORY() as s:
+        doc = IngestionDocument(checksum=uuid.uuid4().hex[:64], edition_year=1405, subject="math", grade_level=5)
+        s.add(doc)
+        await s.commit()
+
+        segments = [("مفهوم ریاضی پایه پنجم. " * 14, 1)]
+        chunking = chunk_two_level(segments)
+
+        async def _embed(texts: list[str]) -> list[list[float]]:
+            return [_vec(len(t) + i) for i, t in enumerate(texts)]
+
+        child_vecs = await _embed([c.text for c in chunking.children])
+        parent_vecs = await _embed([p.text for p in chunking.parents])
+        await index_document_chunks(
+            s, document=doc, chunking=chunking,
+            child_vectors=child_vecs, parent_vectors=parent_vecs,
+            title="ریاضی پنجم", source_type="synthetic",
+        )
+        await s.commit()
+
+        from app.services.ingestion.retrieval import hybrid_retrieve
+
+        query = "مفهوم ریاضی"
+        query_vector = _vec(len(query) + 1)
+        rerank_calls = 0
+
+        async def counting_rerank(q: str, docs: list[str]) -> list[float]:
+            nonlocal rerank_calls
+            rerank_calls += 1
+            return [0.5] * len(docs)
+
+        # RRF scores are below 1.0; this explicit test threshold excludes all
+        # candidates before calling the reranker. It is not a proposed production threshold.
+        below_retrieval_gate = await hybrid_retrieve(
+            s, query=query, query_vector=query_vector, selected_grade=5,
+            rerank=counting_rerank, min_retrieval_score=1.0, min_rerank_score=0.0,
+        )
+        assert below_retrieval_gate.chunks == []
+        assert rerank_calls == 0
+
+        # With retrieval threshold open, the independent final rerank confidence gate applies.
+        below_confidence_gate = await hybrid_retrieve(
+            s, query=query, query_vector=query_vector, selected_grade=5,
+            rerank=counting_rerank, min_retrieval_score=0.0, min_rerank_score=0.8,
+        )
+        assert rerank_calls == 1
+        assert below_confidence_gate.chunks == []
