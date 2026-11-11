@@ -166,6 +166,7 @@ class TestHarness:
         phone = self._new_phone()
         async with sf() as session:
             user = await users_repo.create(session, phone=phone, role="user")
+            user.selected_grade = 7  # explicit synthetic grade for the authenticated chat test
             await accounts.create(session, user_id=user.id, available_balance=10)
             await session.commit()
             self.user_id = str(user.id)
