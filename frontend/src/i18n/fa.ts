@@ -32,5 +32,14 @@ export const fa = {
   "privacyDesc": "داده‌های شخصی و منابع با دسترسی کنترل‌شده",
   "foundationNote": "این صفحه فقط اسکلت رابط است؛ چت در فاز مربوطه متصل خواهد شد.",
   "sendQuestion": "ارسال پرسش",
-  "footerNote": "محیط توسعهٔ اولیه"
+  "footerNote": "محیط توسعهٔ اولیه",
+  "selectGradeTitle": "پایهٔ تحصیلی خود را مشخص کنید",
+  "selectGradeIntro": "برای حفاظت از محدودهٔ آموزشی، درسیار تا زمان انتخاب پایه پاسخ‌گویی را آغاز نمی‌کند.",
+  "saveGrade": "ثبت پایه",
+  "savingGrade": "در حال ثبت…",
+  "profileError": "ثبت پایه انجام نشد؛ دوباره تلاش کنید.",
+  "signOut": "خروج",
+  "signedIn": "واردشده",
+  "sessionLoading": "در حال بازیابی نشست…",
+  "currentGrade": "پایهٔ انتخاب‌شده"
 } as const
