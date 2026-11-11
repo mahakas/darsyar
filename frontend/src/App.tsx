@@ -1,21 +1,49 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { getMyProfile, logout, updateSelectedGrade, type SessionUser } from './api/auth'
 import { apiFetch } from './api/client'
+import AuthPanel from './components/AuthPanel'
 import ChatPanel from './components/ChatPanel'
 
 type HealthState = 'checking' | 'connected' | 'disconnected'
 type View = 'chat' | 'welcome'
+type SessionState = 'loading' | 'signed_out' | 'signed_in'
+
+const gradeOptions = Array.from({ length: 12 }, (_, index) => index + 1)
 
 export default function App() {
   const { t, i18n } = useTranslation()
   const [health, setHealth] = useState<HealthState>('checking')
   const [view, setView] = useState<View>('welcome')
+  const [sessionState, setSessionState] = useState<SessionState>('loading')
+  const [user, setUser] = useState<SessionUser | null>(null)
+  const [gradeDraft, setGradeDraft] = useState('')
+  const [gradeSaving, setGradeSaving] = useState(false)
+  const [profileError, setProfileError] = useState('')
 
   useEffect(() => {
     const language = i18n.resolvedLanguage || 'fa'
     document.documentElement.lang = language
     document.documentElement.dir = language === 'en' ? 'ltr' : 'rtl'
   }, [i18n, i18n.resolvedLanguage])
+
+  useEffect(() => {
+    let active = true
+    void getMyProfile()
+      .then((profile) => {
+        if (!active) return
+        setUser(profile)
+        setSessionState('signed_in')
+      })
+      .catch(() => {
+        if (!active) return
+        setUser(null)
+        setSessionState('signed_out')
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -35,17 +63,50 @@ export default function App() {
     void i18n.changeLanguage(language)
   }
 
+  const handleGradeSave = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const grade = Number(gradeDraft)
+    if (!Number.isInteger(grade) || grade < 1 || grade > 12 || gradeSaving) return
+    setGradeSaving(true)
+    setProfileError('')
+    try {
+      const updated = await updateSelectedGrade(grade)
+      setUser(updated)
+      setView('welcome')
+    } catch {
+      setProfileError(t('profileError'))
+    } finally {
+      setGradeSaving(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } finally {
+      setUser(null)
+      setSessionState('signed_out')
+      setGradeDraft('')
+      setView('welcome')
+    }
+  }
+
+  const handleAuthenticated = (authenticatedUser: SessionUser) => {
+    setUser(authenticatedUser)
+    setSessionState('signed_in')
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="Main navigation">
         <div className="brand-mark" aria-hidden="true">د</div>
         <div className="brand-copy"><strong>{t('appName')}</strong><span>AI Learning</span></div>
-        <button className="new-chat" type="button" onClick={() => setView('chat')}>＋ <span>{t('newChat')}</span></button>
+        <button className="new-chat" type="button" onClick={() => setView('chat')} disabled={sessionState !== 'signed_in' || user?.selected_grade === null}>＋ <span>{t('newChat')}</span></button>
         <div className="side-label">{t('learningSpace')}</div>
-        <button className={`nav-item ${view === 'chat' ? 'active' : ''}`} type="button" onClick={() => setView('chat')}>✳ <span>{t('smartChat')}</span></button>
+        <button className={'nav-item ' + (view === 'chat' ? 'active' : '')} type="button" onClick={() => setView('chat')} disabled={sessionState !== 'signed_in' || user?.selected_grade === null}>✳ <span>{t('smartChat')}</span></button>
         <button className="nav-item" type="button" disabled>▤ <span>{t('privateTeacher')} <small>{t('soon')}</small></span></button>
         <button className="nav-item" type="button" disabled>▧ <span>{t('projects')} <small>{t('soon')}</small></span></button>
-        <div className="sidebar-bottom"><div className="avatar">د</div><div><strong>{t('environment')}</strong><span>{t('preview')}</span></div></div>
+        <div className="sidebar-bottom"><div className="avatar">د</div><div><strong>{user?.name || user?.phone || t('environment')}</strong><span>{user ? t('signedIn') : t('preview')}</span></div></div>
       </aside>
 
       <main className="main-panel">
@@ -56,25 +117,55 @@ export default function App() {
             <select id="language" aria-label={t('language')} value={i18n.resolvedLanguage || 'fa'} onChange={(event) => changeLanguage(event.target.value)}>
               <option value="fa">فارسی</option><option value="en">English</option><option value="ar">العربية</option>
             </select>
-            <span className={`health-pill ${health}`} role="status">{health === 'checking' ? t('checking') : health === 'connected' ? t('connected') : t('disconnected')}</span>
+            <span className={'health-pill ' + health} role="status">{health === 'checking' ? t('checking') : health === 'connected' ? t('connected') : t('disconnected')}</span>
+            {sessionState === 'signed_in' && <button className="text-button" type="button" onClick={() => { void handleLogout() }}>{t('signOut')}</button>}
           </div>
         </header>
 
-        {view === 'chat' ? (
-          <ChatPanel />
-        ) : (
-          <section className="welcome-area">
+        {sessionState === 'loading' && (
+          <section className="welcome-area" aria-live="polite"><p>{t('sessionLoading')}</p></section>
+        )}
+
+        {sessionState === 'signed_out' && <AuthPanel onAuthenticated={handleAuthenticated} />}
+
+        {sessionState === 'signed_in' && user && user.selected_grade === null && (
+          <section className="profile-setup" aria-labelledby="grade-title">
             <div className="orb" aria-hidden="true"><span>د</span></div>
             <p className="eyebrow">{t('tagline')}</p>
-            <h1>{t('welcome')}</h1>
-            <p className="intro-copy">{t('intro')}</p>
-            <button className="send-button start-chat" type="button" onClick={() => setView('chat')}>{t('newChat')}</button>
-            <div className="feature-grid">
-              <article className="feature-card"><span className="feature-icon violet">⌕</span><h2>{t('groundedTitle')}</h2><p>{t('groundedDesc')}</p></article>
-              <article className="feature-card"><span className="feature-icon teal">✓</span><h2>{t('safeTitle')}</h2><p>{t('safeDesc')}</p></article>
-              <article className="feature-card"><span className="feature-icon amber">◇</span><h2>{t('privacyTitle')}</h2><p>{t('privacyDesc')}</p></article>
-            </div>
+            <h1 id="grade-title">{t('selectGradeTitle')}</h1>
+            <p className="intro-copy">{t('selectGradeIntro')}</p>
+            <form className="account-form" onSubmit={handleGradeSave}>
+              <label htmlFor="profile-grade">{t('chooseGrade')}</label>
+              <select id="profile-grade" value={gradeDraft} onChange={(event) => setGradeDraft(event.target.value)} required disabled={gradeSaving}>
+                <option value="" disabled>—</option>
+                {gradeOptions.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+              </select>
+              <button className="send-button account-submit" type="submit" disabled={gradeSaving || !gradeDraft}>
+                {gradeSaving ? t('savingGrade') : t('saveGrade')}
+              </button>
+              {profileError && <p className="form-error" role="alert">{profileError}</p>}
+            </form>
           </section>
+        )}
+
+        {sessionState === 'signed_in' && user && user.selected_grade !== null && (
+          view === 'chat' ? (
+            <ChatPanel selectedGrade={user.selected_grade} />
+          ) : (
+            <section className="welcome-area">
+              <div className="orb" aria-hidden="true"><span>د</span></div>
+              <p className="eyebrow">{t('tagline')}</p>
+              <h1>{t('welcome')}</h1>
+              <p className="intro-copy">{t('intro')}</p>
+              <p className="grade-control">{t('currentGrade')}: <strong>{user.selected_grade}</strong></p>
+              <button className="send-button start-chat" type="button" onClick={() => setView('chat')}>{t('newChat')}</button>
+              <div className="feature-grid">
+                <article className="feature-card"><span className="feature-icon violet">⌕</span><h2>{t('groundedTitle')}</h2><p>{t('groundedDesc')}</p></article>
+                <article className="feature-card"><span className="feature-icon teal">✓</span><h2>{t('safeTitle')}</h2><p>{t('safeDesc')}</p></article>
+                <article className="feature-card"><span className="feature-icon amber">◇</span><h2>{t('privacyTitle')}</h2><p>{t('privacyDesc')}</p></article>
+              </div>
+            </section>
+          )
         )}
         <footer className="footer-note">{t('appName')} · {t('footerNote')} · {t('private')}</footer>
       </main>
