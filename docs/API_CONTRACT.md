@@ -14,6 +14,8 @@ Base path مسیرهای محصول: `/api/v1`. سه endpoint عملیاتی roo
 | POST | `/api/v1/auth/otp/verify` | تأیید کد؛ صدور access + کوکی refresh HttpOnly | پیاده‌سازی‌شده (فاز ۱) |
 | POST | `/api/v1/auth/refresh` | چرخش refresh با CSRF/Origin؛ تشخیص reuse | پیاده‌سازی‌شده (فاز ۱) |
 | POST | `/api/v1/auth/logout` | ابطال خانواده | پیاده‌سازی‌شده (فاز ۱) |
+| GET | `/api/v1/profile/me` | پروفایل کاربر و پایهٔ انتخاب‌شده | پیاده‌سازی‌شده |
+| PATCH | `/api/v1/profile/me/grade` | ثبت پایهٔ صریح ۱ تا ۱۲ برای کاربر جاری | پیاده‌سازی‌شده |
 
 ## مسیرهای هدف فازهای بعدی
 
@@ -68,3 +70,11 @@ Base path مسیرهای محصول: `/api/v1`. سه endpoint عملیاتی roo
 از `fetch` + `ReadableStream` استفاده می‌شود؛ نه `EventSource` برای bearer-authenticated POST stream. قرارداد eventها باید `event`, `id`, `data` را مشخص کند، `Last-Event-ID` را برای resume امن تعریف کند و خروجی نیمه‌کاره را از پایان موفق جدا کند.
 
 تغییر path/schema/status/code نیازمند ADR و به‌روزرسانی هم‌زمان این سند، کد و تست‌ها است.
+
+
+## پروفایل پایهٔ تحصیلی (R-019)
+
+- `GET /api/v1/profile/me` (auth) returns the authenticated user's profile, including nullable `selected_grade`.
+- `PATCH /api/v1/profile/me/grade` (auth) body: `{"selected_grade": 1..12}`; the grade is stored server-side on the current user. The endpoint cannot update another user.
+- A newly registered user has `selected_grade = null`; there is no default grade.
+- `POST /api/v1/chat/stream` requires a saved `selected_grade` on the authenticated user. If absent, the API returns `409 grade_required` before reserving credits or starting SSE. The client cannot override the stored grade by sending an arbitrary `grade_level` field.
