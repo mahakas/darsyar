@@ -1,59 +1,110 @@
 # درسیار (Darsyar AI)
 
-**بستهٔ شروع پروژه بر اساس قرارداد مهندسی `AGENTS.md` نسخهٔ ۴٫۰**
+درسیار یک دستیار آموزشی فارسی‌محور برای دانش‌آموزان پایه‌های ۱ تا ۱۲، دانشجویان و معلمان است. هدف محصول، پاسخ‌گویی آموزشی مستند به منابع مجاز، رعایت سقف پایهٔ تحصیلی، صداقت دربارهٔ نبود شاهد و حفاظت از داده‌های کاربران است.
 
-درسیار یک معلم خصوصی هوشمند برای پایه‌های ۱ تا ۱۲ ایران است. محور MVP پاسخ مستند به منابع دارای مجوز، جلوگیری از نشت محتوای پایهٔ بالاتر، صداقت هنگام نبود شاهد کافی و حفاظت از دادهٔ دانش‌آموز است.
+> **وضعیت انتشار:** پروژه در حال توسعه است و هنوز محصول کامل یا آمادهٔ استفادهٔ عمومی/Production نیست. وضعیت هر قابلیت فقط با کد، تست و شواهد پذیرش تعیین می‌شود؛ وجود یک spec یا ماژول اولیه به معنی تکمیل فاز نیست.
 
-> **وضعیت بسته:** اسکلت آغاز توسعه و مجموعهٔ اسناد است؛ محصول کامل و آمادهٔ انتشار نیست. وجود سند، پوشه یا endpoint نمونه به معنی کامل بودن قابلیت‌های آینده نیست.
+## وضعیت فعلی
 
-## شروع با KiloCode
+- فازهای ۰ و ۱ تکمیل‌شده‌اند.
+- فاز ۲ تکمیل‌شده با محدودیت‌های عملیاتی مستند است.
+- فاز ۳ تکمیل‌شده و CI اصلی در 2026-11-11 موفق بوده است.
+- فاز ۴ دارای اجزای synthetic برای manifest، chunking، embedding، indexing و retrieval است؛ اما مسیر عملیاتی کامل ingestion، مجوز هر منبع و گیت‌های PDF هنوز باز هستند.
+- فاز ۵ یک نمونهٔ اولیهٔ retrieval و ارزیابی synthetic دارد؛ دیتاست طلایی و اتصال کامل evidence/citation به پاسخ چت هنوز تکمیل و پذیرفته نشده‌اند.
+- فاز ۶ یک shell رابط و چت streaming اولیه دارد؛ تجربهٔ کامل تاریخچه، منابع، Markdown امن، دسترس‌پذیری و احراز هویت فرانت‌اند باقی است.
+- فاز ۷ مشخصات پنل مدیریت را دارد؛ پیاده‌سازی پنل هنوز آغاز/پذیرفته نشده است.
+- فاز ۸ عمداً Deferred و خارج از MVP است.
+- فاز ۹ سخت‌سازی و آمادگی انتشار عمومی باقی مانده است.
 
-1. ZIP را استخراج کن و پوشهٔ `darsyar-ai/` را در VS Code باز کن.
-2. فایل `KILOCODE_START_HERE.md` را کامل به KiloCode بده.
-3. فقط فاز `specs/phase-0.md` را اجرا کن. تا گزارش و شواهد این فاز بازبینی نشده، فاز بعدی شروع نشود.
-4. KiloCode باید با دسترسی به registry واقعی `backend/uv.lock` و `frontend/package-lock.json` تولید کند؛ فایل lock دست‌ساز یا جعلی داخل بسته نیست.
-5. هر تعارض معماری/امنیتی/مالی را طبق `AGENTS.md` گزارش کند و در تصمیم‌هایی که تأیید مالک می‌خواهد متوقف شود.
+جزئیات و گیت‌ها در [ROADMAP.md](ROADMAP.md)، [AGENTS.md](AGENTS.md) و [مشخصات فازها](specs/README.md) ثبت شده‌اند.
 
-## ساختار اصلی
+## قابلیت‌های پیاده‌سازی‌شده در کد
 
-- `AGENTS.md`: قرارداد مهندسی نسخهٔ ۴٫۰
-- `ROADMAP.md`: ترتیب و وضعیت فازها
-- `KILOCODE_START_HERE.md`: prompt کنترل‌شدهٔ شروع
-- `docs/`: مشخصات محصول، معماری، داده، API، فناوری، امنیت، ارجاع و عملیات
-- `docs/adr/`: ADRها
-- `specs/phase-N.md`: مشخصات قابل‌آزمون هر فاز
-- `backend/`: اسکلت FastAPI، تنظیمات، logging، DB و Alembic
-- `frontend/`: اسکلت React/TypeScript با fa/en/ar و RTL/LTR
-- `infra/`: Compose/Nginx و عملیات
-- `resources/`: فقط ساختار محلی منابع؛ فایل کتاب در این ZIP وجود ندارد
+- Backend مبتنی بر FastAPI async، SQLAlchemy 2 و Alembic.
+- احراز هویت OTP، نشست و refresh-token با کنترل‌های امنیتی.
+- اعتبار، ledger تغییرناپذیر، reservation، usage، پلن‌ها و اجزای پرداخت.
+- Model/provider gateway، inference service و چت SSE با چرخهٔ مالی و بازیابی.
+- PostgreSQL با pgvector و pg_trgm، Redis و arq.
+- جداول durable ingestion، outbox و reconciliation.
+- اجزای synthetic برای اعتبارسنجی manifest، chunking دو سطحی، embedding، indexing و hybrid retrieval.
+- رابط React/TypeScript اولیه با fa/en/ar و جهت RTL/LTR.
 
-## پیش‌نیاز توسعه
+این فهرست، فهرست قابلیت‌های موجود در کد است و به معنی آماده‌بودن همهٔ آن‌ها برای کاربران نهایی نیست.
 
-در Windows، مسیر پیشنهادی توسعه WSL2 با Docker Desktop است. فرمان‌های `make` به GNU Make نیاز دارند؛ در PowerShell اگر Make نصب نیست، targetهای همان کار را با فرمان‌های مستقیم `uv`، `npm` و `docker compose` اجرا کن و محدودیت را در گزارش ثبت کن. راهنمای تکمیلی: `docs/LOCAL_SETUP_WINDOWS.md`.
+## مواردی که هنوز آماده نیستند
 
-- Git و VS Code به‌همراه KiloCode
-- Docker Desktop + Docker Compose v2
-- Python 3.13 و `uv` نسخهٔ سازگار با `docs/TECH_STACK.md`
-- Node.js 24 LTS و npm
-- اتصال registry برای ساخت lockfileهای واقعی
+- هیچ PDF کتاب واقعی بدون شواهد مجوز و تأیید دامنهٔ استفاده پردازش نمی‌شود. مرجع 13529 هنوز از نظر سند، دامنه و عملیات مستقل تأیید نشده است.
+- Gate A (انتخاب/مجوز renderer)، بخش‌هایی از Gate B (محدودیت‌های امنیتی پردازش) و Gate C (آزمون هم‌ارزی) باز هستند.
+- consumer عملیاتی PDF در worker و endpoint کامل intake هنوز در مسیر پذیرش نهایی نیستند.
+- RAG هنوز دیتاست طلایی حداقل ۱۵۰ پرسشی و ارزیابی منطبق با ADR-043 ندارد.
+- پنل کامل Admin، تجربهٔ کامل کاربر، و گیت‌های انتشار Production آماده نیستند.
 
-## اجرای محلی (پس از تکمیل فاز صفر)
+## فناوری‌ها
 
+- **Backend:** Python 3.13، FastAPI، Pydantic v2، SQLAlchemy 2 async، Alembic.
+- **Data/Queue:** PostgreSQL 18 + pgvector + pg_trgm، Redis 7، arq.
+- **Frontend:** React، TypeScript، Vite، i18next.
+- **AI:** providerهای OpenAI-compatible، سرویس inference جدا، embedding و reranking قابل‌تعویض.
+- **Operations:** Docker Compose، Nginx و GitHub Actions.
+
+قرارداد دقیق نسخه‌ها و قواعد توسعه در [AGENTS.md](AGENTS.md) و [docs/TECH_STACK.md](docs/TECH_STACK.md) است.
+
+## راه‌اندازی محلی
+
+پیش‌نیازها: Git، Docker Desktop/Compose، Python 3.13، uv، Node.js 24 و npm.
+
+1. مخزن را clone کنید و وارد پوشهٔ پروژه شوید.
+2. فایل نمونه را کپی کنید و secrets محلی مستقل بسازید:
+
+```bash
+cp .env.example .env
+```
+
+در Windows PowerShell:
 ```powershell
 Copy-Item .env.example .env
-# .env را باز کن؛ مقادیر CHANGE_ME صرفاً placeholder هستند.
-make lock
+```
+
+مقادیر `CHANGE_ME` نمونه و غیرقابل‌استفاده‌اند. `APP_SECRET_KEY` و `OTP_PEPPER` باید تصادفی، مستقل از یکدیگر و فقط در فایل محلی `.env` باشند. هرگز `.env` یا راز واقعی را commit نکنید.
+
+3. سرویس‌های توسعه را اجرا کنید:
+
+```bash
 make up
 make health
 ```
 
-در توسعه، رابط معمولاً روی `http://localhost:5173` و API روی `http://localhost:8000` در دسترس خواهد بود؛ مقادیر واقعی را از Compose نهایی و خروجی KiloCode بررسی کن.
+- Frontend: http://127.0.0.1:5173
+- API: http://127.0.0.1:8000
+- Health: http://127.0.0.1:8000/health
 
-Migration فقط در سرویس یک‌بارمصرف `migrate` اجرا می‌شود؛ برنامهٔ API هنگام startup مهاجرت اجرا نمی‌کند. برای اجرای صریح از `make migrate` استفاده می‌شود.
+برای مشاهدهٔ وضعیت:
+```bash
+make ps
+make logs
+```
 
-## امنیت و منابع
+## آزمون و کیفیت
 
-- `.env`، کلیدها، شماره‌های واقعی کاربران، trace خصوصی و کتاب‌های درسی را commit نکن.
-- مجوز و منشأ هر کتاب باید در manifest یا `docs/licenses/` ثبت شود.
-- پیش از انتشار عمومی، سیاست حریم خصوصی، رضایت‌نامه، شرایط استفاده، سیاست بازپرداخت، بکاپ قابل‌بازیابی و انطباق حقوقی باید توسط مالک تأیید شوند.
-- کاربران این محصول ممکن است زیر ۱۸ سال باشند؛ دادهٔ شخصی را به حداقل برسان.
+فرمان‌های متداول:
+
+```bash
+make lint
+make typecheck
+make test
+make test-db
+```
+
+تست‌های DB به PostgreSQL واقعی نیاز دارند؛ SQLite جایگزین معتبر این پروژه نیست. برخی تست‌های sandbox یا مدل واقعی فقط در محیط محدودشده/دارای منابع لازم اجرا می‌شوند و ممکن است در CI عمومی به‌صورت صریح skip شوند.
+
+آخرین CI روی `main` در 2026-11-11: **Backend 463 passed, 21 skipped**؛ Frontend، migration smoke و Linux SIGTERM acceptance نیز موفق بودند. جزئیات: [GitHub Actions](https://github.com/mahakas/darsyar/actions).
+
+## حاکمیت، امنیت و منابع
+
+- `AGENTS.md` قرارداد مهندسی و `ROADMAP.md` مرجع وضعیت و ترتیب فازها هستند.
+- اسناد canonical هر فاز در `specs/phase-N.md` قرار دارند.
+- تصمیمات معماری در `docs/adr/` و `docs/DECISIONS.md` ثبت می‌شوند.
+- منابع آموزشی باید مجوز، منشأ، ناشر و سال چاپ قابل‌ردیابی داشته باشند. `license_note` به‌تنهایی مجوز استفاده نیست.
+- پوشهٔ `resources/` برای ساختار محلی منابع است؛ کتاب‌های واقعی و PDFهای آزمایشی مجاز نیستند به Git اضافه شوند.
+- پیش از Production، سیاست حریم خصوصی/رضایت، بازپرداخت، بکاپ و بازیابی، امنیت، منابع مجاز و دسترسی‌های عملیاتی باید به‌طور مستقل تأیید شوند.
+
