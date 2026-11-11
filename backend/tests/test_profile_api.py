@@ -20,15 +20,18 @@ class FakeSession:
         return None
 
 
+class ProfileUser:
+    def __init__(self) -> None:
+        self.id = "00000000-0000-0000-0000-000000000001"
+        self.phone = "+989121234567"
+        self.name = "Student"
+        self.role = "user"
+        self.selected_grade = None
+
+
 @pytest.fixture
 def profile_app():
-    user = SimpleNamespace(
-        id="00000000-0000-0000-0000-000000000001",
-        phone="+989121234567",
-        name="Student",
-        role="user",
-        selected_grade=None,
-    )
+    user = ProfileUser()
     session = FakeSession()
     app = FastAPI()
     app.include_router(router, prefix="/api/v1")
