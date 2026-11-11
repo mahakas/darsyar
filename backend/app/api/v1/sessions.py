@@ -56,10 +56,11 @@ async def list_conversation_messages(
         conversation_id,
         user.id,
         after_sequence=after_sequence,
-        limit=limit,
+        limit=limit + 1,
     )
-    items = [HistoryMessageOut.model_validate(row) for row in rows]
-    next_sequence = items[-1].sequence if len(items) == limit and items else None
+    has_more = len(rows) > limit
+    items = [HistoryMessageOut.model_validate(row) for row in rows[:limit]]
+    next_sequence = items[-1].sequence if has_more and items else None
     return MessageListOut(
         items=items,
         limit=limit,
