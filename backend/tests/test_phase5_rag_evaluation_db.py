@@ -82,14 +82,16 @@ async def test_retrieval_service_meets_rag_gates() -> None:
         r5 = await service.retrieve(s, query=q, selected_grade=5)
         r1 = await service.retrieve(s, query=q, selected_grade=1)
 
-        # grade leakage must be 0: all retrieved chunks <= selected grade
+        # grade leakage must be 0 and retrieval contains child chunks only (R-148/R-158)
         assert all(c.grade_level <= 5 for c in r5.chunks)
         assert all(c.grade_level <= 1 for c in r1.chunks)
+        assert all(not c.is_parent for c in r5.chunks)
+        assert all(not c.is_parent for c in r1.chunks)
         # a grade-1 student must not retrieve grade-5 chunks
         assert len(r1.chunks) == 0
 
         # synthetic gold: query at grade 5 should recall the math chunks
-        gold = [GoldItem(query=q, grade=5, ground_truth_chunk_keys={(5, i) for i in range(0, len(chunking.children))})]
+        gold = [GoldItem(query=q, grade=5, ground_truth_chunk_keys={(5, len(chunking.parents) + i) for i in range(len(chunking.children))})]
         evalr = evaluate_retrieval(gold, [r5])
         assert evalr.grade_leakage == 0.0
         assert evalr.invalid_citation_rate == 0.0
