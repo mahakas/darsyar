@@ -27,8 +27,6 @@ EXPOSE 8000
 CMD ["python", "-m", "app.core.run_server"]
 
 FROM runtime-base AS worker
-# PDF parsing and YAML manifests are lightweight ingestion runtime dependencies.
-RUN uv sync --frozen --no-dev --no-install-project --extra ingestion
 CMD ["arq", "app.services.worker.WorkerSettings"]
 
 FROM runtime-base AS inference
