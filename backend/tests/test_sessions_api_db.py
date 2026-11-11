@@ -5,17 +5,18 @@ import uuid
 
 import pytest
 import pytest_asyncio
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
+
+from app.api.deps import get_current_user
+from app.api.v1.sessions import router
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.user import User
 from app.repositories import conversations as conv_repo
 from app.repositories import users as users_repo
-from app.api.deps import get_current_user
-from app.api.v1.sessions import router
-from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from sqlalchemy.pool import NullPool
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("DARSYAR_TEST_DB") != "1",
