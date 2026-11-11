@@ -25,12 +25,13 @@ async def get_owned(session: AsyncSession, conversation_id: uuid.UUID, user_id: 
 
 
 async def list_owned(
-    session: AsyncSession, user_id: uuid.UUID, *, limit: int, before: uuid.UUID | None = None
+    session: AsyncSession, user_id: uuid.UUID, *, limit: int, before: uuid.UUID | None = None,
+    offset: int = 0,
 ) -> Sequence[Conversation]:
     statement = select(Conversation).where(Conversation.user_id == user_id)
     if before is not None:
         statement = statement.where(Conversation.id < before)
-    statement = statement.order_by(Conversation.updated_at.desc(), Conversation.id.desc()).limit(limit)
+    statement = statement.order_by(Conversation.updated_at.desc(), Conversation.id.desc()).limit(limit).offset(offset)
     result = await session.execute(statement)
     return result.scalars().all()
 
@@ -121,14 +122,15 @@ async def get_message_by_client_request(
 
 
 async def list_messages_for_user(
-    session: AsyncSession, conversation_id: uuid.UUID, user_id: uuid.UUID, *, after_sequence: int | None = None
+    session: AsyncSession, conversation_id: uuid.UUID, user_id: uuid.UUID, *,
+    after_sequence: int | None = None, limit: int = 100,
 ) -> Sequence[Message]:
     statement = select(Message).where(
         Message.conversation_id == conversation_id, Message.user_id == user_id
     )
     if after_sequence is not None:
         statement = statement.where(Message.sequence > after_sequence)
-    statement = statement.order_by(Message.sequence.asc())
+    statement = statement.order_by(Message.sequence.asc()).limit(limit)
     result = await session.execute(statement)
     return result.scalars().all()
 
