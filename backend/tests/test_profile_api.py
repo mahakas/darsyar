@@ -1,8 +1,5 @@
 """Profile API tests: explicit grade is self-service and strictly validated."""
 
-from types import SimpleNamespace
-from uuid import UUID
-
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -26,7 +23,7 @@ class FakeSession:
 @pytest.fixture
 def profile_app():
     user = SimpleNamespace(
-        id=UUID("00000000-0000-0000-0000-000000000001"),
+        id="00000000-0000-0000-0000-000000000001",
         phone="+989121234567",
         name="Student",
         role="user",
