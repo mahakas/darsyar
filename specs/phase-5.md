@@ -1,20 +1,31 @@
 # Phase 5: Educational RAG & Evidence
 
-**Status:** Planned; gated by gold dataset  
+**Status:** Partial synthetic prototype exists; Phase remains Planned and is not accepted. ADR-043 is still proposed and the required golden dataset/evidence gates are not met.  
 **Dependencies:** Phase 4 and accepted ADR-043
+
+## Implemented prototype (synthetic only)
+
+- Dense pgvector + lexical pg_trgm query paths with SQL grade filtering in both branches.
+- Persian normalization, deterministic RRF (k=60) and tie-breaking.
+- Provider-callback reranking and a retrieval orchestration wrapper.
+- Synthetic PostgreSQL tests for grade ceiling, document isolation and citation formatting.
+- A synthetic evaluation helper reporting leakage/recall/grounding proxies.
+
+This is not yet an accepted educational RAG implementation: synthetic tests do not establish textbook answer quality, and the evaluator is not a substitute for the required reviewed gold set.
+
+## Remaining work
+
+- [ ] Minimum 150-question versioned golden dataset with answer/evidence references, under the source-licensing rules.
+- [ ] Accepted ADR-043 and measured retrieval/rerank thresholds; no threshold may be tuned from a handful of synthetic examples.
+- [ ] Evidence snapshot per request and strict citation allowlist/removal.
+- [ ] Context token budget and deterministic truncation.
+- [ ] Cache implementation whose key includes model, normalized query, all filters, edition and grade ceiling.
+- [ ] Bounded query rewrite and separately cited web fallback with SSRF defense.
+- [ ] Connect retrieval/evidence into the real chat response lifecycle; prove no unsupported model-memory answers.
 
 ## Goal
 
 Hybrid retrieval with strict grade ceiling, stable ranking and server-built citations.
-
-## In scope
-
-- [ ] Dense pgvector + lexical pg_trgm retrieval; SQL grade filter in both branches.
-- [ ] Persian normalization, deterministic RRF and tie-breaking.
-- [ ] Reranking, configurable thresholds and budgeted context.
-- [ ] Evidence snapshot; server-side citation builder; invalid-citation removal.
-- [ ] Bounded rewrite and optional separately cited web fallback with SSRF defense.
-- [ ] Golden dataset and evaluation output.
 
 ## Out of scope
 
