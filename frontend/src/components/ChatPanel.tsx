@@ -7,24 +7,16 @@ import {
 } from '../api/chat'
 
 export type ChatPanelProps = {
-  accessTokenReader?: () => string | null
+  selectedGrade: number
 }
 
-const gradeOptions = Array.from({ length: 12 }, (_, index) => index + 1)
-
-export default function ChatPanel({ accessTokenReader }: ChatPanelProps) {
+export default function ChatPanel({ selectedGrade }: ChatPanelProps) {
   const { t } = useTranslation()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
-  const [grade, setGrade] = useState('7')
   const [busy, setBusy] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
-
-  // expose token reader for api layer
-  if (accessTokenReader) {
-    ;(globalThis as { __darsyarAccessTokenReader?: () => string | null }).__darsyarAccessTokenReader = accessTokenReader
-  }
 
   const append = useCallback((msg: ChatMessage) => {
     setMessages((prev) => [...prev, msg])
@@ -56,26 +48,36 @@ export default function ChatPanel({ accessTokenReader }: ChatPanelProps) {
     abortRef.current = controller
 
     let assistantId = ''
-    await streamChat(text, Number(grade), conversationId, {
-      signal: controller.signal,
-      onAck: ({ conversationId: cid, messageId }) => {
-        setConversationId(cid)
-        assistantId = messageId
-      },
-      onDelta: (delta) => updateLast({}, delta),
-      onDone: () => {
-        updateLast({ id: assistantId || `assistant-${Date.now()}`, status: 'complete' })
-        setBusy(false)
-      },
-      onError: (code, message) => {
-        updateLast({ status: 'error', errorCode: code, content: message })
-        setBusy(false)
-      },
-    })
+    try {
+      await streamChat(text, conversationId, {
+        signal: controller.signal,
+        onAck: ({ conversationId: cid, messageId }) => {
+          setConversationId(cid)
+          assistantId = messageId
+        },
+        onDelta: (delta) => updateLast({}, delta),
+        onDone: () => {
+          updateLast({ id: assistantId || `assistant-${Date.now()}`, status: 'complete' })
+          setBusy(false)
+          abortRef.current = null
+        },
+        onError: (code, message) => {
+          updateLast({ status: 'error', errorCode: code, content: message })
+          setBusy(false)
+          abortRef.current = null
+        },
+      })
+    } catch {
+      updateLast({ status: 'error', errorCode: 'network_error', content: t('networkError') })
+      setBusy(false)
+      abortRef.current = null
+    }
   }
 
   const stop = () => {
     abortRef.current?.abort()
+    abortRef.current = null
+    updateLast({ status: 'error', errorCode: 'cancelled', content: t('stopped') })
     setBusy(false)
   }
 
@@ -103,11 +105,9 @@ export default function ChatPanel({ accessTokenReader }: ChatPanelProps) {
           rows={2}
         />
         <div className="composer-footer">
-          <label className="grade-control">{t('chooseGrade')}
-            <select value={grade} onChange={(event) => setGrade(event.target.value)} aria-label={t('chooseGrade')}>
-              {gradeOptions.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </label>
+          <span className="grade-control" aria-label={t('currentGrade')}>
+            {t('currentGrade')}: <strong>{selectedGrade}</strong>
+          </span>
           <div className="chat-actions">
             {busy && <button type="button" className="stop-button" onClick={stop}>{t('stop')}</button>}
             <button className="send-button" type="submit" disabled={busy || !input.trim()} aria-label={t('sendQuestion')}>↑</button>
