@@ -27,10 +27,11 @@ async def list_conversations(
     session: Annotated[AsyncSession, Depends(get_db)],
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
+    q: Annotated[str | None, Query(max_length=100)] = None,
 ) -> ConversationListOut:
-    """List only the caller's conversations using stable offset pagination."""
-    rows = await conv_repo.list_owned(session, user.id, limit=limit, offset=offset)
-    total = await conv_repo.count_owned(session, user.id)
+    """List only the caller's conversations using bounded pagination and title search."""
+    rows = await conv_repo.list_owned(session, user.id, limit=limit, offset=offset, query=q)
+    total = await conv_repo.count_owned(session, user.id, query=q)
     return ConversationListOut(
         items=[ConversationOut.model_validate(row) for row in rows],
         limit=limit,
