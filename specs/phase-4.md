@@ -8,9 +8,11 @@
 - Two-level parent/child chunking and Persian normalization.
 - Embedding adapter with bounded batch/retry/dimension validation.
 - PostgreSQL/pgvector chunk indexing and synthetic integration tests.
+- Child overlap enforcement and strict parent size/coverage bounds.
+- Fail-closed active `index_meta` registry enforcement for indexing; provider model, vector dimension and metric must match the active registry before replacing existing chunks.
 - Durable ingestion document/job/outbox persistence and publisher/reconciliation slices.
 
-These components do not constitute an operational textbook-ingestion workflow. No real textbook has been processed under this synthetic test path.
+These components do not constitute an operational textbook-ingestion workflow. No real textbook has been processed under this synthetic test path. The active-index registry code does not auto-seed any active model: a real index remains unavailable until an operator provisions a verified record that matches the physical 1024-dimensional cosine vector index and the selected provider.
 
 ### Remaining gates (not yet met)
 1. Real source-specific license evidence must be registered and reviewed in `docs/licenses/`.
@@ -19,6 +21,16 @@ These components do not constitute an operational textbook-ingestion workflow. N
 4. Gate A renderer selection/licensing and Gate B/C PDF security/equivalence conditions remain open.
 5. An authenticated intake route and registered worker consumer must be implemented and accepted before operational ingestion; current publisher/worker boundaries do not themselves perform PDF processing.
 6. OCR/image/formula fidelity and the pilot acceptance criteria remain unverified.
+7. No operational active index row is provisioned; without exactly one active registry row, indexing/retrieval fail closed. Synthetic PostgreSQL tests create and remove only a test-scoped `embedding_model=test, dimension=1024, cosine` row.
+
+### Implementation CI evidence — 2026-11-12
+
+Branch `feat/active-index-meta-enforcement`, exact HEAD `259b13916a4579d2e947da27209e504a71f94ea4`, GitHub Actions Run [43129891289](https://github.com/mahakas/darsyar/actions/runs/43129891289):
+- Backend: **492 passed, 21 skipped, 1 warning**; Ruff clean.
+- Frontend lint/typecheck/build: PASS.
+- Linux SIGTERM acceptance: PASS.
+
+The branch is not yet merged when this evidence is recorded. Passing CI validates synthetic/test paths, not legal authorization or PDF-processing gates.
 
 ## Goal
 
