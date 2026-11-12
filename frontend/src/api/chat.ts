@@ -8,7 +8,7 @@ export type ChatMessage = {
   id: string
   role: 'user' | 'assistant'
   content: string
-  status: 'streaming' | 'complete' | 'error'
+  status: 'streaming' | 'complete' | 'partial' | 'error'
   errorCode?: string
 }
 
@@ -22,7 +22,7 @@ export type ConversationSummary = {
 export type ChatStreamHandlers = {
   onAck?: (info: { conversationId: string; messageId: string }) => void
   onDelta?: (text: string) => void
-  onDone?: () => void
+  onDone?: (status?: string) => void
   onError?: (code: string, message: string) => void
   signal?: AbortSignal
 }
@@ -71,6 +71,7 @@ export async function streamChat(
       content?: string
       code?: string
       message?: string
+      status?: string
     }
     try {
       payload = JSON.parse(message.data)
@@ -87,7 +88,7 @@ export async function streamChat(
         if (typeof payload.content === 'string') handlers.onDelta?.(payload.content)
         break
       case 'done':
-        handlers.onDone?.()
+        handlers.onDone?.(payload.status)
         break
       case 'error':
         handlers.onError?.(payload.code || 'stream_error', payload.message || 'Stream error')
@@ -109,20 +110,37 @@ export async function listConversations(
   )
 }
 
-/** Fetch conversation history (used to rehydrate a chat on reload). */
-export async function fetchConversationMessages(conversationId: string): Promise<ChatMessage[]> {
-  const data = await apiFetch<{ items: Array<{ id: string; role: string; content: string; status: string }> }>(
-    `/conversations/${conversationId}/messages?limit=100`,
-  )
-  return (data.items || []).map((m) => ({
-    id: m.id,
-    role: m.role === 'user' ? 'user' : 'assistant',
-    content: m.content,
-    status: m.status === 'failed' || m.status === 'cancelled'
-      ? 'error'
-      : m.status === 'streaming'
-        ? 'streaming'
-        : 'complete',
-    errorCode: m.status === 'failed' || m.status === 'cancelled' ? m.status : undefined,
-  }))
+export type ConversationMessagesPage = {
+  items: ChatMessage[]
+  nextAfterSequence: number | null
+}
+
+/** Fetch an owner-scoped page of conversation history. */
+export async function fetchConversationMessages(
+  conversationId: string,
+  limit = 100,
+  afterSequence?: number,
+): Promise<ConversationMessagesPage> {
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (afterSequence !== undefined) params.set('after_sequence', String(afterSequence))
+  const data = await apiFetch<{
+    items: Array<{ id: string; role: string; content: string; status: string }>
+    next_after_sequence: number | null
+  }>(`/conversations/${conversationId}/messages?${params.toString()}`)
+  return {
+    items: (data.items || []).map((m) => ({
+      id: m.id,
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.content,
+      status: m.status === 'failed' || m.status === 'cancelled'
+        ? 'error'
+        : m.status === 'partial'
+          ? 'partial'
+          : m.status === 'streaming'
+            ? 'streaming'
+            : 'complete',
+      errorCode: m.status === 'failed' || m.status === 'cancelled' ? m.status : undefined,
+    })),
+    nextAfterSequence: data.next_after_sequence,
+  }
 }
