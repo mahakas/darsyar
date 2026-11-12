@@ -3,7 +3,7 @@
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.conversation import Conversation
@@ -81,6 +81,17 @@ async def create_message(
     )
     session.add(msg)
     await session.flush()
+    # Recent-conversation ordering is based on Conversation.updated_at. A message
+    # activity must touch the owning conversation in the same transaction.
+    touched = await session.execute(
+        update(Conversation)
+        .where(Conversation.id == conversation_id, Conversation.user_id == user_id)
+        .values(updated_at=func.now())
+    )
+    if touched.rowcount != 1:
+        from app.core.errors import AppError
+
+        raise AppError("conversation_not_found", 404, "گفتگو یافت نشد.")
     return msg
 
 
