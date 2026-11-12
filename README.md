@@ -8,13 +8,13 @@
 
 - فازهای ۰ و ۱ تکمیل‌شده‌اند.
 - فاز ۲ تکمیل‌شده با محدودیت‌های عملیاتی مستند است.
-- فاز ۳ تکمیل‌شده و CI اصلی در 2026-11-11 موفق بوده است.
-- فاز ۴ دارای اجزای synthetic برای manifest، chunking، embedding، indexing و retrieval است؛ اما مسیر عملیاتی کامل ingestion، مجوز هر منبع و گیت‌های PDF هنوز باز هستند.
-- فاز ۵ یک نمونهٔ اولیهٔ retrieval و ارزیابی synthetic دارد؛ دیتاست طلایی و اتصال کامل evidence/citation به پاسخ چت هنوز تکمیل و پذیرفته نشده‌اند.
-- فاز ۶ یک shell رابط و چت streaming اولیه دارد؛ تجربهٔ کامل تاریخچه، منابع، Markdown امن، دسترس‌پذیری و احراز هویت فرانت‌اند باقی است.
-- فاز ۷ مشخصات پنل مدیریت را دارد؛ پیاده‌سازی پنل هنوز آغاز/پذیرفته نشده است.
+- فاز ۳ تکمیل‌شده و شواهد CI/خاموشی کنترل‌شده ثبت شده‌اند.
+- فاز ۴ دارای اجزای synthetic برای manifest، chunking، embedding، indexing و retrieval است؛ اما ingestion عملیاتی PDF، مجوز هر منبع و گیت‌های Gate A/B/C هنوز باز هستند.
+- فاز ۵ نمونهٔ اولیهٔ retrieval و ارزیابی synthetic دارد؛ دیتاست طلایی حداقل ۱۵۰ پرسشی، evidence snapshot و اتصال کامل evidence/citation به پاسخ چت باقی است.
+- فاز ۶ احراز هویت نشست، پایهٔ تحصیلی صریح، تاریخچهٔ مالک‌محور، pagination/search و replay/status recovery پایدار SSE دارد؛ SourceCard، Markdown امن، دسترس‌پذیری و پذیرش کامل رابط باقی است.
+- فاز ۷ زیرساخت محدود مجوز مدیر و audit تغییرناپذیر در PostgreSQL دارد؛ پنل مدیریت، routeهای مدیریتی، seed عملیاتی، MFA/step-up و acting session هنوز پیاده‌سازی/پذیرفته نشده‌اند. ADR-051 همچنان Proposed است.
 - فاز ۸ عمداً Deferred و خارج از MVP است.
-- فاز ۹ سخت‌سازی و آمادگی انتشار عمومی باقی مانده است.
+- فاز ۹ بخشی از hardening هدرها و no-store را دارد؛ TLS/HSTS واقعی، تست بار، backup/restore، vulnerability triage/enforcement، privacy/legal approvals و Production release باقی است.
 
 جزئیات و گیت‌ها در [ROADMAP.md](ROADMAP.md)، [AGENTS.md](AGENTS.md) و [مشخصات فازها](specs/README.md) ثبت شده‌اند.
 
@@ -27,17 +27,18 @@
 - PostgreSQL با pgvector و pg_trgm، Redis و arq.
 - جداول durable ingestion، outbox و reconciliation.
 - اجزای synthetic برای اعتبارسنجی manifest، chunking دو سطحی، embedding، indexing و hybrid retrieval.
-- رابط React/TypeScript اولیه با fa/en/ar و جهت RTL/LTR.
+- رابط React/TypeScript با هستهٔ چت، تاریخچه و fa/en/ar با جهت RTL/LTR.
 
 این فهرست، فهرست قابلیت‌های موجود در کد است و به معنی آماده‌بودن همهٔ آن‌ها برای کاربران نهایی نیست.
 
 ## مواردی که هنوز آماده نیستند
 
 - هیچ PDF کتاب واقعی بدون شواهد مجوز و تأیید دامنهٔ استفاده پردازش نمی‌شود. مرجع 13529 هنوز از نظر سند، دامنه و عملیات مستقل تأیید نشده است.
-- Gate A (انتخاب/مجوز renderer)، بخش‌هایی از Gate B (محدودیت‌های امنیتی پردازش) و Gate C (آزمون هم‌ارزی) باز هستند.
-- consumer عملیاتی PDF در worker و endpoint کامل intake هنوز در مسیر پذیرش نهایی نیستند.
-- RAG هنوز دیتاست طلایی حداقل ۱۵۰ پرسشی و ارزیابی منطبق با ADR-043 ندارد.
-- پنل کامل Admin، تجربهٔ کامل کاربر، و گیت‌های انتشار Production آماده نیستند.
+- Gate A (مجوز/انتخاب نهایی renderer)، بخش‌هایی از Gate B (محدودیت‌های عددی و امنیت پردازش) و Gate C (آزمون هم‌ارزی) باز هستند.
+- endpoint کامل intake و consumer عملیاتی PDF در worker هنوز پذیرفته نشده‌اند.
+- RAG هنوز دیتاست طلایی حداقل ۱۵۰ پرسشی و اتصال evidence به پاسخ واقعی را ندارد.
+- تجربهٔ کامل کاربر و پنل Admin هنوز آماده نیستند.
+- Production هنوز تأیید نشده است.
 
 ## فناوری‌ها
 
@@ -49,25 +50,34 @@
 
 قرارداد دقیق نسخه‌ها و قواعد توسعه در [AGENTS.md](AGENTS.md) و [docs/TECH_STACK.md](docs/TECH_STACK.md) است.
 
-## راه‌اندازی محلی
+## راهنمای راه‌اندازی برای مبتدی‌ها
+
+راهنمای گام‌به‌گام ویندوز، WSL2، Docker Desktop، نصب ابزارها، clone پروژه، ساخت و تنظیم امن `.env`، پیکربندی LLM و Inference، اجرای سرویس‌ها، تست‌ها و رفع خطاها در این فایل قرار دارد:
+
+**[راهنمای کامل راه‌اندازی درسیار در ویندوز — مخصوص مبتدی‌ها](docs/BEGINNER_SETUP_GUIDE_FA.md)**
+
+این راهنما وضعیت واقعی سرویس‌ها و پیش‌نیازهای مدل‌ها را توضیح می‌دهد. به‌خصوص توجه کن که آدرس/کلید/نام مدل embedding در نمونه خالی است و چت واقعی نیز به اعتبارنامهٔ LLM نیاز دارد؛ بنابراین کپی‌کردن صرف `.env.example` برای راه‌اندازی کامل کافی نیست.
+
+## راه‌اندازی سریع محلی
 
 پیش‌نیازها: Git، Docker Desktop/Compose، Python 3.13، uv، Node.js 24 و npm.
 
 1. مخزن را clone کنید و وارد پوشهٔ پروژه شوید.
-2. فایل نمونه را کپی کنید و secrets محلی مستقل بسازید:
+2. فایل نمونه را کپی کنید:
 
 ```bash
 cp .env.example .env
 ```
 
 در Windows PowerShell:
+
 ```powershell
 Copy-Item .env.example .env
 ```
 
 مقادیر `CHANGE_ME` نمونه و غیرقابل‌استفاده‌اند. `APP_SECRET_KEY` و `OTP_PEPPER` باید تصادفی، مستقل از یکدیگر و فقط در فایل محلی `.env` باشند. هرگز `.env` یا راز واقعی را commit نکنید.
 
-3. سرویس‌های توسعه را اجرا کنید:
+3. پس از تکمیل تنظیمات ضروری LLM و embedding در `.env`، از ریشهٔ مخزن اجرا کنید:
 
 ```bash
 make up
@@ -79,6 +89,7 @@ make health
 - Health: http://127.0.0.1:8000/health
 
 برای مشاهدهٔ وضعیت:
+
 ```bash
 make ps
 make logs
@@ -97,7 +108,7 @@ make test-db
 
 تست‌های DB به PostgreSQL واقعی نیاز دارند؛ SQLite جایگزین معتبر این پروژه نیست. برخی تست‌های sandbox یا مدل واقعی فقط در محیط محدودشده/دارای منابع لازم اجرا می‌شوند و ممکن است در CI عمومی به‌صورت صریح skip شوند.
 
-آخرین CI روی `main` در 2026-11-11: **Backend 463 passed, 21 skipped**؛ Frontend، migration smoke و Linux SIGTERM acceptance نیز موفق بودند. جزئیات: [GitHub Actions](https://github.com/mahakas/darsyar/actions).
+آخرین اجرای کامل CI مشاهده‌شده در 2026-11-12 روی شاخهٔ PR #17، Run [43142397701](https://github.com/mahakas/darsyar/actions/runs/43142397701)، با موفقیت به پایان رسید: Backend/migration/Ruff، Frontend lint/typecheck/build، Linux SIGTERM، Nginx config/header smoke و Trivy report-only همگی موفق بودند. در Backend برخی تست‌های محیطی skip می‌شوند؛ اجرای RAG evaluation نیز به دلیل نبود golden dataset در workflow اجرا نشد. موفقیت Trivy یعنی اسکن و تولید گزارش انجام شد، نه اینکه آسیب‌پذیری صفر باشد.
 
 ## حاکمیت، امنیت و منابع
 
@@ -107,4 +118,3 @@ make test-db
 - منابع آموزشی باید مجوز، منشأ، ناشر و سال چاپ قابل‌ردیابی داشته باشند. `license_note` به‌تنهایی مجوز استفاده نیست.
 - پوشهٔ `resources/` برای ساختار محلی منابع است؛ کتاب‌های واقعی و PDFهای آزمایشی مجاز نیستند به Git اضافه شوند.
 - پیش از Production، سیاست حریم خصوصی/رضایت، بازپرداخت، بکاپ و بازیابی، امنیت، منابع مجاز و دسترسی‌های عملیاتی باید به‌طور مستقل تأیید شوند.
-
