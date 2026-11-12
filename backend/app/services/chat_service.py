@@ -476,23 +476,45 @@ class ChatStreamService:
 
         async with self._session_factory() as session:
             existing = await reservations_repo.get_by_idempotency_key(session, user.id, key)
+            existing_assistant = (
+                await conv_repo.get_message_by_reservation(session, existing.id)
+                if existing is not None else None
+            )
         if existing is not None and existing.payload_fingerprint != fp:
+            raise IDEMPOTENCY_CONFLICT
+        if (
+            existing_assistant is not None
+            and req.conversation_id is not None
+            and req.conversation_id != existing_assistant.conversation_id
+        ):
             raise IDEMPOTENCY_CONFLICT
 
     # ------------------------------------------------------------- main stream
 
     async def stream_chat(self, req: ChatStreamRequest, user: User, last_event_id: str | None = None) -> AsyncIterator[str]:
         self._require_selected_grade(user)
-        conv = await self._resolve_conversation(req.conversation_id, user.id)
         fp = self._fingerprint(req.content, req.model)
         key = f"chat:{user.id}:{req.client_request_id}"
         reservation = await self._reserve(user.id, key, fp)
-        # reserve amount is 1; guard duplicate reservation fingerprint
+        # Resolve an existing idempotent turn before creating a conversation. A retry
+        # of a new chat has no conversation_id in its original request body; use the
+        # persisted assistant's conversation rather than creating an orphan conversation.
         assistant = await self._load_assistant(reservation.id)
         if assistant is not None:
-            async for ev in self._replay(assistant, conv.id):
+            if req.conversation_id is not None and req.conversation_id != assistant.conversation_id:
+                from app.services.reservation import IDEMPOTENCY_CONFLICT
+
+                raise IDEMPOTENCY_CONFLICT
+            async with self._session_factory() as session:
+                existing_conversation = await conv_repo.get_owned(
+                    session, assistant.conversation_id, user.id
+                )
+            if existing_conversation is None:
+                raise REQUEST_NOT_FOUND
+            async for ev in self._replay(assistant, existing_conversation.id):
                 yield ev
             return
+        conv = await self._resolve_conversation(req.conversation_id, user.id)
         user_msg_id, assistant_id = await self._create_messages(conv.id, user.id, req.content, req.client_request_id, reservation.id)
         # مالکیت Stream + heartbeat اولیه (fencing برای recovery)
         owner_token = str(uuid.uuid4())
