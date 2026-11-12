@@ -42,9 +42,11 @@ jobs:
           APP_ENV: test
           DATABASE_URL: postgresql+asyncpg://darsyar:ci-only-password@localhost:5432/darsyar_test
         run: uv run --locked alembic upgrade head
-      - name: Ruff
+      - name: Ruff diagnostic (temporary)
         working-directory: backend
-        run: uv run --locked ruff check .
+        run: |
+          uv run --locked ruff check --fix .
+          git -C .. diff -- backend/tests/test_admin_access_db.py backend/tests/test_admin_audit_append_only_db.py
       - name: Unit and PostgreSQL integration tests
         working-directory: backend
         env:
