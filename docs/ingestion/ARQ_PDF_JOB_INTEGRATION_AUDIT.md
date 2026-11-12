@@ -1,7 +1,7 @@
 # ARQ ↔ PDF Job Integration Audit
 
 **Updated:** 2026-11-12
-**Scope:** Repository code and tests on main at 4302fda5a438434900feb39232a260e1476f7f7a.
+**Scope:** Repository code and tests on main at 385a3d1fdedb429250e478ed836c96e9e1422a9e (2026-11-12).
 **Verdict:** DURABLE_PERSISTENCE_AND_SYNTHETIC_PARENT_CHILD_EXIST; OPERATIONAL_CONSUMER_NOT_REGISTERED.
 
 This is a current-state audit, not permission to activate ingestion, publish live outbox events, or process real PDFs.
@@ -28,9 +28,10 @@ This is a current-state audit, not permission to activate ingestion, publish liv
 
 - backend/app/services/ingestion/parent_supervisor.py launches app.services.ingestion.pdf_child as a separate Python process with shell=False, a narrow environment allowlist, explicit working directory, and structured stdin/stdout IPC.
 - The parent owns the process lifecycle and attempts terminate/kill plus wait on timeout; the child receives serialized document bytes and explicit test limits, not database/Redis handles or application credentials.
-- `services/ingestion_staging.py` now supplies synthetic attempt-scoped artifact staging, explicit byte/checksum validation, symlink-safe paths, immutable publication guarded by the current live lease/fencing token, and explicit orphan cleanup (PR #22; 542 passed, 21 skipped, 1 warning).
-- Low-cardinality observability metrics for job claim/lease/transitions and successful staging operations are being added in PR #23. No job ID, document ID, worker ID, file name, or checksum is emitted as a metric label.
-- Synthetic tests exercise successful parse/page count, explicit FlateDecode limits, malformed input, timeout, termination, parent recovery after child failure, and credential/environment separation.
+- `services/ingestion_staging.py` supplies synthetic attempt-scoped artifact staging, explicit byte/checksum validation, symlink-safe paths, immutable publication guarded by the current live lease/fencing token, and explicit orphan cleanup (PR #22).
+- Low-cardinality observability metrics for job claim/lease/transitions and successful staging operations are merged in PR #23. No job ID, document ID, worker ID, file name, or checksum is emitted as a metric label.
+- PR #24 adds PostgreSQL end-to-end synthetic success and failure/no-publication tests across job claim, Parent/Child subprocess and artifact publication. Both CI runs passed: 545 passed, 21 skipped, 1 warning. This proves only synthetic helper integration; it does not register an ARQ worker.
+- Synthetic tests exercise successful parse/page count, explicit FlateDecode limits, malformed input, timeout, termination, parent recovery after child failure, credential/environment separation, and the end-to-end DB job→child→artifact success/failure lifecycle (PR #24).
 - This is the Gate B-S1 synthetic prototype. It is not a PDFium renderer, not a worker-integrated supervisor, not an operational parser pipeline, and not real-textbook validation.
 
 ## 3. What is still missing
@@ -41,7 +42,7 @@ This is a current-state audit, not permission to activate ingestion, publish liv
 | Intake | No authenticated ingestion upload/intake route | Admin authorization, audit, quarantine, integrity and size controls |
 | Consumer | No process_ingestion_event function in WorkerSettings | Registered consumer with bounded concurrency and safe lifecycle |
 | Job claiming/recovery | Claim/lease/fencing/retry/cancellation primitives implemented and PostgreSQL-tested; no ARQ consumer invokes them. Synthetic staging/publish is also implemented and fenced. | Integrate the primitives into an approved consumer, add heartbeat orchestration, parent/child cancellation and shutdown/reaping, retry policy/runtime limits, and end-to-end recovery tests |
-| Parent/child integration | S1 subprocess prototype is test-only and invoked directly by tests | Async ARQ integration, cancellation propagation, child reaping on worker shutdown, bounded IPC/output and temp cleanup |
+| Parent/child integration | S1 subprocess prototype is now exercised end-to-end with DB job/fencing and artifact helper tests (PR #24); still test-only | Async ARQ integration, cancellation propagation, child reaping on worker shutdown, bounded IPC/output and runtime-approved temp/resource settings |
 | Parser/renderer | pypdf S0/S1 checks and conditional renderer research exist | Gate A licensing/selection and Gate B parser/resource-security closure |
 | Aggregate decompression | No complete aggregate document budget is proven/approved | Owner decision, complete parse-time/lazy-stream accounting, adversarial tests and resource backstop |
 | OCR/layout quality | Not run on real authorized textbooks | Authorized Persian OCR, formula/diagram fidelity and pilot acceptance |
