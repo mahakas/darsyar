@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from collections.abc import AsyncIterator
 
 import pytest
 import pytest_asyncio
@@ -44,7 +45,7 @@ def _vec(seed: int, dim: int = DIM) -> list[float]:
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def _clean():
+async def _clean() -> AsyncIterator[None]:
     async with SESSION_FACTORY() as s:
         await s.execute(text("TRUNCATE ingestion_chunks, ingestion_documents CASCADE"))
         await s.execute(text("DELETE FROM index_meta"))
@@ -150,7 +151,7 @@ async def test_retrieval_score_threshold_precedes_reranking_and_confidence_is_se
         parent_vecs = await _embed([p.text for p in chunking.parents])
         await index_document_chunks(
             s, document=doc, chunking=chunking,
-            child_vectors=child_vecs, parent_vectors=parent_vecs,
+            child_vectors=child_vecs, parent_vectors=parent_vecs, embedding_model="test",
             title="ریاضی پنجم", source_type="synthetic",
         )
         await s.commit()
