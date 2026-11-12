@@ -154,7 +154,7 @@ export default function App() {
         <button className="new-chat" type="button" onClick={startNewChat} disabled={sessionState !== 'signed_in' || user?.selected_grade === null}>＋ <span>{t('newChat')}</span></button>
         <div className="side-label">{t('learningSpace')}</div>
         <button className={'nav-item ' + (view === 'chat' ? 'active' : '')} type="button" onClick={() => setView('chat')} disabled={sessionState !== 'signed_in' || user?.selected_grade === null}>✳ <span>{t('smartChat')}</span></button>
-        {sessionState === 'signed_in' && user?.selected_grade !== null && (
+        {sessionState === 'signed_in' && user && user.selected_grade !== null && (
           <section className="conversation-history" aria-label={t('conversationHistory')}>
             <div className="side-label">{t('conversationHistory')}</div>
             <label className="sr-only" htmlFor="history-search">{t('searchHistory')}</label>
