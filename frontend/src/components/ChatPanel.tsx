@@ -168,6 +168,7 @@ export default function ChatPanel({
         applyServerMessage(turn, message)
         if (message.status !== 'streaming') {
           pendingTurnRef.current = null
+          setRecovering(false)
           onConversationChange?.(turn.conversationId)
           return true
         }
@@ -175,6 +176,7 @@ export default function ChatPanel({
         // A transient API/network failure must not discard the idempotency key.
       }
     }
+    setRecovering(false)
     return false
   }
 
