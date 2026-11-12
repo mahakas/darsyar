@@ -1,8 +1,8 @@
 """دسترسی دادهٔ گفتگو و پیام؛ مالکیت در query اعمال می‌شود (R-121)."""
 
 import uuid
-from typing import cast
 from collections.abc import Sequence
+from typing import cast
 
 from sqlalchemy import func, select, update
 from sqlalchemy.engine import CursorResult as _CursorResult
