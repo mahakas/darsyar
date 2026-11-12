@@ -20,14 +20,14 @@ The current prototype is not a complete authenticated student experience and doe
 - Message status history distinguishes completed, partial, failed, cancelled and streaming states.
 - New-chat preflight is read-only; sequential idempotent retries reuse the persisted conversation and reservation.
 - The sidebar provides conversation search/navigation and older-conversation pagination; chat history loads additional message pages.
-- Main CI after merge: backend 481 passed / 21 skipped / 1 warning; frontend lint/typecheck/build PASS; Linux SIGTERM PASS (Run 43126829480).
+- Active index registry merge CI: backend 492 passed / 21 skipped / 1 warning; frontend lint/typecheck/build PASS; Linux SIGTERM PASS (Run 43134523730).
 
 These are implemented capabilities, not phase acceptance. They do not establish the RAG/evidence, accessibility or full visual acceptance criteria below.
 
 ## Remaining work
 
 - [x] Integrate frontend authentication/session lifecycle with backend OTP and refresh-cookie/CSRF contracts.
-- [ ] Fetch-based streaming client with robust reconnect/replay, sequence handling and partial-response status.
+- [x] Fetch-based idempotent replay with stable `client_request_id`, owner-scoped durable message status polling, bounded recovery and partial-response status.
 - [x] Conversation history/pagination and user-visible search/navigation.
 - [ ] Evidence SourceCard and citation detail panel backed by request evidence, not model-authored citation text.
 - [ ] Safe Markdown rendering; KaTeX with trust=false; Mermaid strict/sandbox policy.
