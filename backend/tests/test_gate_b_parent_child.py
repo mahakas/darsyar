@@ -1,7 +1,7 @@
 """Gate B-S1 — isolated Parent/Child prototype tests (synthetic-only).
 
 Runs the Parent Supervisor + spawned PDF Child under the exact locked pypdf
-6.21.3 (isolated env). All fixtures are synthetic, in-memory, and temporary. No
+7.0.1 (isolated env). All fixtures are synthetic, in-memory, and temporary. No
 pilot PDF, no rendering, no text extraction, no network, no database/Redis, and
 no PDFium.
 """
