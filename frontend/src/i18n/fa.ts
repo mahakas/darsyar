@@ -41,5 +41,11 @@ export const fa = {
   "signOut": "خروج",
   "signedIn": "واردشده",
   "sessionLoading": "در حال بازیابی نشست…",
-  "currentGrade": "پایهٔ انتخاب‌شده"
+  "currentGrade": "پایهٔ انتخاب‌شده",
+  "conversationHistory": "گفتگوهای قبلی",
+  "searchHistory": "جست‌وجوی گفتگوها",
+  "historyLoading": "در حال بارگذاری تاریخچه…",
+  "historyEmpty": "گفتگویی پیدا نشد.",
+  "historyLoadError": "بارگذاری تاریخچه انجام نشد.",
+  "untitledConversation": "گفتگوی بدون عنوان"
 } as const
