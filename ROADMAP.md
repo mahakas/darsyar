@@ -8,23 +8,23 @@
 | 1 | `specs/phase-1.md` | OTP، هویت، نشست و امنیت JWT/refresh | فاز 0 | تکمیل‌شده (ADR-046 accepted؛ اصلاح امنیتی refresh اعمال شد — 2026-10-29) |
 | 2 | `specs/phase-2.md` | کردیت، reservation، ledger، usage، طرح‌ها و پرداخت | فاز 1 + رفع تعارض‌های مالی | تکمیل‌شده با محدودیت‌های مستند (2026-11-07) |
 | 3 | `specs/phase-3.md` | provider gateway، inference service/remote، گفتگو و استریم | فازهای 0/1 و ADRهای مربوط | تکمیل‌شده (2026-11-08؛ شواهد پذیرش Phase 3 ثبت‌شده) |
-| 4 | `specs/phase-4.md` | منابع، manifest، مجوز، استخراج/OCR، chunking و worker | فازهای 0/3 | **Partial — synthetic pipeline primitives + bounded overlap/parent chunks + fail-closed active index registry enforcement implemented (CI run 43129891289)**؛ فاز هنوز Gated و پذیرفته‌نشده است. intake/worker عملیاتی، Gate A/B/C و مجوز منابع باقی است. |
-| 5 | `specs/phase-5.md` | RAG هیبرید، فیلتر پایه، RRF، rerank، evidence و وب | فاز 4 + دیتاست طلایی | **Partial prototype — retrieval fail-closed on active index registry; honest retrieval/citation metadata metrics in synthetic evaluator**؛ فاز پذیرفته نشده. ADR-043، دیتاست طلایی ۱۵۰ پرسشی، evidence snapshot و اتصال به پاسخ واقعی باقی است. |
-| 6 | `specs/phase-6.md` | رابط چت، منبع‌ها، Markdown/KaTeX/Mermaid امن، تاریخچه و i18n | فازهای 1/3/5 | **Partial — authenticated session/profile + explicit grade + owner-scoped searchable/paginated conversation and message history merged 2026-11-12**؛ robust SSE reconnect/resume، evidence SourceCard، safe Markdown/KaTeX/Mermaid، accessibility، responsive/theme acceptance باقی است. |
-| 7 | `specs/phase-7.md` + `docs/ADMIN_CONSOLE_SPEC.md` | Admin Control Center | فازهای ۱–۶ و primitives حسابرسی | **Specification only**؛ ADR-051 Proposed و پیاده‌سازی پنل/endpointها تکمیل نشده است. |
+| 4 | `specs/phase-4.md` | منابع، manifest، مجوز، استخراج/OCR، chunking و worker | فازهای 0/3 | **Partial — synthetic ingestion building blocks, bounded overlap/parent chunks and fail-closed active-index registry merged (PR #13)**؛ فاز همچنان Gated و پذیرفته‌نشده است. intake/worker عملیاتی، Gate A/B/C و مجوز منابع باقی است. |
+| 5 | `specs/phase-5.md` | RAG هیبرید، فیلتر پایه، RRF، rerank، evidence و وب | فاز 4 + دیتاست طلایی | **Partial prototype — registry-bound retrieval and honest synthetic retrieval/citation metadata metrics merged (PR #11)**؛ فاز پذیرفته نشده. ADR-043، دیتاست طلایی ۱۵۰ پرسشی، evidence snapshot و اتصال به پاسخ واقعی باقی است. |
+| 6 | `specs/phase-6.md` | رابط چت، منبع‌ها، Markdown/KaTeX/Mermaid امن، تاریخچه و i18n | فازهای 1/3/5 | **Partial — authenticated session/profile, explicit grade, owner-scoped searchable/paginated history and durable idempotent SSE replay/status recovery merged (PRs #9/#14, 2026-11-12)**؛ live provider reattachment/event-offset resume، evidence SourceCard، safe Markdown/KaTeX/Mermaid، accessibility و responsive/theme acceptance باقی است. |
+| 7 | `specs/phase-7.md` + `docs/ADMIN_CONSOLE_SPEC.md` | Admin Control Center | فازهای ۱–۶ و primitives حسابرسی | **Partial foundation (PR candidate)** — server-side `require_admin` seed guard/DB-role authorization و PostgreSQL append-only audit migration/testها CI-verified؛ هنوز هیچ Admin route/UI، seed operation یا acting session فعال نشده؛ ADR-051 همچنان Proposed است و MFA/step-up/recovery باید جداگانه تعیین تکلیف شود. |
 | 8 | `specs/phase-8.md` | قابلیت‌های یادگیری آینده؛ خارج از MVP و غیرفعال | ADR جدید و تأیید مالک | تعویق‌شده؛ endpoint نساز. |
 | 9 | `specs/phase-9.md` | سخت‌سازی تولید، امنیت، بکاپ/بازیابی، انطباق و عملیات | فازهای MVP | برنامه‌ریزی‌شده؛ هیچ Production release تأیید نشده است. |
 
 ## شواهد CI
 
-آخرین اجرای CI روی `main` پس از ادغام Phase 4 chunking، commit `3860a16fac7ed1c973a6afb13fd5db87106c5793`، در 2026-11-12 موفق شد:
-- Backend: 483 passed, 21 skipped, 1 warning.
+آخرین اجرای CI روی `main` پس از ادغام بازیابی امن SSE، commit `5b4c94c3817ae36e8a2906ed051cc3660342c086`، در 2026-11-12 موفق شد:
+- Backend: **495 passed, 21 skipped, 1 warning**.
 - Frontend: lint، typecheck و build موفق.
 - Linux SIGTERM acceptance: موفق.
 - Migration smoke و Ruff: موفق.
-- اجرا: [Run 43128633013](https://github.com/mahakas/darsyar/actions/runs/43128633013).
+- اجرا: [Run 43137588528](https://github.com/mahakas/darsyar/actions/runs/43137588528).
 
-شاخهٔ PR فعال-index-registry نیز روی HEAD `259b13916a4579d2e947da27209e504a71f94ea4`، اجرای CI کامل را گذرانده است: Backend **492 passed, 21 skipped, 1 warning**؛ Ruff، Frontend و Linux SIGTERM همگی موفق. این شاخه هنوز در main ادغام نشده است.
+شاخهٔ foundation فاز ۷، HEAD `879f302f837889ffe1cdd6486ca113abbc385e2a`، نیز اجرای CI استاندارد (بدون autofix) را با Backend **495 passed, 21 skipped, 1 warning**، Ruff، Frontend و Linux SIGTERM موفق گذرانده است: [Run 43138628126](https://github.com/mahakas/darsyar/actions/runs/43138628126). این تغییر هنوز در PR منتشر/ادغام نشده است.
 
 Skipهای صریح شامل برخی تست‌های sandbox/cgroup و مدل‌های واقعی به‌دلیل نیاز به محیط محدودشده/منابع اضافی هستند؛ بنابراین سبز بودن CI به معنی تأیید Gateهای امنیتی PDF یا Production نیست.
 
