@@ -142,3 +142,16 @@ eval data supports:
 - ✅ **Full DB regression under 7.0.1** = DONE (124/124); lock applied.
 - **Gate C equivalence** gated on Gate A + 13529 evidence.
 - **Production release** gated on full preflight + licensing + infra access.
+
+
+## 2026-11-12 GitHub execution continuation
+
+The earlier 2026-11-11 checkpoint above is historical. The following later changes are now present in GitHub:
+
+- **Phase 4:** synthetic chunking overlap/parent bounds and fail-closed active-index registry enforcement merged (PR #12 and PR #13). No active real embedding model was provisioned. Real PDF/textbook processing remains blocked by the unresolved 13529 source-authorization review and Gate A/B/C.
+- **Phase 5:** retrieval/citation metadata metrics corrected; answer groundedness is explicitly NOT MEASURED by the retrieval-only synthetic evaluator (PR #11). ADR-043 and the reviewed 150-question golden set remain open.
+- **Phase 6:** authenticated profile/selected grade/history, recent-activity ordering, and durable idempotent stream recovery with message-status polling merged (PRs #9, #10 and #14). This is not event-offset replay or live provider reattachment. Evidence cards, safe Markdown/KaTeX/Mermaid, accessibility and responsive/theme acceptance remain.
+- **Phase 7:** branch `feat/phase7-admin-authz-audit-foundation` implements `require_admin`/no-admin-seeded behavior and PostgreSQL append-only audit triggers in migration `0023`. Exact HEAD `879f302f837889ffe1cdd6486ca113abbc385e2a` passed standard CI: Backend 495 passed / 21 skipped / 1 warning; Ruff, Frontend and Linux SIGTERM passed (Run 43138628126). PR/merge is the next action. No admin route/UI/acting session has been enabled; ADR-051 remains Proposed.
+- **Current main:** `5b4c94c3817ae36e8a2906ed051cc3660342c086`; post-merge CI Run [43137588528](https://github.com/mahakas/darsyar/actions/runs/43137588528) passed with 495 backend tests, 21 skips and 1 warning plus frontend and Linux SIGTERM success.
+
+The 21 skips remain explicit environment-gated sandbox/cgroup and real-model tests; they are not passed controls. No real textbook files, production credentials, real payment/SMS calls or production deployment were used.
