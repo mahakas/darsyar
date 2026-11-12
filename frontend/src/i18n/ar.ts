@@ -41,5 +41,11 @@ export const ar = {
   "signOut": "تسجيل الخروج",
   "signedIn": "تم تسجيل الدخول",
   "sessionLoading": "جارٍ استعادة الجلسة…",
-  "currentGrade": "الصف المحدد"
+  "currentGrade": "الصف المحدد",
+  "conversationHistory": "المحادثات السابقة",
+  "searchHistory": "البحث في المحادثات",
+  "historyLoading": "جارٍ تحميل السجل…",
+  "historyEmpty": "لم يتم العثور على محادثات.",
+  "historyLoadError": "تعذّر تحميل سجل المحادثات.",
+  "untitledConversation": "محادثة بلا عنوان"
 } as const
