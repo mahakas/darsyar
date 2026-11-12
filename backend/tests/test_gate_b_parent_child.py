@@ -15,6 +15,7 @@ import zlib
 
 import pytest
 
+from app.services.ingestion import parent_supervisor
 from app.services.ingestion.parent_child_contract import (
     PARENT_CHILD_CONTRACT_VERSION,
     ChildErrorCategory,
@@ -22,7 +23,6 @@ from app.services.ingestion.parent_child_contract import (
     ParentChildRequest,
     ParentChildResult,
 )
-from app.services.ingestion import parent_supervisor
 from app.services.ingestion.parent_supervisor import FORBIDDEN_ENV_FRAGMENTS, run_child
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
