@@ -3,7 +3,7 @@
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -29,3 +29,13 @@ async def create(session: AsyncSession, *, phone: str, role: str = "user", name:
     session.add(user)
     await session.flush()
     return user
+
+
+async def count_admins(session: AsyncSession) -> int:
+    result = await session.execute(
+        select(func.count()).select_from(User).where(
+            User.role == "admin",
+            User.deleted_at.is_(None),
+        )
+    )
+    return int(result.scalar_one())
