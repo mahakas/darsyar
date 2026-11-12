@@ -120,6 +120,44 @@ def test_chunk_two_level_creates_children_and_parents() -> None:
     assert all(c.page_number in (1, 2) for c in result.children)
 
 
+def test_chunk_two_level_respects_overlap_and_parent_bounds() -> None:
+    segments = [(
+        "جمله اول آزمون. جمله دوم آزمون. جمله سوم آزمون. جمله چهارم آزمون. "
+        "جمله پنجم آزمون. جمله ششم آزمون.",
+        1,
+    )]
+    result = chunk_two_level(
+        segments,
+        child_chunk_size=34,
+        child_chunk_overlap=16,
+        parent_chunk_size=50,
+    )
+
+    assert len(result.children) >= 3
+    assert all(len(child.text) <= 34 for child in result.children)
+    assert any(
+        left.text.endswith("جمله دوم آزمون.") and right.text.startswith("جمله دوم آزمون.")
+        for left, right in zip(result.children, result.children[1:])
+    )
+    assert result.parents
+    assert all(len(parent.text) <= 50 for parent in result.parents)
+    assert result.parents[0].child_start == 0
+    assert result.parents[-1].child_end == len(result.children) - 1
+    assert all(
+        left.child_end + 1 == right.child_start
+        for left, right in zip(result.parents, result.parents[1:])
+    )
+
+
+def test_chunk_two_level_rejects_unsafe_size_configuration() -> None:
+    with pytest.raises(ValueError):
+        chunk_two_level([("متن", 1)], child_chunk_size=10, child_chunk_overlap=10)
+    with pytest.raises(ValueError):
+        chunk_two_level([("متن", 1)], child_chunk_size=20, parent_chunk_size=10)
+    with pytest.raises(ValueError):
+        chunk_two_level([("متن", 0)])
+
+
 # --- Embedding service ---
 @pytest.mark.asyncio
 async def test_embed_batch_validates_dimensions() -> None:
