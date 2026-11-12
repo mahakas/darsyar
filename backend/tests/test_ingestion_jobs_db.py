@@ -22,8 +22,8 @@ from app.services.ingestion_jobs import (
     complete_ingestion_job,
     fail_ingestion_job,
     finalize_expired_ingestion_cancellations,
-    request_ingestion_job_cancellation,
     renew_ingestion_job_lease,
+    request_ingestion_job_cancellation,
     retry_ingestion_job,
 )
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
