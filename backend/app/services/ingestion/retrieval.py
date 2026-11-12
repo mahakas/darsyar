@@ -17,6 +17,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
+from app.services.ingestion.index_registry import require_active_index_meta
 from app.services.ingestion.normalize import normalize_persian
 
 RRF_K = 60.0
@@ -134,6 +135,16 @@ async def hybrid_retrieve(
         raise AppError("invalid_retrieval_limit", 422, "محدودیت تعداد نتایج بازیابی نامعتبر است.")
     if not 0.0 <= min_retrieval_score <= 1.0 or not 0.0 <= min_rerank_score <= 1.0:
         raise AppError("invalid_retrieval_threshold", 422, "آستانهٔ بازیابی نامعتبر است.")
+    if not query.strip():
+        raise AppError("empty_retrieval_query", 422, "متن پرس‌وجو خالی است.")
+    active_index = await require_active_index_meta(session)
+    if len(query_vector) != active_index.embedding_dim:
+        raise AppError(
+            "query_embedding_dimension_mismatch",
+            422,
+            "ابعاد query embedding با رجیستری ایندکس فعال سازگار نیست.",
+        )
+
     q_norm = normalize_persian(query)
     dense = await _dense_search(session, query_vector, selected_grade, edition_year, subject, dense_limit)
     lexical = await _lexical_search(session, q_norm, selected_grade, edition_year, subject, lexical_limit)
