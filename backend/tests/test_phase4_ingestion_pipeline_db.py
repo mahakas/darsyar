@@ -137,7 +137,7 @@ def test_chunk_two_level_respects_overlap_and_parent_bounds() -> None:
     assert all(len(child.text) <= 34 for child in result.children)
     assert any(
         left.text.endswith("جمله دوم آزمون.") and right.text.startswith("جمله دوم آزمون.")
-        for left, right in zip(result.children, result.children[1:])
+        for left, right in zip(result.children, result.children[1:], strict=False)
     )
     assert result.parents
     assert all(len(parent.text) <= 50 for parent in result.parents)
@@ -145,7 +145,7 @@ def test_chunk_two_level_respects_overlap_and_parent_bounds() -> None:
     assert result.parents[-1].child_end == len(result.children) - 1
     assert all(
         left.child_end + 1 == right.child_start
-        for left, right in zip(result.parents, result.parents[1:])
+        for left, right in zip(result.parents, result.parents[1:], strict=False)
     )
 
 
