@@ -326,6 +326,23 @@ async def test_cancellation_after_billable_settles() -> None:
 
 
 @pytest.mark.asyncio
+async def test_new_chat_preflight_does_not_create_orphan_conversation() -> None:
+    uid = await _make_user_with_credits()
+    service = ChatStreamService(provider=FakeProvider([("done",)]), session_factory=TEST_SESSION_FACTORY)
+    req = ChatStreamRequest(content="hi", client_request_id="preflight-new-chat-01")
+
+    async with TEST_SESSION_FACTORY() as session:
+        before = await conv_repo.count_owned(session, uid)
+
+    await service.preflight(req, _user(uid))
+
+    async with TEST_SESSION_FACTORY() as session:
+        after = await conv_repo.count_owned(session, uid)
+
+    assert after == before
+
+
+@pytest.mark.asyncio
 async def test_chat_rejects_missing_selected_grade_before_reserving_credit() -> None:
     uid = await _make_user_with_credits()
     provider = FakeProvider([("delta", "must not run"), ("done",)])
