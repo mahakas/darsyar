@@ -16,6 +16,7 @@ import pytest_asyncio
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.models.ingestion_chunk import IngestionChunk
+from app.models.index_meta import IndexMeta
 from app.models.ingestion_document import IngestionDocument
 from app.services.ingestion.chunking import chunk_two_level
 from app.services.ingestion.embedding_service import embed_batch
@@ -71,9 +72,15 @@ def _make_manifest(path: str, *, grade: int = 5, subject: str = "math", valid: b
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def _clean_chunks() -> None:
+async def _clean_chunks():
     async with SESSION_FACTORY() as s:
         await s.execute(text("TRUNCATE ingestion_chunks, ingestion_documents CASCADE"))
+        await s.execute(text("DELETE FROM index_meta"))
+        s.add(IndexMeta(embedding_model="test", embedding_dim=DIM, distance_metric="cosine", is_active=True))
+        await s.commit()
+    yield
+    async with SESSION_FACTORY() as s:
+        await s.execute(text("DELETE FROM index_meta"))
         await s.commit()
 
 
@@ -176,6 +183,38 @@ async def test_embed_batch_rejects_wrong_dim() -> None:
         await embed_batch(["a"], embed=_embed, model="test", expected_dim=DIM)
 
 
+@pytest.mark.asyncio
+async def test_indexing_fails_closed_without_active_index_registry() -> None:
+    async with SESSION_FACTORY() as s:
+        doc = await _seed_document(s, grade=5)
+        chunking = chunk_two_level([("متن آزمایشی برای کنترل رجیستری. " * 12, 1)])
+        await s.execute(text("DELETE FROM index_meta"))
+        await s.commit()
+        vectors = [_fake_embed_vec(i) for i in range(len(chunking.children))]
+        parent_vectors = [_fake_embed_vec(100 + i) for i in range(len(chunking.parents))]
+
+        with pytest.raises(AppError) as exc_info:
+            await index_document_chunks(
+                s, document=doc, chunking=chunking,
+                child_vectors=vectors, parent_vectors=parent_vectors,
+                embedding_model="test", source_type="synthetic",
+            )
+        assert exc_info.value.code == "active_embedding_index_missing"
+
+
+@pytest.mark.asyncio
+async def test_hybrid_retrieval_fails_closed_without_active_index_registry() -> None:
+    async with SESSION_FACTORY() as s:
+        await s.execute(text("DELETE FROM index_meta"))
+        await s.commit()
+        with pytest.raises(AppError) as exc_info:
+            await hybrid_retrieve(
+                s, query="synthetic", query_vector=_fake_embed_vec(1),
+                selected_grade=5,
+            )
+        assert exc_info.value.code == "active_embedding_index_missing"
+
+
 # --- Indexing + Retrieval (real PostgreSQL) ---
 @pytest.mark.asyncio
 async def test_index_then_hybrid_retrieve_grade_ceiling() -> None:
@@ -193,7 +232,7 @@ async def test_index_then_hybrid_retrieve_grade_ceiling() -> None:
 
         await index_document_chunks(
             s, document=doc, chunking=chunking,
-            child_vectors=child_vecs, parent_vectors=parent_vecs,
+            child_vectors=child_vecs, parent_vectors=parent_vecs, embedding_model="test",
             title="ریاضی پنجم", source_type="synthetic",
         )
         await s.commit()
@@ -239,14 +278,14 @@ async def test_reindex_is_idempotent() -> None:
         parent_vecs = await _embed([p.text for p in chunking.parents])
 
         first = await index_document_chunks(s, document=doc, chunking=chunking,
-                                            child_vectors=child_vecs, parent_vectors=parent_vecs)
+                                            child_vectors=child_vecs, parent_vectors=parent_vecs, embedding_model="test")
         await s.commit()
 
         count1 = (await s.execute(select(func.count()).select_from(IngestionChunk)
                                   .where(IngestionChunk.document_id == doc.id))).scalar_one()
 
         second = await index_document_chunks(s, document=doc, chunking=chunking,
-                                             child_vectors=child_vecs, parent_vectors=parent_vecs)
+                                             child_vectors=child_vecs, parent_vectors=parent_vecs, embedding_model="test")
         await s.commit()
 
         count2 = (await s.execute(select(func.count()).select_from(IngestionChunk)
@@ -276,11 +315,11 @@ async def test_isolated_documents_do_not_pollute_each_other() -> None:
         await index_document_chunks(s, document=doc_a, chunking=ca,
                                     child_vectors=await _embed_a([c.text for c in ca.children]),
                                     parent_vectors=await _embed_a([p.text for p in ca.parents]),
-                                    source_type="synthetic")
+                                    embedding_model="test", source_type="synthetic")
         await index_document_chunks(s, document=doc_b, chunking=cb,
                                     child_vectors=await _embed_b([c.text for c in cb.children]),
                                     parent_vectors=await _embed_b([p.text for p in cb.parents]),
-                                    source_type="synthetic")
+                                    embedding_model="test", source_type="synthetic")
         await s.commit()
 
         all_docs = (await s.execute(text("SELECT DISTINCT document_id FROM ingestion_chunks"))).scalars().all()
