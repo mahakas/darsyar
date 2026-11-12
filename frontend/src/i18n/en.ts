@@ -41,5 +41,11 @@ export const en = {
   "signOut": "Sign out",
   "signedIn": "Signed in",
   "sessionLoading": "Restoring your session…",
-  "currentGrade": "Selected grade"
+  "currentGrade": "Selected grade",
+  "conversationHistory": "Recent conversations",
+  "searchHistory": "Search conversations",
+  "historyLoading": "Loading history…",
+  "historyEmpty": "No conversations found.",
+  "historyLoadError": "Conversation history could not be loaded.",
+  "untitledConversation": "Untitled conversation"
 } as const
