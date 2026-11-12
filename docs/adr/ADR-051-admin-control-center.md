@@ -60,3 +60,13 @@ Darsyar به یک پنل مدیریتی یکپارچه نیاز دارد که ع
 4. اثر مالی مجاز/ممنوع در chat impersonation.
 5. اتصال secret manager و اینکه آیا عملیات write-only از UI مجاز است.
 6. نهایی‌شدن REFUND_POLICY و سیاست حریم خصوصی برای data access/export/delete.
+
+
+## Implementation status note — 2026-11-12
+
+ADR-051 remains **Proposed**. A limited technical foundation was implemented separately under ADR-055:
+- database-backed `require_admin` guard with the R-117 `no_admin_seeded` 503 behavior;
+- database role, not JWT role claim, is authoritative;
+- PostgreSQL append-only audit triggers and actor FK `ON DELETE RESTRICT`.
+
+This does not ratify the complete Admin Control Center decision and does not register or expose an admin route, UI, acting session or sensitive operation. MFA factor/recovery, step-up, acting-context TTL/revocation and privacy boundaries remain open items in this ADR.
