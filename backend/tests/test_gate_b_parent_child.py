@@ -11,11 +11,10 @@ from __future__ import annotations
 import io
 import json
 import os
+import subprocess
 import zlib
 
 import pytest
-
-from app.services.ingestion import parent_supervisor
 from app.services.ingestion.parent_child_contract import (
     PARENT_CHILD_CONTRACT_VERSION,
     ChildErrorCategory,
@@ -150,7 +149,7 @@ def test_parent_rejects_child_result_for_another_attempt(monkeypatch) -> None:
         def poll(self):
             return self.returncode
 
-    monkeypatch.setattr(parent_supervisor.subprocess, "Popen", lambda *args, **kwargs: FakeProcess())
+    monkeypatch.setattr(subprocess, "Popen", lambda *args, **kwargs: FakeProcess())
     result = run_child(_request(_compressed_pdf()), timeout_seconds=1, cwd=BACKEND_DIR)
     assert not result.ok
     assert result.message == "child result attempt id mismatch"
