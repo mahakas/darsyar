@@ -11,7 +11,7 @@ import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import cast
+from typing import Any, cast
 
 from sqlalchemy import and_, or_, select, update
 from sqlalchemy.engine import CursorResult as _CursorResult
@@ -81,7 +81,7 @@ def _owned_running_conditions(lease: IngestionJobLease, now: datetime) -> tuple[
     )
 
 
-def _clear_lease_values() -> dict[str, object]:
+def _clear_lease_values() -> dict[str, Any]:
     return {
         "lease_owner": None,
         "lease_token": None,
