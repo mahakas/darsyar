@@ -25,6 +25,8 @@ export default function App() {
   const [historyQuery, setHistoryQuery] = useState('')
   const [historyVersion, setHistoryVersion] = useState(0)
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyLoadingMore, setHistoryLoadingMore] = useState(false)
+  const [historyTotal, setHistoryTotal] = useState(0)
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -68,14 +70,19 @@ export default function App() {
   useEffect(() => {
     if (sessionState !== 'signed_in' || !user || user.selected_grade === null) {
       setConversations([])
+      setHistoryTotal(0)
       setHistoryLoading(false)
+      setHistoryLoadingMore(false)
       return
     }
     let active = true
     setHistoryLoading(true)
-    void listConversations(50, 0)
+    void listConversations(50, 0, historyQuery)
       .then((page) => {
-        if (active) setConversations(page.items)
+        if (active) {
+          setConversations(page.items)
+          setHistoryTotal(page.total)
+        }
       })
       .catch(() => {
         if (active) setConversations([])
@@ -86,7 +93,7 @@ export default function App() {
     return () => {
       active = false
     }
-  }, [sessionState, user?.id, user?.selected_grade, historyVersion])
+  }, [sessionState, user?.id, user?.selected_grade, historyVersion, historyQuery])
 
   const changeLanguage = (language: string) => {
     void i18n.changeLanguage(language)
@@ -137,14 +144,26 @@ export default function App() {
     setView('chat')
   }
 
+  const loadMoreConversations = async () => {
+    if (historyLoadingMore || conversations.length >= historyTotal) return
+    setHistoryLoadingMore(true)
+    try {
+      const page = await listConversations(50, conversations.length, historyQuery)
+      setConversations((current) => [...current, ...page.items])
+      setHistoryTotal(page.total)
+    } catch {
+      setProfileError(t('historyLoadError'))
+    } finally {
+      setHistoryLoadingMore(false)
+    }
+  }
+
   const handleConversationChange = (conversationId: string | null) => {
     setSelectedConversationId(conversationId)
     if (conversationId) setHistoryVersion((version) => version + 1)
   }
 
-  const filteredConversations = conversations.filter((conversation) =>
-    (conversation.title || '').toLocaleLowerCase().includes(historyQuery.trim().toLocaleLowerCase()),
-  )
+  const filteredConversations = conversations
 
   return (
     <div className="app-shell">
@@ -181,6 +200,16 @@ export default function App() {
                 {conversation.title || t('untitledConversation')}
               </button>
             ))}
+            {conversations.length < historyTotal && (
+              <button
+                className="history-item"
+                type="button"
+                onClick={() => { void loadMoreConversations() }}
+                disabled={historyLoadingMore}
+              >
+                {historyLoadingMore ? t('historyLoadingMore') : t('loadOlderConversations')}
+              </button>
+            )}
           </section>
         )}
         <button className="nav-item" type="button" disabled>▤ <span>{t('privateTeacher')} <small>{t('soon')}</small></span></button>
