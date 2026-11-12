@@ -14,8 +14,9 @@ from datetime import datetime, timedelta
 from typing import cast
 
 from sqlalchemy import and_, or_, select, update
-from sqlalchemy.engine import ColumnElement, CursorResult as _CursorResult
+from sqlalchemy.engine import CursorResult as _CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.models.ingestion_job import IngestionJob
 
@@ -27,7 +28,7 @@ CANCELLATION_REQUESTED_STATE = "cancellation_requested"
 CANCELLED_STATE = "cancelled"
 SUCCEEDED_STATE = "succeeded"
 TERMINAL_FAILURE_STATE = "terminal_failure"
-_ERROR_CODE_RE = re.compile(r"[a-z][a-z0-9_]{0,63}\\Z")
+_ERROR_CODE_RE = re.compile(r"[a-z][a-z0-9_]{0,63}\Z")
 
 
 @dataclass(frozen=True, slots=True)
