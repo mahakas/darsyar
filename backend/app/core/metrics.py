@@ -109,6 +109,18 @@ class MetricsRegistry:
         self.outbox_events_failed = Counter("outbox_events_failed", "Outbox events failed permanently (contract)")
         self.outbox_duplicate_enqueue = Counter("outbox_duplicate_enqueue", "Duplicate ARQ enqueue tolerated")
         self.outbox_pg_commit_failure_after_enqueue = Counter("outbox_pg_commit_failure_after_enqueue", "Postgres commit failure after enqueue")
+        self.ingestion_job_claim_attempts = Counter(
+            "ingestion_job_claim_attempts", "Ingestion job claims by fixed result (claimed or empty)"
+        )
+        self.ingestion_job_lease_renewal_attempts = Counter(
+            "ingestion_job_lease_renewal_attempts", "Ingestion lease renewal attempts by fixed outcome"
+        )
+        self.ingestion_job_transition_attempts = Counter(
+            "ingestion_job_transition_attempts", "Fenced ingestion job transitions by fixed transition and outcome"
+        )
+        self.ingestion_artifact_operation_attempts = Counter(
+            "ingestion_artifact_operation_attempts", "Synthetic staging artifact operations by fixed operation and outcome"
+        )
         self.chat_active = Gauge("chat_streams_active", "Active streaming chat requests")
         self.chat_started = Counter("chat_streams_started", "Accepted stream requests")
         self.chat_completed = Counter("chat_streams_completed", "Successfully completed streams")
@@ -134,6 +146,10 @@ class MetricsRegistry:
             self.outbox_events_failed,
             self.outbox_duplicate_enqueue,
             self.outbox_pg_commit_failure_after_enqueue,
+            self.ingestion_job_claim_attempts,
+            self.ingestion_job_lease_renewal_attempts,
+            self.ingestion_job_transition_attempts,
+            self.ingestion_artifact_operation_attempts,
             self.chat_started,
             self.chat_completed,
             self.chat_failed,

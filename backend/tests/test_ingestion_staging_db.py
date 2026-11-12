@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from app.core.config import get_settings
+from app.core.metrics import METRICS
 from app.models.ingestion_document import IngestionDocument
 from app.services.ingestion_creation import create_ingestion_job
 from app.services.ingestion_jobs import IngestionJobLease, claim_next_ingestion_job
@@ -70,6 +71,12 @@ def test_stage_verify_and_explicit_max_bytes(tmp_path: Path) -> None:
     store = StagingArtifactStore(tmp_path / "artifacts")
     job_id = uuid.uuid4()
     data = b"synthetic-artifact"
+    before_staged = METRICS.ingestion_artifact_operation_attempts.snapshot().get(
+        (("operation", "stage"), ("outcome", "success")), 0
+    )
+    before_verified = METRICS.ingestion_artifact_operation_attempts.snapshot().get(
+        (("operation", "verify"), ("outcome", "success")), 0
+    )
     metadata = store.stage_artifact(
         job_id=job_id,
         fencing_token=1,
@@ -82,6 +89,12 @@ def test_stage_verify_and_explicit_max_bytes(tmp_path: Path) -> None:
     assert metadata.byte_length == len(data)
     assert metadata.sha256 == hashlib.sha256(data).hexdigest()
     assert store.verify_artifact(metadata, max_bytes=128) == metadata
+    assert METRICS.ingestion_artifact_operation_attempts.snapshot()[
+        (("operation", "stage"), ("outcome", "success"))
+    ] == before_staged + 1
+    assert METRICS.ingestion_artifact_operation_attempts.snapshot()[
+        (("operation", "verify"), ("outcome", "success"))
+    ] == before_verified + 1
 
     with pytest.raises(StagingArtifactError, match="max_bytes"):
         store.stage_artifact(

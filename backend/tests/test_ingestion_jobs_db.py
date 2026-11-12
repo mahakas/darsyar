@@ -12,6 +12,7 @@ import uuid
 
 import pytest
 from app.core.config import get_settings
+from app.core.metrics import METRICS
 from app.models.ingestion_document import IngestionDocument
 from app.models.ingestion_job import IngestionJob
 from app.services.ingestion_creation import create_ingestion_job
@@ -564,3 +565,55 @@ async def test_service_rejects_unsafe_runtime_arguments() -> None:
                 now=dt.datetime(2026, 11, 12),
                 lease_duration=dt.timedelta(seconds=1),
             )
+
+
+@pytest.mark.asyncio
+async def test_ingestion_job_metrics_are_low_cardinality_and_record_transitions() -> None:
+    job_type = _test_job_type()
+    job_id = await _new_job(job_type)
+    claimed_key = (("result", "claimed"),)
+    renewed_key = (("outcome", "renewed"),)
+    completed_key = (("transition", "succeeded"), ("outcome", "applied"))
+    before_claimed = METRICS.ingestion_job_claim_attempts.snapshot().get(claimed_key, 0)
+    before_renewed = METRICS.ingestion_job_lease_renewal_attempts.snapshot().get(renewed_key, 0)
+    before_completed = METRICS.ingestion_job_transition_attempts.snapshot().get(completed_key, 0)
+
+    async with SESSION_FACTORY() as session:
+        lease = await claim_next_ingestion_job(
+            session,
+            job_type=job_type,
+            worker_id="observability-worker",
+            now=NOW,
+            lease_duration=dt.timedelta(minutes=1),
+        )
+        assert lease is not None and lease.job_id == job_id
+        await session.commit()
+
+    async with SESSION_FACTORY() as session:
+        assert await renew_ingestion_job_lease(
+            session,
+            lease=lease,
+            now=NOW + dt.timedelta(seconds=1),
+            lease_duration=dt.timedelta(minutes=1),
+        )
+        await session.commit()
+
+    async with SESSION_FACTORY() as session:
+        assert await complete_ingestion_job(
+            session,
+            lease=lease,
+            now=NOW + dt.timedelta(seconds=2),
+        )
+        await session.commit()
+
+    assert METRICS.ingestion_job_claim_attempts.snapshot()[claimed_key] == before_claimed + 1
+    assert METRICS.ingestion_job_lease_renewal_attempts.snapshot()[renewed_key] == before_renewed + 1
+    assert METRICS.ingestion_job_transition_attempts.snapshot()[completed_key] == before_completed + 1
+
+    exposition = METRICS.as_prometheus_text()
+    assert 'ingestion_job_claim_attempts{result="claimed"}' in exposition
+    assert 'ingestion_job_lease_renewal_attempts{outcome="renewed"}' in exposition
+    assert 'ingestion_job_transition_attempts{outcome="applied",transition="succeeded"}' in exposition
+    assert str(job_id) not in exposition
+    assert job_type not in exposition
+    assert "observability-worker" not in exposition

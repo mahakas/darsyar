@@ -18,6 +18,7 @@ from sqlalchemy.engine import CursorResult as _CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
+from app.core.metrics import METRICS
 from app.models.ingestion_job import IngestionJob
 
 CursorResult = _CursorResult[object]
@@ -148,6 +149,7 @@ async def claim_next_ingestion_job(
     result = await session.execute(statement)
     job = result.scalar_one_or_none()
     if job is None:
+        METRICS.ingestion_job_claim_attempts.inc({"result": "empty"})
         return None
 
     expires_at = now + lease_duration
@@ -163,6 +165,7 @@ async def claim_next_ingestion_job(
     job.finished_at = None
     job.updated_at = now
     await session.flush()
+    METRICS.ingestion_job_claim_attempts.inc({"result": "claimed"})
 
     return IngestionJobLease(
         job_id=job.id,
@@ -194,7 +197,9 @@ async def renew_ingestion_job_lease(
         )
     )
     await session.flush()
-    return cast(CursorResult, result).rowcount == 1
+    applied = cast(CursorResult, result).rowcount == 1
+    METRICS.ingestion_job_lease_renewal_attempts.inc({"outcome": "renewed" if applied else "rejected"})
+    return applied
 
 
 async def complete_ingestion_job(
@@ -219,7 +224,9 @@ async def complete_ingestion_job(
         .values(**values)
     )
     await session.flush()
-    return cast(CursorResult, result).rowcount == 1
+    applied = cast(CursorResult, result).rowcount == 1
+    METRICS.ingestion_job_transition_attempts.inc({"transition": "succeeded", "outcome": "applied" if applied else "rejected"})
+    return applied
 
 
 async def retry_ingestion_job(
@@ -257,7 +264,9 @@ async def retry_ingestion_job(
         .values(**values)
     )
     await session.flush()
-    return cast(CursorResult, result).rowcount == 1
+    applied = cast(CursorResult, result).rowcount == 1
+    METRICS.ingestion_job_transition_attempts.inc({"transition": "retry_waiting", "outcome": "applied" if applied else "rejected"})
+    return applied
 
 
 async def fail_ingestion_job(
@@ -284,7 +293,9 @@ async def fail_ingestion_job(
         .values(**values)
     )
     await session.flush()
-    return cast(CursorResult, result).rowcount == 1
+    applied = cast(CursorResult, result).rowcount == 1
+    METRICS.ingestion_job_transition_attempts.inc({"transition": "terminal_failure", "outcome": "applied" if applied else "rejected"})
+    return applied
 
 
 async def request_ingestion_job_cancellation(
@@ -306,6 +317,7 @@ async def request_ingestion_job_cancellation(
     )
     job = result.scalar_one_or_none()
     if job is None:
+        METRICS.ingestion_job_transition_attempts.inc({"transition": "cancel_requested", "outcome": "missing"})
         return None
 
     if job.status in CLAIMABLE_JOB_STATES:
@@ -322,6 +334,12 @@ async def request_ingestion_job_cancellation(
         job.cancellation_requested = True
         job.updated_at = now
     await session.flush()
+    if job.status == CANCELLED_STATE:
+        METRICS.ingestion_job_transition_attempts.inc({"transition": "cancelled", "outcome": "applied"})
+    elif job.status == CANCELLATION_REQUESTED_STATE:
+        METRICS.ingestion_job_transition_attempts.inc({"transition": "cancel_requested", "outcome": "applied"})
+    else:
+        METRICS.ingestion_job_transition_attempts.inc({"transition": "cancel_requested", "outcome": "unchanged"})
     return job.status
 
 
@@ -353,7 +371,9 @@ async def acknowledge_ingestion_job_cancellation(
         )
     )
     await session.flush()
-    return cast(CursorResult, result).rowcount == 1
+    applied = cast(CursorResult, result).rowcount == 1
+    METRICS.ingestion_job_transition_attempts.inc({"transition": "cancelled", "outcome": "applied" if applied else "rejected"})
+    return applied
 
 
 async def finalize_expired_ingestion_cancellations(
@@ -393,4 +413,8 @@ async def finalize_expired_ingestion_cancellations(
         job.lease_expires_at = None
         job.heartbeat_at = None
     await session.flush()
+    for _job in jobs:
+        METRICS.ingestion_job_transition_attempts.inc(
+            {"transition": "cancelled_expired", "outcome": "applied"}
+        )
     return len(jobs)
