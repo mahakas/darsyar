@@ -94,6 +94,7 @@ async def create_user() -> tuple[str, str]:
         async with sf() as session:
             phone = f"+989{str(uuid.uuid4().int)[:9]}"
             user = await users_repo.create(session, phone=phone, role="user")
+            user.selected_grade = 7  # explicit synthetic grade for shutdown acceptance
             await accounts.create(session, user_id=user.id, available_balance=5)
             await session.commit()
             uid = str(user.id)

@@ -110,7 +110,7 @@ async def test_pg_alembic_head_is_current() -> None:
     async with SESSION_FACTORY() as s:
         version = (await s.execute(text("SELECT version_num FROM alembic_version"))).scalar_one()
         # Head must match the actual project head (now 0021 after Phase 4 chunks).
-        assert version == "0021_ingestion_chunks_indexes"
+        assert version == "0022_users_selected_grade"
 
 
 @pytest.mark.asyncio

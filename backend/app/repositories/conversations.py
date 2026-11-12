@@ -25,20 +25,30 @@ async def get_owned(session: AsyncSession, conversation_id: uuid.UUID, user_id: 
 
 
 async def list_owned(
-    session: AsyncSession, user_id: uuid.UUID, *, limit: int, before: uuid.UUID | None = None
+    session: AsyncSession, user_id: uuid.UUID, *, limit: int, before: uuid.UUID | None = None,
+    offset: int = 0, query: str | None = None,
 ) -> Sequence[Conversation]:
     statement = select(Conversation).where(Conversation.user_id == user_id)
+    normalized_query = query.strip() if query else ""
+    if normalized_query:
+        escaped_query = normalized_query.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+        statement = statement.where(Conversation.title.ilike(f"%{escaped_query}%", escape="!"))
     if before is not None:
         statement = statement.where(Conversation.id < before)
-    statement = statement.order_by(Conversation.updated_at.desc(), Conversation.id.desc()).limit(limit)
+    statement = statement.order_by(Conversation.updated_at.desc(), Conversation.id.desc()).limit(limit).offset(offset)
     result = await session.execute(statement)
     return result.scalars().all()
 
 
-async def count_owned(session: AsyncSession, user_id: uuid.UUID) -> int:
-    result = await session.execute(
-        select(func.count()).select_from(Conversation).where(Conversation.user_id == user_id)
-    )
+async def count_owned(
+    session: AsyncSession, user_id: uuid.UUID, *, query: str | None = None
+) -> int:
+    statement = select(func.count()).select_from(Conversation).where(Conversation.user_id == user_id)
+    normalized_query = query.strip() if query else ""
+    if normalized_query:
+        escaped_query = normalized_query.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+        statement = statement.where(Conversation.title.ilike(f"%{escaped_query}%", escape="!"))
+    result = await session.execute(statement)
     return int(result.scalar_one())
 
 
@@ -121,14 +131,15 @@ async def get_message_by_client_request(
 
 
 async def list_messages_for_user(
-    session: AsyncSession, conversation_id: uuid.UUID, user_id: uuid.UUID, *, after_sequence: int | None = None
+    session: AsyncSession, conversation_id: uuid.UUID, user_id: uuid.UUID, *,
+    after_sequence: int | None = None, limit: int = 100,
 ) -> Sequence[Message]:
     statement = select(Message).where(
         Message.conversation_id == conversation_id, Message.user_id == user_id
     )
     if after_sequence is not None:
         statement = statement.where(Message.sequence > after_sequence)
-    statement = statement.order_by(Message.sequence.asc())
+    statement = statement.order_by(Message.sequence.asc()).limit(limit)
     result = await session.execute(statement)
     return result.scalars().all()
 

@@ -4,6 +4,7 @@
 """
 
 import asyncio
+import json
 import os
 import uuid
 from types import SimpleNamespace
@@ -39,6 +40,7 @@ def _new_phone() -> str:
 async def _make_user_with_credits(n: int = 10) -> uuid.UUID:
     async with TEST_SESSION_FACTORY() as session:
         user = await users_repo.create(session, phone=_new_phone(), role="user")
+        user.selected_grade = 7  # explicit synthetic grade for chat acceptance tests
         await accounts_repo.create(session, user_id=user.id, available_balance=n)
         await session.commit()
         return user.id
@@ -63,7 +65,7 @@ class FakeProvider:
 
 
 def _user(uid: uuid.UUID) -> SimpleNamespace:
-    return SimpleNamespace(id=uid, role="user")
+    return SimpleNamespace(id=uid, role="user", selected_grade=7)
 
 
 async def _collect(service: ChatStreamService, req: ChatStreamRequest, uid: uuid.UUID) -> list[str]:
@@ -322,3 +324,67 @@ async def test_cancellation_after_billable_settles() -> None:
     assert kinds.count("spend") == 1
     msg = await _assistant_for_reservation(uid, res.id)
     assert msg is not None and msg.status == "partial"
+
+
+@pytest.mark.asyncio
+async def test_new_chat_retry_reuses_original_conversation_and_reservation() -> None:
+    uid = await _make_user_with_credits()
+    bal_before = await _balance(uid)
+    provider = FakeProvider([("delta", "stable answer"), ("done",)])
+    service = ChatStreamService(provider=provider, session_factory=TEST_SESSION_FACTORY)
+    req = ChatStreamRequest(content="same turn", client_request_id="new-chat-retry-0001")
+
+    first_events = await _collect(service, req, uid)
+    second_events = await _collect(service, req, uid)
+
+    def ack_conversation_id(events: list[str]) -> str:
+        event = next(item for item in events if "event:ack" in item)
+        payload_line = next(line for line in event.splitlines() if line.startswith("data:"))
+        return json.loads(payload_line.removeprefix("data:"))["conversation_id"]
+
+    first_conversation_id = ack_conversation_id(first_events)
+    replay_conversation_id = ack_conversation_id(second_events)
+    assert replay_conversation_id == first_conversation_id
+    assert provider.calls == 1
+    assert await _balance(uid) == bal_before - 1
+    async with TEST_SESSION_FACTORY() as session:
+        assert await conv_repo.count_owned(session, uid) == 1
+        conversations = await conv_repo.list_owned(session, uid, limit=10)
+        assert len(conversations) == 1
+        assert conversations[0].title == "same turn"
+
+
+@pytest.mark.asyncio
+async def test_new_chat_preflight_does_not_create_orphan_conversation() -> None:
+    uid = await _make_user_with_credits()
+    service = ChatStreamService(provider=FakeProvider([("done",)]), session_factory=TEST_SESSION_FACTORY)
+    req = ChatStreamRequest(content="hi", client_request_id="preflight-new-chat-01")
+
+    async with TEST_SESSION_FACTORY() as session:
+        before = await conv_repo.count_owned(session, uid)
+
+    await service.preflight(req, _user(uid))
+
+    async with TEST_SESSION_FACTORY() as session:
+        after = await conv_repo.count_owned(session, uid)
+
+    assert after == before
+
+
+@pytest.mark.asyncio
+async def test_chat_rejects_missing_selected_grade_before_reserving_credit() -> None:
+    uid = await _make_user_with_credits()
+    provider = FakeProvider([("delta", "must not run"), ("done",)])
+    service = ChatStreamService(provider=provider, session_factory=TEST_SESSION_FACTORY)
+    user = SimpleNamespace(id=uid, role="user", selected_grade=None)
+    req = ChatStreamRequest(content="hi", client_request_id="grade-required-01")
+
+    from app.core.errors import AppError
+
+    with pytest.raises(AppError) as excinfo:
+        async for _ in service.stream_chat(req, user):
+            pass
+
+    assert excinfo.value.code == "grade_required"
+    assert provider.calls == 0
+    assert (await _balance(uid)) == 10

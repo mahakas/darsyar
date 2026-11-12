@@ -61,3 +61,31 @@ class ChatStreamRequest(BaseModel):
     content: str = Field(min_length=1, max_length=200000)
     client_request_id: str = Field(min_length=8, max_length=128)
     model: str | None = Field(default=None, max_length=128)
+
+
+class ConversationListOut(BaseModel):
+    items: list[ConversationOut]
+    limit: int
+    offset: int
+    total: int
+
+
+class HistoryMessageOut(BaseModel):
+    """Safe message history shape; excludes provider and internal billing identifiers."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    conversation_id: uuid.UUID
+    role: str
+    status: str
+    content: str
+    sequence: int
+    created_at: datetime
+
+
+class MessageListOut(BaseModel):
+    items: list[HistoryMessageOut]
+    limit: int
+    after_sequence: int | None = None
+    next_after_sequence: int | None = None

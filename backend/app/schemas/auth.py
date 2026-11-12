@@ -32,6 +32,7 @@ class UserOut(BaseModel):
     phone: str
     name: str | None = None
     role: Literal["user", "admin"]
+    selected_grade: int | None = None
 
 
 class TokenResponse(BaseModel):

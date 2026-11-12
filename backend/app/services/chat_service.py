@@ -168,10 +168,12 @@ class ChatStreamService:
     def _sse(seq: int, event: str, payload: dict[str, Any]) -> str:
         return f"id:{seq}\nevent:{event}\ndata:{json.dumps(payload, ensure_ascii=False)}\n\n"
 
-    async def _resolve_conversation(self, conversation_id: uuid.UUID | None, user_id: uuid.UUID) -> Conversation:
+    async def _resolve_conversation(
+        self, conversation_id: uuid.UUID | None, user_id: uuid.UUID, *, title: str | None = None
+    ) -> Conversation:
         if conversation_id is None:
             async with self._session_factory() as session:
-                new_conv = await conv_repo.create_conversation(session, user_id=user_id)
+                new_conv = await conv_repo.create_conversation(session, user_id=user_id, title=title)
                 await session.commit()
                 return new_conv
         async with self._session_factory() as session:
@@ -447,6 +449,16 @@ class ChatStreamService:
 
     # ------------------------------------------------------------- preflight (pre-stream validation)
 
+    @staticmethod
+    def _require_selected_grade(user: User) -> int:
+        """پایهٔ انتخاب‌شدهٔ معتبر را فقط از پروفایل server-side می‌خواند (R-019)."""
+        grade = getattr(user, "selected_grade", None)
+        if grade is None:
+            raise AppError("grade_required", 409, "برای شروع گفت‌وگو ابتدا پایهٔ تحصیلی خود را انتخاب کنید.")
+        if not isinstance(grade, int) or not 1 <= grade <= 12:
+            raise AppError("invalid_selected_grade", 422, "پایهٔ تحصیلی ثبت‌شده معتبر نیست.")
+        return grade
+
     async def preflight(self, req: ChatStreamRequest, user: User) -> None:
         """اعتبارسنجیِ قبل از شروع stream (برای بازگرداندن خطای JSON مناسب).
 
@@ -454,29 +466,58 @@ class ChatStreamService:
         شروع StreamingResponse بررسی شوند تا خطاها به‌جای قطعِ پس از 200، به‌صورت
         پاسخ استاندارد (404/409) بازگردند.
         """
-        await self._resolve_conversation(req.conversation_id, user.id)
+        self._require_selected_grade(user)
+        # A new-chat preflight must be read-only: stream_chat creates its conversation
+        # exactly once after admission. Existing conversation IDs still require an
+        # ownership check before the HTTP response is committed to SSE.
+        if req.conversation_id is not None:
+            await self._resolve_conversation(req.conversation_id, user.id)
         fp = self._fingerprint(req.content, req.model)
         key = f"chat:{user.id}:{req.client_request_id}"
         from app.services.reservation import IDEMPOTENCY_CONFLICT
 
         async with self._session_factory() as session:
             existing = await reservations_repo.get_by_idempotency_key(session, user.id, key)
+            existing_assistant = (
+                await conv_repo.get_message_by_reservation(session, existing.id)
+                if existing is not None else None
+            )
         if existing is not None and existing.payload_fingerprint != fp:
+            raise IDEMPOTENCY_CONFLICT
+        if (
+            existing_assistant is not None
+            and req.conversation_id is not None
+            and req.conversation_id != existing_assistant.conversation_id
+        ):
             raise IDEMPOTENCY_CONFLICT
 
     # ------------------------------------------------------------- main stream
 
     async def stream_chat(self, req: ChatStreamRequest, user: User, last_event_id: str | None = None) -> AsyncIterator[str]:
-        conv = await self._resolve_conversation(req.conversation_id, user.id)
+        self._require_selected_grade(user)
         fp = self._fingerprint(req.content, req.model)
         key = f"chat:{user.id}:{req.client_request_id}"
         reservation = await self._reserve(user.id, key, fp)
-        # reserve amount is 1; guard duplicate reservation fingerprint
+        # Resolve an existing idempotent turn before creating a conversation. A retry
+        # of a new chat has no conversation_id in its original request body; use the
+        # persisted assistant's conversation rather than creating an orphan conversation.
         assistant = await self._load_assistant(reservation.id)
         if assistant is not None:
-            async for ev in self._replay(assistant, conv.id):
+            if req.conversation_id is not None and req.conversation_id != assistant.conversation_id:
+                from app.services.reservation import IDEMPOTENCY_CONFLICT
+
+                raise IDEMPOTENCY_CONFLICT
+            async with self._session_factory() as session:
+                existing_conversation = await conv_repo.get_owned(
+                    session, assistant.conversation_id, user.id
+                )
+            if existing_conversation is None:
+                raise REQUEST_NOT_FOUND
+            async for ev in self._replay(assistant, existing_conversation.id):
                 yield ev
             return
+        title = " ".join(req.content.split())[:120] or None
+        conv = await self._resolve_conversation(req.conversation_id, user.id, title=title)
         user_msg_id, assistant_id = await self._create_messages(conv.id, user.id, req.content, req.client_request_id, reservation.id)
         # مالکیت Stream + heartbeat اولیه (fencing برای recovery)
         owner_token = str(uuid.uuid4())

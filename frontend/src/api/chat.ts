@@ -1,5 +1,5 @@
 /** Chat streaming + history API for the Darsyar UI (Phase 6). */
-import { apiFetch } from './client'
+import { apiFetch, getAccessToken } from './client'
 import { readSseStream } from './sse'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '')
@@ -8,14 +8,21 @@ export type ChatMessage = {
   id: string
   role: 'user' | 'assistant'
   content: string
-  status: 'streaming' | 'complete' | 'error'
+  status: 'streaming' | 'complete' | 'partial' | 'error'
   errorCode?: string
+}
+
+export type ConversationSummary = {
+  id: string
+  title: string | null
+  created_at: string
+  updated_at: string
 }
 
 export type ChatStreamHandlers = {
   onAck?: (info: { conversationId: string; messageId: string }) => void
   onDelta?: (text: string) => void
-  onDone?: () => void
+  onDone?: (status?: string) => void
   onError?: (code: string, message: string) => void
   signal?: AbortSignal
 }
@@ -25,32 +32,27 @@ export function makeClientRequestId(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-/**
- * Stream a chat turn against POST /chat/stream (fetch-based SSE).
- * The access token is read from the in-memory reader registered on window.
- */
+/** Stream a turn; grade is read only from the authenticated server-side profile. */
 export async function streamChat(
   content: string,
-  selectedGrade: number,
   conversationId: string | null,
   handlers: ChatStreamHandlers,
 ): Promise<void> {
   const headers = new Headers({ Accept: 'text/event-stream', 'Content-Type': 'application/json' })
-  const access = (globalThis as { __darsyarAccessTokenReader?: () => string | null }).__darsyarAccessTokenReader
-  const auth = access?.()
+  const auth = getAccessToken()
   if (auth) headers.set('Authorization', `Bearer ${auth}`)
 
   const body = JSON.stringify({
     conversation_id: conversationId || null,
     content,
     client_request_id: makeClientRequestId(),
-    grade_level: selectedGrade,
   })
 
   const response = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
     headers,
     body,
+    credentials: 'include',
     signal: handlers.signal,
   })
 
@@ -69,6 +71,7 @@ export async function streamChat(
       content?: string
       code?: string
       message?: string
+      status?: string
     }
     try {
       payload = JSON.parse(message.data)
@@ -85,7 +88,7 @@ export async function streamChat(
         if (typeof payload.content === 'string') handlers.onDelta?.(payload.content)
         break
       case 'done':
-        handlers.onDone?.()
+        handlers.onDone?.(payload.status)
         break
       case 'error':
         handlers.onError?.(payload.code || 'stream_error', payload.message || 'Stream error')
@@ -94,15 +97,50 @@ export async function streamChat(
   }, handlers.signal)
 }
 
-/** Fetch conversation history (used to rehydrate a chat on reload). */
-export async function fetchConversationMessages(conversationId: string): Promise<ChatMessage[]> {
-  const data = await apiFetch<{ items: Array<{ id: string; role: string; content: string; status: string }> }>(
-    `/conversations/${conversationId}/messages?limit=100`,
+/** Fetch the current user's conversation history with bounded pagination. */
+export async function listConversations(
+  limit = 50,
+  offset = 0,
+  query = '',
+): Promise<{ items: ConversationSummary[]; limit: number; offset: number; total: number }> {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  if (query.trim()) params.set('q', query.trim())
+  return apiFetch<{ items: ConversationSummary[]; limit: number; offset: number; total: number }>(
+    `/conversations?${params.toString()}`,
   )
-  return (data.items || []).map((m) => ({
-    id: m.id,
-    role: m.role === 'user' ? 'user' : 'assistant',
-    content: m.content,
-    status: m.status === 'failed' ? 'error' : 'complete',
-  }))
+}
+
+export type ConversationMessagesPage = {
+  items: ChatMessage[]
+  nextAfterSequence: number | null
+}
+
+/** Fetch an owner-scoped page of conversation history. */
+export async function fetchConversationMessages(
+  conversationId: string,
+  limit = 100,
+  afterSequence?: number,
+): Promise<ConversationMessagesPage> {
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (afterSequence !== undefined) params.set('after_sequence', String(afterSequence))
+  const data = await apiFetch<{
+    items: Array<{ id: string; role: string; content: string; status: string }>
+    next_after_sequence: number | null
+  }>(`/conversations/${conversationId}/messages?${params.toString()}`)
+  return {
+    items: (data.items || []).map((m) => ({
+      id: m.id,
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.content,
+      status: m.status === 'failed' || m.status === 'cancelled'
+        ? 'error'
+        : m.status === 'partial'
+          ? 'partial'
+          : m.status === 'streaming'
+            ? 'streaming'
+            : 'complete',
+      errorCode: m.status === 'failed' || m.status === 'cancelled' ? m.status : undefined,
+    })),
+    nextAfterSequence: data.next_after_sequence,
+  }
 }
