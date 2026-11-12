@@ -5,15 +5,14 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from starlette.requests import Request
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from sqlalchemy.pool import NullPool
-
 from app.api.deps import require_admin
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.security import create_token
 from app.repositories import users as users_repo
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
+from starlette.requests import Request
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("DARSYAR_TEST_DB") != "1",
