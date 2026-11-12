@@ -37,7 +37,7 @@ pytestmark = pytest.mark.skipif(
 
 ENGINE = create_async_engine(get_settings().database_url, poolclass=NullPool)
 SESSION_FACTORY = async_sessionmaker(ENGINE, expire_on_commit=False)
-NOW = datetime(2026, 11, 12, 12, 0, tzinfo=UTC)
+NOW = datetime.now(UTC)
 
 
 async def _new_job() -> uuid.UUID:
@@ -56,6 +56,7 @@ async def _new_job() -> uuid.UUID:
             request_idempotency_key=f"test-{uuid.uuid4().hex}",
             request_hash=hashlib.sha256(uuid.uuid4().bytes).hexdigest(),
         )
+        created.job.retry_available_at = NOW - timedelta(seconds=1)
         await session.commit()
         return created.job.id
 
@@ -113,6 +114,13 @@ async def test_concurrent_claimers_never_receive_same_job() -> None:
     claimed = [lease for lease in (first, second) if lease is not None]
     assert len(claimed) == 1
     assert claimed[0].job_id == job_id
+    async with SESSION_FACTORY() as session:
+        assert await complete_ingestion_job(
+            session,
+            lease=claimed[0],
+            now=NOW + timedelta(seconds=1),
+        )
+        await session.commit()
 
 
 @pytest.mark.asyncio
@@ -202,6 +210,11 @@ async def test_heartbeat_renews_only_current_live_lease() -> None:
             lease=stale,
             now=renewed_at + timedelta(seconds=1),
             lease_duration=timedelta(seconds=45),
+        )
+        assert await complete_ingestion_job(
+            session,
+            lease=lease,
+            now=renewed_at + timedelta(seconds=2),
         )
         await session.commit()
 
@@ -390,9 +403,25 @@ async def test_expired_attempt_cannot_heartbeat_or_complete() -> None:
         assert not await complete_ingestion_job(session, lease=lease, now=expired_at)
         await session.commit()
 
+    async with SESSION_FACTORY() as session:
+        reclaimed = await claim_next_ingestion_job(
+            session,
+            worker_id="recovery-worker",
+            now=expired_at + timedelta(seconds=1),
+            lease_duration=timedelta(minutes=1),
+        )
+        assert reclaimed is not None and reclaimed.job_id == job_id
+        assert reclaimed.fencing_token == lease.fencing_token + 1
+        assert await complete_ingestion_job(
+            session,
+            lease=reclaimed,
+            now=expired_at + timedelta(seconds=2),
+        )
+        await session.commit()
+
     job = await _job(job_id)
-    assert job.status == "running"
-    assert job.lease_token == lease.lease_token
+    assert job.status == "succeeded"
+    assert job.fencing_token == lease.fencing_token + 1
 
 
 @pytest.mark.asyncio
