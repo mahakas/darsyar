@@ -1,6 +1,6 @@
 # Durable Ingestion Job — Implementation Specification
 
-**Date:** 2026-11-10. Implementation-ready engineering specification. Slice 1 (persistence) and Slice 2 (transactional creation service + tests) code exist; runtime/validation status is tracked in the Statuses section below.
+**Date:** 2026-11-10; implementation status refreshed 2026-11-12. This specification tracks the durable ingestion lifecycle from persistence through synthetic artifact staging; see the Statuses section for merged and in-review slices.
 
 Statuses:
 - `CONCEPTUAL_ARCHITECTURE: APPROVED_WITH_CONDITIONS` (owner, 2026-11-10)
@@ -9,17 +9,28 @@ Statuses:
 - `SLICE_2_CODE: IMPLEMENTED` (service + tests written; ruff/mypy clean)
 - `SLICE_2_POSTGRESQL_VALIDATION: PASSED` (2026-11-10: 9/9 in ephemeral runner on `darsyar_test`, PostgreSQL 18.6)
 - `SLICE_2: CLOSED`
-- `SLICE_3_OUTBOX_PUBLISHER: NOT_STARTED`
+- `SLICE_3_OUTBOX_PUBLISHER: CLOSED` (2026-11-11; PostgreSQL + Redis/ARQ synthetic validation 13/13; see `SLICE_3_OUTBOX_PUBLISHER_IMPLEMENTATION.md`)
+- `SLICE_4_CLAIM_LEASE_FENCING: IMPLEMENTED` (2026-11-12; PostgreSQL CI: 528 passed, 21 skipped, 1 warning; commit merged via PR #21)
+- `SLICE_6_STAGING_ARTIFACT_LIFECYCLE: IMPLEMENTATION_UNDER_REVIEW` (PR #22; synthetic-only; CI pending; not operational intake or document processing)
 - `RUNTIME_CONFIGURATION: PENDING_OWNER_APPROVAL`
 - `LICENSING_AND_AUTHORIZATION: PENDING`
 - `PRODUCTION: NOT_APPROVED`
 
 Execution model: **at-least-once**. Do not claim or design exactly-once execution; idempotency is achieved through durable, idempotent database effects.
 
+## Current implementation status — 2026-11-12
+
+- Slice 1–3 (durable persistence, transactional creation, manual outbox publisher/reconciliation) are implemented and closed with synthetic PostgreSQL/Redis evidence.
+- Slice 4 (atomic claim, lease renewal, fencing, retry/failure, cancellation and expired-cancellation finalization) is implemented in `backend/app/services/ingestion_jobs.py`; PostgreSQL tests use unique synthetic job types. CI run [43246224745](https://github.com/mahakas/darsyar/actions/runs/43246224745): Backend 528 passed, 21 skipped, 1 warning; Ruff, mypy, migration smoke, frontend, SIGTERM, Nginx and report-only supply-chain jobs passed. RAG evaluation was skipped because the reviewed golden dataset is not present.
+- Slice 5 Parent/Child remains a synthetic Gate B-S1 prototype, not an ARQ-integrated execution path.
+- Slice 6 staging artifact lifecycle is the next synthetic-only implementation slice; it must pass its own PostgreSQL and adversarial filesystem tests before closure.
+
+These code slices do not authorize a real PDF or register an ARQ consumer.
+
 ## A. Existing-system compatibility audit (verified)
 
 - **SQLAlchemy:** async, 2.x `Mapped[]`/`mapped_column` (e.g., `app/models/reservation.py`), `Base` from `app.db.base`; `DateTime(timezone=True)`; `gen_random_uuid()`; check/unique constraints via `__table_args__`.
-- **Alembic:** versions in `backend/alembic/versions/`; latest `0017_stream_lease_billable`; tests built via `alembic upgrade head` (make test-db), PostgreSQL only.
+- **Alembic:** versions in `backend/alembic/versions/`; the initial compatibility baseline was `0017_stream_lease_billable`; `main` has since advanced through `0023_admin_audit_append_only` as of 2026-11-12. Tests use `alembic upgrade head` (`make test-db`) on PostgreSQL only.
 - **ARQ:** `backend/app/services/worker.py` `WorkerSettings` (`functions=[worker_probe]`, cron, `max_jobs=4`, `job_timeout=300`, arq 0.28.0 with `_job_id`/`_job_try`). No ingestion job registered.
 - **Redis:** used via `RedisSettings.from_dsn(settings.redis_url)`; arq delivery only.
 - **Transactions:** async sessions + commit/rollback; existing patterns (reservation/recovery) — chat/heartbeat recovery is **not** reusable verbatim for ingestion idempotency.

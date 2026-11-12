@@ -11,6 +11,7 @@
 - Child overlap enforcement and strict parent size/coverage bounds.
 - Fail-closed active `index_meta` registry enforcement for indexing; provider model, vector dimension and metric must match the active registry before replacing existing chunks.
 - Durable ingestion document/job/outbox persistence and publisher/reconciliation slices.
+- Synthetic PostgreSQL claim/lease/fencing/retry/cancellation lifecycle (PR #21 merged 2026-11-12); no ARQ consumer or PDF processing is activated.
 
 These components do not constitute an operational textbook-ingestion workflow. No real textbook has been processed under this synthetic test path. The active-index registry code does not auto-seed any active model: a real index remains unavailable until an operator provisions a verified record that matches the physical 1024-dimensional cosine vector index and the selected provider.
 
