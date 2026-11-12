@@ -189,7 +189,7 @@ export default function ChatPanel({
     const controller = new AbortController()
     abortRef.current = controller
     let terminalStatus: string | undefined
-    let streamError: { code: string; message: string } | null = null
+    const streamErrorRef: { current: { code: string; message: string } | null } = { current: null }
 
     try {
       await streamChat(turn.content, turn.conversationId, turn.clientRequestId, {
@@ -205,7 +205,7 @@ export default function ChatPanel({
           terminalStatus = status
         },
         onError: (code, message) => {
-          streamError = { code, message }
+          streamErrorRef.current = { code, message }
         },
       })
 
@@ -233,10 +233,10 @@ export default function ChatPanel({
         updateTurnMessage(turn, { status: 'partial', errorCode: undefined })
         pendingTurnRef.current = null
       } else if (terminalStatus === 'failed' || terminalStatus === 'cancelled') {
-        updateTurnMessage(turn, { status: 'error', errorCode: streamError?.code || terminalStatus })
+        updateTurnMessage(turn, { status: 'error', errorCode: streamErrorRef.current?.code || terminalStatus })
         pendingTurnRef.current = null
-      } else if (streamError) {
-        updateTurnMessage(turn, { status: 'error', errorCode: streamError.code })
+      } else if (streamErrorRef.current) {
+        updateTurnMessage(turn, { status: 'error', errorCode: streamErrorRef.current.code })
         pendingTurnRef.current = null
       } else {
         throw new Error('SSE response did not report a terminal status')
