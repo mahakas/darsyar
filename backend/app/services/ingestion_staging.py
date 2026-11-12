@@ -24,11 +24,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.ingestion_job import IngestionJob
 from app.services.ingestion_jobs import IngestionJobLease
 
-_ARTIFACT_NAME_RE: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\\Z")
+_ARTIFACT_NAME_RE: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 _MEDIA_TYPE_RE: Final[re.Pattern[str]] = re.compile(
-    r"[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+\\Z"
+    r"[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+\Z"
 )
-_SHA256_RE: Final[re.Pattern[str]] = re.compile(r"[0-9a-f]{64}\\Z")
+_SHA256_RE: Final[re.Pattern[str]] = re.compile(r"[0-9a-f]{64}\Z")
 _COPY_CHUNK_SIZE: Final[int] = 1024 * 1024
 
 
@@ -131,6 +131,8 @@ class StagingArtifactStore:
     ) -> Path:
         if not isinstance(metadata, ArtifactMetadata):
             raise StagingArtifactError("metadata must be an ArtifactMetadata value")
+        if not isinstance(metadata.job_id, uuid.UUID):
+            raise StagingArtifactError("job_id must be a UUID")
         _validate_artifact_name(metadata.artifact_name)
         _validate_positive_int(metadata.fencing_token, "fencing_token")
         _validate_positive_int(metadata.byte_length, "byte_length")
@@ -153,14 +155,25 @@ class StagingArtifactStore:
             raise StagingArtifactError("artifact path escapes the staging root")
         return path
 
-    def _write_immutable(self, directory: Path, artifact_name: str, data_source: Path | None, data: bytes | None) -> Path:
+    def _write_immutable(
+        self,
+        directory: Path,
+        artifact_name: str,
+        *,
+        max_bytes: int,
+        data_source: Path | None,
+        data: bytes | None,
+    ) -> Path:
         """Atomically create a new directory entry without replacing an existing artifact."""
         _validate_artifact_name(artifact_name)
+        _validate_positive_int(max_bytes, "max_bytes")
         temporary = directory / f".{artifact_name}.{uuid.uuid4().hex}.tmp"
         destination = directory / artifact_name
         fd: int | None = None
         try:
             if data is not None:
+                if len(data) > max_bytes:
+                    raise StagingArtifactError("artifact exceeds the explicit max_bytes limit")
                 flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
                 fd = os.open(temporary, flags, 0o600)
                 with os.fdopen(fd, "wb") as handle:
@@ -182,11 +195,18 @@ class StagingArtifactStore:
                         os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
                         0o600,
                     )
+                    total = 0
                     with os.fdopen(source_fd, "rb", closefd=True) as source, os.fdopen(
                         temp_fd, "wb", closefd=True
                     ) as target:
                         source_fd = -1
-                        shutil.copyfileobj(source, target, length=_COPY_CHUNK_SIZE)
+                        while chunk := source.read(_COPY_CHUNK_SIZE):
+                            total += len(chunk)
+                            if total > max_bytes:
+                                raise StagingArtifactError(
+                                    "artifact exceeds the explicit max_bytes limit during publication"
+                                )
+                            target.write(chunk)
                         target.flush()
                         os.fsync(target.fileno())
                 finally:
@@ -236,7 +256,13 @@ class StagingArtifactStore:
 
         directory = self._attempt_directory("staging", job_id, fencing_token, create=True)
         assert directory is not None
-        self._write_immutable(directory, artifact_name, data_source=None, data=data)
+        self._write_immutable(
+            directory,
+            artifact_name,
+            max_bytes=max_bytes,
+            data_source=None,
+            data=data,
+        )
         return ArtifactMetadata(
             job_id=job_id,
             fencing_token=fencing_token,
@@ -329,6 +355,7 @@ class StagingArtifactStore:
             self._write_immutable(
                 directory,
                 metadata.artifact_name,
+                max_bytes=max_bytes,
                 data_source=self._metadata_path(metadata, expected_area="staging"),
                 data=None,
             )
@@ -336,6 +363,7 @@ class StagingArtifactStore:
             if str(exc) != "artifact already exists for this attempt":
                 raise
             self.verify_artifact(published, max_bytes=max_bytes)
+        self.verify_artifact(published, max_bytes=max_bytes)
         return published
 
     def discard_attempt(

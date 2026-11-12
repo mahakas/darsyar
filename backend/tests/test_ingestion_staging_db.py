@@ -1,7 +1,9 @@
 """Synthetic tests for fenced staging, integrity and immutable artifact publication."""
 
 import datetime as dt
+import datetime as dt
 import hashlib
+import os
 import uuid
 from dataclasses import replace
 from pathlib import Path
@@ -10,7 +12,7 @@ import pytest
 from app.core.config import get_settings
 from app.models.ingestion_document import IngestionDocument
 from app.services.ingestion_creation import create_ingestion_job
-from app.services.ingestion_jobs import claim_next_ingestion_job
+from app.services.ingestion_jobs import IngestionJobLease, claim_next_ingestion_job
 from app.services.ingestion_staging import (
     ArtifactMetadata,
     StagingArtifactError,
@@ -21,7 +23,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 pytestmark = pytest.mark.skipif(
-    __import__("os").environ.get("DARSYAR_TEST_DB") != "1",
+    os.environ.get("DARSYAR_TEST_DB") != "1",
     reason="requires real PostgreSQL schema prepared by make test-db",
 )
 
@@ -29,7 +31,7 @@ ENGINE = create_async_engine(get_settings().database_url, poolclass=NullPool)
 SESSION_FACTORY = async_sessionmaker(ENGINE, expire_on_commit=False)
 
 
-async def _new_lease():
+async def _new_lease() -> tuple[IngestionJobLease, dt.datetime]:
     job_type = f"staging_{uuid.uuid4().hex[:16]}"
     async with SESSION_FACTORY() as session:
         document = IngestionDocument(
