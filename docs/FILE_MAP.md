@@ -341,8 +341,10 @@
 |---|---|
 | `backend/uv.lock` | lockfile دقیق پایتون؛ تولیدشده با `uv lock` از PyPI واقعی. |
 | `frontend/package-lock.json` | lockfile دقیق npm؛ تولیدشده با `npm install --package-lock-only` از registry واقعی. |
-| ackend/app/services/ingestion_creation.py | سرویس Slice 2: ایجاد اتمیک job+outbox با idempotency درخواست. |
-| ackend/tests/test_ingestion_creation_db.py | تست PostgreSQL Slice 2 (ایجاد اتمیک، idempotency، هم‌زمانی). |
+| `backend/app/services/ingestion_creation.py` | سرویس Slice 2: ایجاد اتمیک job+outbox با idempotency درخواست. |
+| `backend/tests/test_ingestion_creation_db.py` | تست PostgreSQL Slice 2 (ایجاد اتمیک، idempotency، هم‌زمانی). |
+| `backend/app/services/ingestion_jobs.py` | Slice 4: claim اتمیک، lease/heartbeat، fencing، retry و cancellation؛ بدون ARQ consumer یا runtime defaults. |
+| `backend/tests/test_ingestion_jobs_db.py` | تست یکپارچهٔ PostgreSQL برای رقابت workerها، lease منقضی، fencing، retry و cancellation (synthetic-only). |
 | docs/ingestion/INGESTION_PROGRESS_AND_OPEN_DECISIONS.md | گزارش یکپارچه پیشرفت و تصمیم‌های باز مالک (snapshot 2026-11-10). |
 | docs/ingestion/OUTBOX_RETENTION_AND_SLICE_3_OWNER_DECISION.md | بستهٔ تصمیم مالک برای retention outbox و دامنهٔ Slice 3 (سنتزیک). |
 | docs/ingestion/SLICE_3_OUTBOX_PUBLISHER_IMPLEMENTATION.md | مشخصات پیاده‌سازی Slice 3: outbox publisher/reconciliation (S-1/S-2 APPROVED_WITH_CONDITIONS؛ CLOSED). |
