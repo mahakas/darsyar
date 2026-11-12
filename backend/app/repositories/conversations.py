@@ -166,3 +166,21 @@ async def set_message_status(session: AsyncSession, message_id: uuid.UUID, statu
         values["content"] = content
     result = await session.execute(update(Message).where(Message.id == message_id).values(**values))
     return cast(_CursorResult[object], result).rowcount == 1
+
+
+async def get_message_for_user(
+    session: AsyncSession,
+    *,
+    message_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> Message | None:
+    """Fetch one message only within the specified conversation and owner boundary."""
+    result = await session.execute(
+        select(Message).where(
+            Message.id == message_id,
+            Message.conversation_id == conversation_id,
+            Message.user_id == user_id,
+        )
+    )
+    return result.scalar_one_or_none()
