@@ -118,8 +118,8 @@ class MetricsRegistry:
         self.ingestion_job_transition_attempts = Counter(
             "ingestion_job_transition_attempts", "Fenced ingestion job transitions by fixed transition and outcome"
         )
-        self.ingestion_artifact_operation_attempts = Counter(
-            "ingestion_artifact_operation_attempts", "Synthetic staging artifact operations by fixed operation and outcome"
+        self.ingestion_artifact_successes = Counter(
+            "ingestion_artifact_successes", "Successful synthetic staging artifact operations by fixed operation"
         )
         self.chat_active = Gauge("chat_streams_active", "Active streaming chat requests")
         self.chat_started = Counter("chat_streams_started", "Accepted stream requests")
@@ -149,7 +149,7 @@ class MetricsRegistry:
             self.ingestion_job_claim_attempts,
             self.ingestion_job_lease_renewal_attempts,
             self.ingestion_job_transition_attempts,
-            self.ingestion_artifact_operation_attempts,
+            self.ingestion_artifact_successes,
             self.chat_started,
             self.chat_completed,
             self.chat_failed,

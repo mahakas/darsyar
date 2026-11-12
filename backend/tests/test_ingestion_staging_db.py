@@ -71,10 +71,10 @@ def test_stage_verify_and_explicit_max_bytes(tmp_path: Path) -> None:
     store = StagingArtifactStore(tmp_path / "artifacts")
     job_id = uuid.uuid4()
     data = b"synthetic-artifact"
-    before_staged = METRICS.ingestion_artifact_operation_attempts.snapshot().get(
+    before_staged = METRICS.ingestion_artifact_successes.snapshot().get(
         (("operation", "stage"), ("outcome", "success")), 0
     )
-    before_verified = METRICS.ingestion_artifact_operation_attempts.snapshot().get(
+    before_verified = METRICS.ingestion_artifact_successes.snapshot().get(
         (("operation", "verify"), ("outcome", "success")), 0
     )
     metadata = store.stage_artifact(
@@ -89,10 +89,10 @@ def test_stage_verify_and_explicit_max_bytes(tmp_path: Path) -> None:
     assert metadata.byte_length == len(data)
     assert metadata.sha256 == hashlib.sha256(data).hexdigest()
     assert store.verify_artifact(metadata, max_bytes=128) == metadata
-    assert METRICS.ingestion_artifact_operation_attempts.snapshot()[
+    assert METRICS.ingestion_artifact_successes.snapshot()[
         (("operation", "stage"), ("outcome", "success"))
     ] == before_staged + 1
-    assert METRICS.ingestion_artifact_operation_attempts.snapshot()[
+    assert METRICS.ingestion_artifact_successes.snapshot()[
         (("operation", "verify"), ("outcome", "success"))
     ] == before_verified + 1
 

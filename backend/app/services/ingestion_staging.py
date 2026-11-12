@@ -270,7 +270,7 @@ class StagingArtifactStore:
             data_source=None,
             data=data,
         )
-        METRICS.ingestion_artifact_operation_attempts.inc({"operation": "stage", "outcome": "success"})
+        METRICS.ingestion_artifact_successes.inc({"operation": "stage", "outcome": "success"})
         return ArtifactMetadata(
             job_id=job_id,
             fencing_token=fencing_token,
@@ -309,7 +309,7 @@ class StagingArtifactStore:
             raise StagingArtifactError("artifact byte_length does not match the stored file")
         if digest.hexdigest() != metadata.sha256:
             raise StagingArtifactError("artifact checksum does not match the stored file")
-        METRICS.ingestion_artifact_operation_attempts.inc({"operation": "verify", "outcome": "success"})
+        METRICS.ingestion_artifact_successes.inc({"operation": "verify", "outcome": "success"})
         return metadata
 
     async def publish_staged_artifact(
@@ -373,7 +373,7 @@ class StagingArtifactStore:
                 raise
             self.verify_artifact(published, max_bytes=max_bytes)
         self.verify_artifact(published, max_bytes=max_bytes)
-        METRICS.ingestion_artifact_operation_attempts.inc({"operation": "publish", "outcome": "success"})
+        METRICS.ingestion_artifact_successes.inc({"operation": "publish", "outcome": "success"})
         return published
 
     def discard_attempt(
@@ -392,4 +392,4 @@ class StagingArtifactStore:
             directory = self._attempt_directory(area, job_id, fencing_token, create=False)
             if directory is not None:
                 shutil.rmtree(directory)
-                METRICS.ingestion_artifact_operation_attempts.inc({"operation": "cleanup", "outcome": "removed"})
+                METRICS.ingestion_artifact_successes.inc({"operation": "cleanup", "outcome": "removed"})
