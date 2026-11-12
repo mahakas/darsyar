@@ -51,5 +51,7 @@ export const fa = {
   "loadOlderConversations": "گفتگوهای قدیمی‌تر",
   "historyLoadingMore": "در حال بارگذاری گفتگوها…",
   "loadMoreMessages": "پیام‌های بیشتر",
-  "partialResponse": "پاسخ ناقص؛ بخشی از پاسخ دریافت شد."
+  "partialResponse": "پاسخ ناقص؛ بخشی از پاسخ دریافت شد.",
+  "resumeResponse": "بازیابی پاسخ",
+  "responseRecovering": "در حال بازیابی وضعیت پاسخ…",
 } as const
