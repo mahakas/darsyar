@@ -25,6 +25,7 @@ __all__ = [
     "rate_limit_dependency",
     "client_ip",
     "get_current_user",
+    "require_admin",
 ]
 
 UNAUTHORIZED = AppError("unauthorized", 401, "احراز هویت لازم است.")
@@ -103,3 +104,23 @@ def client_ip(request: Request) -> str:
         if forwarded:
             return forwarded.split(",")[0].strip()
     return getattr(request.client, "host", "unknown") or "unknown"
+
+
+async def require_admin(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> User:
+    """Server-side two-role authorization (R-097/R-117).
+
+    The seed-state check intentionally runs before authentication so an unseeded
+    installation returns the canonical 503 instead of pretending an admin surface
+    is available. The user's database role is authoritative; JWT role claims are
+    never trusted for authorization. MFA/step-up remain separate preconditions
+    before sensitive admin routes are registered.
+    """
+    if await users_repo.count_admins(session) == 0:
+        raise AppError("no_admin_seeded", 503, "حساب مدیر هنوز ایجاد نشده است.")
+    user = await get_current_user(request, session)
+    if user.role != "admin":
+        raise AppError("admin_required", 403, "دسترسی مدیر لازم است.")
+    return user
