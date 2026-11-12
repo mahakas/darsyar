@@ -99,9 +99,20 @@ async def test_history_conversation_and_messages_are_owner_scoped(history_client
 
 @pytest.mark.asyncio
 async def test_conversation_history_offset_pagination(history_client) -> None:
-    make_client, owner, _, _ = history_client
+    make_client, owner, _, original_conversation_id = history_client
     async with SESSION_FACTORY() as session:
         await conv_repo.create_conversation(session, user_id=owner.id, title="Second")
+        await session.commit()
+        # A new message in the older conversation must move that conversation
+        # to the top of the recent list by updating conversations.updated_at.
+        await conv_repo.create_message(
+            session,
+            conversation_id=original_conversation_id,
+            user_id=owner.id,
+            role="user",
+            content="new activity",
+            status="completed",
+        )
         await session.commit()
     async with await make_client(owner) as client:
         page = await client.get("/api/v1/conversations?limit=1&offset=0")
@@ -115,3 +126,4 @@ async def test_conversation_history_offset_pagination(history_client) -> None:
     assert searched.json()["total"] == 1
     assert searched.json()["items"][0]["title"] == "Second"
     assert page.json()["items"][0]["id"] != next_page.json()["items"][0]["id"]
+    assert page.json()["items"][0]["id"] == str(original_conversation_id)
