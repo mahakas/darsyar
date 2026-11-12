@@ -38,7 +38,8 @@
 | `backend/app/api/v1/billing.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
 | `backend/app/api/v1/chat.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
 | `backend/app/api/v1/documents.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
-| `backend/app/api/v1/health.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. || `backend/app/api/v1/router.py` | تجمیع health + auth (فاز ۱). |
+| `backend/app/api/v1/health.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
+| `backend/app/api/v1/router.py` | تجمیع health + auth (فاز ۱). |
 | `backend/app/api/v1/router.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
 | `backend/app/api/v1/sessions.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
 | `backend/app/core/__init__.py` | تنظیمات، امنیت پایه، لاگ، خطا یا عملیات مرکزی. |
@@ -77,7 +78,8 @@
 | `backend/app/scripts/seed_admin.py` | CLI ادمین اولیه با تأیید و حسابرسی (فاز ۱). |
 | `backend/app/services/__init__.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/auth.py` | سرویس دامنهٔ OTP و چرخش/ابطال refresh (فاز ۱). |
-| `backend/app/services/citation.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. || `backend/app/services/embedding.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
+| `backend/app/services/citation.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
+| `backend/app/services/embedding.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/ingestion/.gitkeep` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/ingestion/__init__.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/learning/.gitkeep` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
@@ -116,7 +118,8 @@
 | `backend/app/models/reconciliation_alert.py` | مدل هشدار تطبیق. |
 | `backend/app/repositories/usage_events.py` | دسترسی usage؛ فقط درج/شمارش بازه. |
 | `backend/app/repositories/reconciliation_alerts.py` | دسترسی هشدار؛ upsert فعال + resolve. |
-| `backend/app/services/usage.py` | سرویس ثبت رویداد مصرف idempotent. || `backend/app/services/fair_use.py` | شمارش بازهٔ صریح (بدون قواعد تجاری). |
+| `backend/app/services/usage.py` | سرویس ثبت رویداد مصرف idempotent. |
+| `backend/app/services/fair_use.py` | شمارش بازهٔ صریح (بدون قواعد تجاری). |
 | `backend/app/services/reconcile.py` | تطبیق read-only ledger↔projection + هشدار. |
 | `backend/tests/test_usage_reconcile_db.py` | تست‌های یکپارچهٔ Slice C-1 روی PostgreSQL واقعی. |
 | `backend/alembic/versions/0010_free_grant_partial_unique.py` | ایندکس جزئی یک‌باربودن free_grant (ADR-048). |
@@ -155,7 +158,8 @@
 | `backend/tests/conftest.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
 | `backend/tests/integration/.gitkeep` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
 | `backend/tests/security/.gitkeep` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
-| `backend/tests/test_config.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. || `backend/tests/test_errors.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
+| `backend/tests/test_config.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
+| `backend/tests/test_errors.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
 | `backend/tests/test_health.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
 | `backend/tests/test_inference_shell.py` | تست شکل خطای استاندارد و صداقت shell سرویس inference. |
 | `backend/tests/test_logging.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
@@ -194,7 +198,8 @@
 | `docs/adr/ADR-006-heavy-model-workers.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
 | `docs/adr/ADR-007-credit-ledger.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
 | `docs/adr/ADR-008-configuration-secrets.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
-| `docs/adr/ADR-009-dependency-policy.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. || `docs/adr/ADR-010-grade-filter.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
+| `docs/adr/ADR-009-dependency-policy.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
+| `docs/adr/ADR-010-grade-filter.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
 | `docs/adr/ADR-011-admin-bootstrap.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
 | `docs/adr/ADR-012-web-fallback.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
 | `docs/adr/ADR-024-resource-licensing.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
@@ -233,7 +238,8 @@
 | `frontend/src/api/client.ts` | لایهٔ یگانهٔ HTTP و fetch streaming. |
 | `frontend/src/api/chat.ts` | API چت استریم (fetch-SSE؛ idempotent؛ access-token reader؛ history). |
 | `frontend/src/components/ChatPanel.tsx` | پنل چت (استریم شده؛ انتخاب پایه؛ خطا/توقف؛ RTL). |
-| `frontend/src/api/sse.ts` | لایهٔ یگانهٔ HTTP و fetch streaming. || `frontend/src/components/.gitkeep` | رابط React/TypeScript اولیه. |
+| `frontend/src/api/sse.ts` | لایهٔ یگانهٔ HTTP و fetch streaming. |
+| `frontend/src/components/.gitkeep` | رابط React/TypeScript اولیه. |
 | `frontend/src/context/.gitkeep` | رابط React/TypeScript اولیه. |
 | `frontend/src/i18n/ar.ts` | رشته‌های رابط برای fa/en/ar. |
 | `frontend/src/i18n/en.ts` | رشته‌های رابط برای fa/en/ar. |
@@ -272,7 +278,8 @@
 | `backend/app/models/message.py` | مدل پیام و وضعیت‌های استریم (فاز ۳). |
 | `backend/app/models/rate_limit_counter.py` | مدل شمارندهٔ fallback ریت‌لیمیت (OQ-006). |
 | `backend/app/repositories/conversations.py` | دسترسی گفتگو/پیام با مالکیت در query. |
-| `backend/app/schemas/conversation.py` | schemaهای گفتگو/پیام/استریم (فاز ۳). || `backend/app/services/llm.py` | درگاه provider سازگار OpenAI (NVIDIA/OpenAI) برای استریم چت (فاز ۳). |
+| `backend/app/schemas/conversation.py` | schemaهای گفتگو/پیام/استریم (فاز ۳). |
+| `backend/app/services/llm.py` | درگاه provider سازگار OpenAI (NVIDIA/OpenAI) برای استریم چت (فاز ۳). |
 | `backend/tests/test_llm_provider.py` | تست واحد درگاه LLM با respx. |
 | `backend/tests/test_chat_persistence_db.py` | تست‌های یکپارچهٔ گفتگو/پیام روی PostgreSQL واقعی. |
 | `backend/tests/test_rate_limit_fallback_db.py` | تست‌های fallback ریت‌لیمیت مبتنی بر PostgreSQL. |
@@ -311,7 +318,8 @@
 | `docs/ingestion/OWNER_DECISIONS.md` | بستهٔ تصمیم مالک برای سه گیت (renderer، محدودیت‌های امنیتی، آزمون هم‌ارزی) — آماده‌سازی، بدون تصمیم. |
 | `.github/workflows/ingestion-pdfium-linux-preflight.yml` | workflow دستی (workflow_dispatch) برای preflight Linux pypdfium2+Pillow در `python:3.13-slim` (فقط دستی؛ بدون اجرا توسط KiloCode). |
 | `scripts/ci/pdfium_linux_preflight.py` | هارنس CI-only برای تست Linux pypdfium2 5.15.2 + Pillow 12.3.0 (ماژول کاربردی نیست). |
-| `docs/ingestion/PDFIUM_LINUX_PREFLIGHT.md` | ثبت شواهد Run #6 (PASS فنی؛ بدون تأیید Production؛ Gate A OPEN). || `docs/ingestion/GATE_A_RENDERER_DECISION.md` | ارزیابی نهایی Gate A؛ توصیه pypdfium2 به‌عنوان پیشنهاد تأیید مالک (نه Production). |
+| `docs/ingestion/PDFIUM_LINUX_PREFLIGHT.md` | ثبت شواهد Run #6 (PASS فنی؛ بدون تأیید Production؛ Gate A OPEN). |
+| `docs/ingestion/GATE_A_RENDERER_DECISION.md` | ارزیابی نهایی Gate A؛ توصیه pypdfium2 به‌عنوان پیشنهاد تأیید مالک (نه Production). |
 | `docs/ingestion/PDFIUM_LICENSE_INVENTORY.md` | موجودی فنی مجوز/notices برای pypdfium2 5.15.2 (ایعزلوله/Windows)؛ تأیید حقوقی نیست. |
 | `docs/ingestion/PDFIUM_OWNER_LEGAL_REVIEW.md` | خلاصه یادمند مالک/حقوقی برای pypdfium2 5.15.2 (چک‌لیست تصمیم‌ها؛ بدون تصمیم‌گیری). |
 | `docs/ingestion/PDFIUM_CONCURRENCY_DECISION.md` | ارزیابی فرایندهای isolated/هم‌زمانی برای pypdfium2 (پیشنهاد Option C؛ بدون تصمیم مالک). |
@@ -350,7 +358,8 @@
 | docs/ingestion/GATE_B_S1_PARENT_CHILD_PROTOTYPE.md | پیاده‌سازی Gate B-S1 (Approve_With_Conditions): Parent Supervisor + PDF Child ایزوله (IPC v1، pypdf 6.21.3، timeout/خاتمه/بازیابی، ایزوله‌سازی env)؛ تست‌های synthetic-only (17 passed)؛ بدون pilot/آپلود/رندر/Production. |
 | docs/ingestion/GATE_B_S2_LINUX_SANDBOX_PROTOTYPE.md | پیاده‌سازی Gate B-S2 (Approve_With_Conditions): sandbox ایزولهٔ Linux (network none، read-only rootfs، memory/CPU/PID limits، cap-drop، non-root) با شواهد probe؛ 52 passed در کانتینر؛ غیر از Deployment Dockerfile/Compose. |
 | docs/ingestion/GATE_B_S3_NUMERIC_POLICY_OWNER_DECISION.md | بستهٔ تصمیم مالک Gate B-S3: 18 تصمیم عددی/امنیتی؛ `GATE_B_S3_PARTIAL_OWNER_DECISION=APPROVE_WITH_CONDITIONS` (6 تأییدشده: GB-01/02/03/08/09/18؛ 12 PENDING)؛ بدون پیاده‌سازی/فعال‌سازی. |
-| docs/ingestion/GATE_B_S4_AGGREGATE_DECOMPRESSION_AND_CGROUP_EVIDENCE.md | آزمایش آزمایشگاهی Gate B-S4 (Approve_With_Conditions): بودجه decompression کل سند (256 MiB candidate: قابل‌اجرا، بدون تأیید) + شواهد شمارنده cgroup v2 مستقیم (memory OOM/CPU throttling/PID). || docs/ingestion/GATE_B_S4_1_AGGREGATE_DECOMPRESSION_COVERAGE.md | آزمایش Gate B-S4.1 (Approve_With_Conditions): پوشش/کشف جریان‌ها، حسابداری شکست‌ها، ایزوله‌سازی هم‌زمانی؛ Q1=PARTIALLY؛ بدون تأیید GB-04. |
+| docs/ingestion/GATE_B_S4_AGGREGATE_DECOMPRESSION_AND_CGROUP_EVIDENCE.md | آزمایش آزمایشگاهی Gate B-S4 (Approve_With_Conditions): بودجه decompression کل سند (256 MiB candidate: قابل‌اجرا، بدون تأیید) + شواهد شمارنده cgroup v2 مستقیم (memory OOM/CPU throttling/PID). |
+| docs/ingestion/GATE_B_S4_1_AGGREGATE_DECOMPRESSION_COVERAGE.md | آزمایش Gate B-S4.1 (Approve_With_Conditions): پوشش/کشف جریان‌ها، حسابداری شکست‌ها، ایزوله‌سازی هم‌زمانی؛ Q1=PARTIALLY؛ بدون تأیید GB-04. |
 | docs/ingestion/GATE_B_S4_2_PARSE_TIME_DECOMPRESSION_AND_PYPDF_SECURITY_REVIEW.md | آزمایش Gate B-S4.2 (Approve_With_Conditions): decompression ضمنی هنگام parse، ایزوله‌سازی فرایند per-document، بازبینی نسخه/مشاوره pypdf (4 نسخه)؛ قفل 6.21.3 بدون تغییر؛ **LAB_VALIDATION_PARTIAL** (شکاف‌های شواهد ثبت‌شده). |
 | docs/ingestion/GATE_B_S5_PDF_PARSER_DECODER_ARCHITECTURE_COMPARISON.md | مقایسه معماری/امنیت پارسر-دیکودر Gate B-S5 (Approve_With_Conditions): 4 نامزد (pypdf 6.21.3/7.0.1، pypdfium2/PDFium، PyMuPDF/MuPDF، orchestration مستقل)؛ بازبینی رسمی pypdf (8 advisory scope) + pypdfium2/PyMuPDF/qpdf؛ بدون انتخاب/ارتقا؛ **ARCHITECTURE_REVIEW_COMPLETE**. |
 | docs/reports/AUTONOMOUS_PROJECT_COMPLETION_REPORT.md | گزارش تحویل نهایی خودگردان: وضعیت واقعی، فازها (0–3 کامل؛ 4–9 گیت‌شده)، شواهد تست/استاتیک/build، گیت‌ها، تصمیمات در انتظار مالک. |
@@ -389,6 +398,7 @@
 | backend/tests/sandbox/s4_2_lib.py | کتابخانهٔ test-only S4.2 (فرایند فرزند per-document). |
 | backend/tests/sandbox/pypdf_version_probe.py | درایور مستقل version-matrix (S4.2). |
 | backend/tests/test_gate_b_s4_2_parse_time_decompression.py | آزمایش A S4.2: decompression ضمنی هنگام parse. |
-| backend/tests/test_gate_b_s4_2_process_isolation.py | آزمایش B S4.2: فرایند فرزند per-document. || backend/tests/test_gate_b_s4_2_security_regressions.py | آزمایش C/D S4.2: مشاوره/فیلترها (6.21.3). |
+| backend/tests/test_gate_b_s4_2_process_isolation.py | آزمایش B S4.2: فرایند فرزند per-document. |
+| backend/tests/test_gate_b_s4_2_security_regressions.py | آزمایش C/D S4.2: مشاوره/فیلترها (6.21.3). |
 | backend/alembic/versions/0019_outbox_job_fk_restrict.py | مهاجرت R-1: تغییر FK `fk_outbox_events_job` از CASCADE به RESTRICT (برگشت‌پذیر؛ R1-IMPL؛ روی `darsyar` اعمال شد 2026-11-11). |
 | backend/tests/test_ingestion_restrict_db.py | تست PostgreSQL R-1: metadata/catalog/RESTRICT، رد حذف SQL و ORM، حفظ والد/فرزند، حذف job بی‌outbox، head 0019 (7 تست). |
