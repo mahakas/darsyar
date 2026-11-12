@@ -1,7 +1,6 @@
 """Synthetic tests for fenced staging, integrity and immutable artifact publication."""
 
 import datetime as dt
-import datetime as dt
 import hashlib
 import os
 import uuid
