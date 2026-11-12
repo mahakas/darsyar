@@ -465,7 +465,11 @@ class ChatStreamService:
         پاسخ استاندارد (404/409) بازگردند.
         """
         self._require_selected_grade(user)
-        await self._resolve_conversation(req.conversation_id, user.id)
+        # A new-chat preflight must be read-only: stream_chat creates its conversation
+        # exactly once after admission. Existing conversation IDs still require an
+        # ownership check before the HTTP response is committed to SSE.
+        if req.conversation_id is not None:
+            await self._resolve_conversation(req.conversation_id, user.id)
         fp = self._fingerprint(req.content, req.model)
         key = f"chat:{user.id}:{req.client_request_id}"
         from app.services.reservation import IDEMPOTENCY_CONFLICT
