@@ -23,3 +23,10 @@
 CI job `nginx-config` runs `nginx -t` against both templates using the pinned-by-project release `nginx:1.28-alpine`, then requests the static frontend container and checks `nosniff`, `X-Frame-Options`, `Referrer-Policy`, CSP and `Cache-Control: no-store`.
 
 The API proxy marks `/api/` responses as `no-store`. The static frontend marks the SPA `index.html` as `no-store`. This does not configure HTTPS or HSTS: the actual public TLS terminator must set and verify those headers for the real domain. The repository template listens on HTTP 8080 and is not a public TLS endpoint.
+
+
+## Supply-chain scan
+
+CI workflow job `supply-chain` runs Trivy filesystem scanning (vulnerabilities, misconfiguration and secret patterns) and scans digest-resolved base images for the default PostgreSQL/pgvector, Redis, Nginx, Python and Node images. Trivy Action is pinned by commit SHA; Trivy binary version is fixed. JSON reports plus the resolved image digests are retained as 30-day workflow artifacts.
+
+The initial scan is report-only so findings can be triaged and a severity/exception policy can be approved before CI is made blocking. A successful job means the scan completed and reports were produced; it does **not** mean that the images have zero vulnerabilities or are production-approved.

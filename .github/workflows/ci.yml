@@ -177,3 +177,130 @@ jobs:
           grep -Eqi '^Cache-Control:[[:space:]]*no-store' <<<"$headers"
           grep -Eqi "Content-Security-Policy:.*frame-ancestors 'none'" <<<"$headers"
 
+  supply-chain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pull and resolve exact base-image digests
+        id: images
+        shell: bash
+        run: |
+          set -euo pipefail
+          resolve_image() {
+            local key="$1"
+            local ref="$2"
+            docker pull "$ref"
+            local digest
+            digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$ref")"
+            if [[ "$digest" != *@sha256:* ]]; then
+              echo "Could not resolve immutable digest for $ref" >&2
+              exit 1
+            fi
+            printf '%s=%s\n' "$key" "$digest" >> "$GITHUB_OUTPUT"
+            printf '%s => %s\n' "$ref" "$digest"
+          }
+          resolve_image pgvector 'pgvector/pgvector:0.8.7-pg18-bookworm'
+          resolve_image redis 'redis:7.4.12-bookworm'
+          resolve_image nginx 'nginx:1.28-alpine'
+          resolve_image python 'python:3.13-slim'
+          resolve_image node 'node:24-alpine'
+      - name: Prepare report directory
+        run: mkdir -p security-reports
+      - name: Scan repository filesystem (vulnerabilities, misconfiguration and secrets)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.76.2
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig,secret
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: 'false'
+          exit-code: '0'
+          format: json
+          output: security-reports/filesystem.json
+          timeout: 15m
+      - name: Scan PostgreSQL/pgvector base image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          skip-setup-trivy: 'true'
+          version: v0.76.2
+          scan-type: image
+          image-ref: ${{ steps.images.outputs.pgvector }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: 'false'
+          exit-code: '0'
+          format: json
+          output: security-reports/pgvector.json
+          timeout: 15m
+      - name: Scan Redis base image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          skip-setup-trivy: 'true'
+          version: v0.76.2
+          scan-type: image
+          image-ref: ${{ steps.images.outputs.redis }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: 'false'
+          exit-code: '0'
+          format: json
+          output: security-reports/redis.json
+          timeout: 15m
+      - name: Scan Nginx base image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          skip-setup-trivy: 'true'
+          version: v0.76.2
+          scan-type: image
+          image-ref: ${{ steps.images.outputs.nginx }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: 'false'
+          exit-code: '0'
+          format: json
+          output: security-reports/nginx.json
+          timeout: 15m
+      - name: Scan Python runtime base image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          skip-setup-trivy: 'true'
+          version: v0.76.2
+          scan-type: image
+          image-ref: ${{ steps.images.outputs.python }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: 'false'
+          exit-code: '0'
+          format: json
+          output: security-reports/python.json
+          timeout: 15m
+      - name: Scan Node runtime base image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          skip-setup-trivy: 'true'
+          version: v0.76.2
+          scan-type: image
+          image-ref: ${{ steps.images.outputs.node }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: 'false'
+          exit-code: '0'
+          format: json
+          output: security-reports/node.json
+          timeout: 15m
+      - name: Upload Trivy reports and resolved image digests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-supply-chain-reports
+          path: security-reports/*.json
+          if-no-files-found: warn
+          retention-days: 30
+
