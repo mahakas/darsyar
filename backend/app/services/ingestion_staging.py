@@ -150,7 +150,13 @@ class StagingArtifactStore:
                 break
         if expected is None:
             raise StagingArtifactError("relative_path does not match the job, fencing token and artifact name")
-        path = self.root.joinpath(*expected.parts)
+        directory = self._directory(
+            (str(expected.parts[0]), str(metadata.job_id), str(metadata.fencing_token)),
+            create=False,
+        )
+        if directory is None:
+            raise StagingArtifactError("artifact attempt directory does not exist")
+        path = directory / metadata.artifact_name
         if not path.resolve(strict=False).is_relative_to(self.root):
             raise StagingArtifactError("artifact path escapes the staging root")
         return path

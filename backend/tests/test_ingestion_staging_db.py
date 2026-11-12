@@ -32,6 +32,7 @@ SESSION_FACTORY = async_sessionmaker(ENGINE, expire_on_commit=False)
 
 async def _new_lease() -> tuple[IngestionJobLease, dt.datetime, str]:
     job_type = f"staging_{uuid.uuid4().hex[:16]}"
+    now = dt.datetime.now(dt.UTC)
     async with SESSION_FACTORY() as session:
         document = IngestionDocument(
             checksum=hashlib.sha256(uuid.uuid4().bytes).hexdigest(),
@@ -48,10 +49,10 @@ async def _new_lease() -> tuple[IngestionJobLease, dt.datetime, str]:
             job_type=job_type,
             request_hash=hashlib.sha256(uuid.uuid4().bytes).hexdigest(),
         )
+        created.job.retry_available_at = now - dt.timedelta(seconds=1)
         await session.commit()
         job_id = created.job.id
 
-    now = dt.datetime.now(dt.UTC)
     async with SESSION_FACTORY() as session:
         lease = await claim_next_ingestion_job(
             session,
@@ -156,6 +157,31 @@ def test_metadata_path_must_match_attempt_and_name(tmp_path: Path) -> None:
     )
     with pytest.raises(StagingArtifactError, match="relative_path"):
         store.verify_artifact(metadata, max_bytes=8)
+
+
+def test_verify_rejects_symlinked_attempt_directory_even_inside_root(tmp_path: Path) -> None:
+    store = StagingArtifactStore(tmp_path / "artifacts")
+    job_id = uuid.uuid4()
+    other_job_id = uuid.uuid4()
+    fencing_token = 1
+    target = store.root / "staging" / str(other_job_id) / str(fencing_token)
+    target.mkdir(parents=True)
+    data = b"other-attempt"
+    (target / "same-name.bin").write_bytes(data)
+    alias = store.root / "staging" / str(job_id)
+    alias.symlink_to(store.root / "staging" / str(other_job_id), target_is_directory=True)
+    metadata = ArtifactMetadata(
+        job_id=job_id,
+        fencing_token=fencing_token,
+        artifact_name="same-name.bin",
+        relative_path=f"staging/{job_id}/{fencing_token}/same-name.bin",
+        byte_length=len(data),
+        sha256=hashlib.sha256(data).hexdigest(),
+        media_type="application/octet-stream",
+    )
+
+    with pytest.raises(StagingArtifactError, match="symlink"):
+        store.verify_artifact(metadata, max_bytes=64)
 
 
 def test_discard_attempt_is_idempotent_and_scoped(tmp_path: Path) -> None:
