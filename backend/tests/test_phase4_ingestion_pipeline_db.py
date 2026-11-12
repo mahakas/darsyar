@@ -204,6 +204,50 @@ async def test_indexing_fails_closed_without_active_index_registry() -> None:
 
 
 @pytest.mark.asyncio
+async def test_indexing_rejects_provider_mismatch_without_deleting_previous_chunks() -> None:
+    async with SESSION_FACTORY() as s:
+        doc = await _seed_document(s, grade=5)
+        chunking = chunk_two_level([("متن آزمایشی برای بررسی حفظ ایندکس قبلی. " * 12, 1)])
+        child_vectors = [_fake_embed_vec(i) for i in range(len(chunking.children))]
+        parent_vectors = [_fake_embed_vec(100 + i) for i in range(len(chunking.parents))]
+        await index_document_chunks(
+            s,
+            document=doc,
+            chunking=chunking,
+            child_vectors=child_vectors,
+            parent_vectors=parent_vectors,
+            embedding_model="test",
+            source_type="synthetic",
+        )
+        await s.commit()
+        before = (
+            await s.execute(
+                select(func.count()).select_from(IngestionChunk)
+                .where(IngestionChunk.document_id == doc.id)
+            )
+        ).scalar_one()
+
+        with pytest.raises(AppError) as exc_info:
+            await index_document_chunks(
+                s,
+                document=doc,
+                chunking=chunking,
+                child_vectors=child_vectors,
+                parent_vectors=parent_vectors,
+                embedding_model="wrong-model",
+                source_type="synthetic",
+            )
+        assert exc_info.value.code == "embedding_model_registry_mismatch"
+        after = (
+            await s.execute(
+                select(func.count()).select_from(IngestionChunk)
+                .where(IngestionChunk.document_id == doc.id)
+            )
+        ).scalar_one()
+        assert after == before
+
+
+@pytest.mark.asyncio
 async def test_hybrid_retrieval_fails_closed_without_active_index_registry() -> None:
     async with SESSION_FACTORY() as s:
         await s.execute(text("DELETE FROM index_meta"))
