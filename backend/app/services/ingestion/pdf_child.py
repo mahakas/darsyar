@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import io
 import sys
+from typing import cast
 
 import pypdf
 from pypdf._configuration import Configuration, apply_configuration
@@ -55,7 +56,7 @@ def _validated_zlib_limit(request: ParentChildRequest, *, allow_test_hang: bool 
     value = request.limits[FLATE_ZLIB_LIMIT_KEY]
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise ValueError("per-stream limit must be a positive integer")
-    return value
+    return cast(int, value)
 
 
 def _read_request() -> ParentChildRequest:
