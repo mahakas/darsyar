@@ -26,9 +26,12 @@ async def get_owned(session: AsyncSession, conversation_id: uuid.UUID, user_id: 
 
 async def list_owned(
     session: AsyncSession, user_id: uuid.UUID, *, limit: int, before: uuid.UUID | None = None,
-    offset: int = 0,
+    offset: int = 0, query: str | None = None,
 ) -> Sequence[Conversation]:
     statement = select(Conversation).where(Conversation.user_id == user_id)
+    normalized_query = query.strip() if query else ""
+    if normalized_query:
+        statement = statement.where(Conversation.title.ilike(f"%{normalized_query}%"))
     if before is not None:
         statement = statement.where(Conversation.id < before)
     statement = statement.order_by(Conversation.updated_at.desc(), Conversation.id.desc()).limit(limit).offset(offset)
@@ -36,10 +39,14 @@ async def list_owned(
     return result.scalars().all()
 
 
-async def count_owned(session: AsyncSession, user_id: uuid.UUID) -> int:
-    result = await session.execute(
-        select(func.count()).select_from(Conversation).where(Conversation.user_id == user_id)
-    )
+async def count_owned(
+    session: AsyncSession, user_id: uuid.UUID, *, query: str | None = None
+) -> int:
+    statement = select(func.count()).select_from(Conversation).where(Conversation.user_id == user_id)
+    normalized_query = query.strip() if query else ""
+    if normalized_query:
+        statement = statement.where(Conversation.title.ilike(f"%{normalized_query}%"))
+    result = await session.execute(statement)
     return int(result.scalar_one())
 
 
