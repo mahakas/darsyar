@@ -49,5 +49,7 @@ export const en = {
   "historyLoadError": "Conversation history could not be loaded.",
   "untitledConversation": "Untitled conversation",
   "loadOlderConversations": "Load older conversations",
-  "historyLoadingMore": "Loading conversations…"
+  "historyLoadingMore": "Loading conversations…",
+  "loadMoreMessages": "Load more messages",
+  "partialResponse": "Partial response; some content was received."
 } as const
