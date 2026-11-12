@@ -146,3 +146,34 @@ jobs:
       - name: Typecheck and build
         working-directory: frontend
         run: npm run build
+
+  nginx-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate reverse-proxy Nginx configuration
+        run: |
+          docker run --rm \
+            --add-host api:127.0.0.1 --add-host frontend:127.0.0.1 \
+            -v "${GITHUB_WORKSPACE}/infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" \
+            nginx:1.28-alpine nginx -t
+      - name: Smoke-test production frontend security headers
+        shell: bash
+        run: |
+          docker run -d --rm --name darsyar-frontend-nginx \
+            -p 127.0.0.1:18080:8080 \
+            -v "${GITHUB_WORKSPACE}/frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro" \
+            nginx:1.28-alpine
+          trap 'docker rm -f darsyar-frontend-nginx >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 20); do
+            if curl -fsSI http://127.0.0.1:18080/ >/dev/null; then break; fi
+            sleep 0.5
+          done
+          headers="$(curl -fsSI http://127.0.0.1:18080/)"
+          printf '%s\n' "$headers"
+          grep -Eqi '^X-Content-Type-Options:[[:space:]]*nosniff' <<<"$headers"
+          grep -Eqi '^X-Frame-Options:[[:space:]]*DENY' <<<"$headers"
+          grep -Eqi '^Referrer-Policy:[[:space:]]*strict-origin-when-cross-origin' <<<"$headers"
+          grep -Eqi '^Cache-Control:[[:space:]]*no-store' <<<"$headers"
+          grep -Eqi "Content-Security-Policy:.*frame-ancestors 'none'" <<<"$headers"
+
