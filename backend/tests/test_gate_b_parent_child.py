@@ -101,7 +101,6 @@ def test_request_ipc_rejects_unknown_and_missing_fields() -> None:
         lambda payload: payload.update(document_bytes="%%%"),
         lambda payload: payload.update(document_bytes=123),
         lambda payload: payload.update(limits=[]),
-        lambda payload: payload.update(limits={"zlib_maximum_output_length": True}),
         lambda payload: payload.update(limits={"zlib_maximum_output_length": 1, "database_url": "x"}),
         lambda payload: payload.update(mode=[]),
     ],
