@@ -1,8 +1,21 @@
 ﻿# Phase 7: Admin Console & Operations
 
-**Status:** Planned — مشخصات تفصیلی در `docs/ADMIN_CONSOLE_SPEC.md`  
+**Status:** Partial foundation implemented (CI-verified on branch `feat/phase7-admin-authz-audit-foundation`); the full phase remains Planned / not accepted — مشخصات تفصیلی در `docs/ADMIN_CONSOLE_SPEC.md`  
 **Dependencies:** Phases 1–6 برای ماژول‌های وابسته، primitives حسابرسی، settings و عملیات worker؛ قابلیت‌های production backup/recovery و hardening با Phase 9 هماهنگ می‌شوند.  
 **Architecture decision:** ADR-051 (Proposed) — دسترسی سراسری Admin و Admin Control Center.
+
+## Implemented foundation (2026-11-12; limited scope)
+
+The following technical primitives are implemented on branch `feat/phase7-admin-authz-audit-foundation`; they are **not** a deployed Admin Console:
+
+- `require_admin` is a server-side FastAPI dependency. It checks for at least one non-deleted admin first and returns `503 no_admin_seeded` when none exists; after that it authenticates the bearer token and authorizes using the persisted database role, never the JWT role claim.
+- Migration `0023_admin_audit_append_only` changes the audit actor foreign key to `ON DELETE RESTRICT`, rejects row `UPDATE`/`DELETE` and table `TRUNCATE` at PostgreSQL level.
+- Real-PostgreSQL tests cover the no-admin seed response, forged/stale JWT role claims, append-only update/delete/truncate rejection and actor hard-delete restriction.
+- CI on exact branch HEAD `879f302f837889ffe1cdd6486ca113abbc385e2a`: **495 passed, 21 skipped, 1 warning**; Ruff, Frontend lint/typecheck/build and Linux SIGTERM all passed ([Run 43138628126](https://github.com/mahakas/darsyar/actions/runs/43138628126)).
+
+**Not implemented / not enabled:** no admin route is registered, no admin UI exists, no seed-admin operation was run, no user acting session exists, and no sensitive administrative action is exposed. The trigger is a database integrity barrier against ordinary DML, not tamper-proof protection against a database owner/superuser who can alter schema or disable triggers.
+
+ADR-051 remains **Proposed**. MFA factor/recovery, step-up requirements, acting-session TTL/revocation and privacy access policy remain open and must be decided before exposing administrative routes or operations. This foundation does not satisfy the Phase 7 acceptance checklist by itself.
 
 ## Goal
 
