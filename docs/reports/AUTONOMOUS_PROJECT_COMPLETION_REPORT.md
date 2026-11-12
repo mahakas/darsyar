@@ -212,3 +212,40 @@ lab scope (S6) may continue.
 **Engineering integrity statement:** This report is a truthful PARTIAL delivery. It does
 not claim full production completion; the gated phases are explicitly blocked pending the
 owner decisions above, per governance.
+
+
+---
+
+## L. GitHub delivery update — 2026-11-12
+
+The 2026-11-11 handoff above is historical. Since then, the following code has been merged to `main`:
+
+- PR #9: authenticated profile, explicit server-authoritative grade and owner-scoped searchable/paginated conversation history.
+- PR #10: conversation activity ordering follows latest message activity.
+- PR #11: citation metadata validation and truthful retrieval-evaluation metric semantics.
+- PR #12: child overlap and bounded contiguous parent chunking.
+- PR #13: fail-closed active embedding-index registry enforcement.
+- PR #14: idempotent durable SSE replay and owner-scoped message-status polling for interrupted streams.
+
+Current `main` at this report update: `5b4c94c3817ae36e8a2906ed051cc3660342c086`. Post-merge GitHub Actions Run [43137588528](https://github.com/mahakas/darsyar/actions/runs/43137588528): backend **495 passed, 21 skipped, 1 warning**; Ruff, frontend lint/typecheck/build and Linux SIGTERM all passed.
+
+### Phase 7 foundation candidate (not yet merged at this checkpoint)
+
+Branch `feat/phase7-admin-authz-audit-foundation`, HEAD `879f302f837889ffe1cdd6486ca113abbc385e2a`:
+- adds `require_admin` with seed-state 503 and DB-role authorization;
+- adds migration `0023_admin_audit_append_only` with PostgreSQL update/delete/truncate triggers and actor FK restriction;
+- verifies behavior with real PostgreSQL tests.
+- CI Run [43138628126](https://github.com/mahakas/darsyar/actions/runs/43138628126): backend 495 passed / 21 skipped / 1 warning; Ruff, frontend and Linux SIGTERM passed.
+
+This is only a foundation. No admin routes, Admin UI, seed-admin operation, MFA/step-up, acting session or sensitive operation is exposed. ADR-051 remains Proposed.
+
+### Remaining hard blockers and acceptance gaps
+
+- 13529 authorization evidence/scope and real-source license registration remain unresolved; no real textbook/PDF processing is authorized by this report.
+- Gate A/B/C, parser/renderer choice and PDF sandbox/cgroup probes remain open; CI skips are not passes.
+- ADR-043 and at least 150 reviewed/authorized golden questions, evidence snapshots/citation allowlisting and real chat/RAG integration remain open.
+- Phase 6 safe Markdown/KaTeX/Mermaid, SourceCards, accessibility, responsive/theme acceptance and true live stream reattachment remain open.
+- Phase 7 MFA/recovery/step-up/acting-session/privacy decisions remain open; foundation PR is not the Admin Console.
+- Phase 9 production deployment, backups/restore drills, infra access, privacy/compliance and operational preflight remain unapproved.
+
+No claim of full completion, bug-free behavior, legal authorization, or Production readiness is made.
