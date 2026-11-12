@@ -55,14 +55,56 @@ def _compressed_pdf(payload: bytes | None = None) -> bytes:
     return body + xref + trailer
 
 
-def _request(document: bytes, mode: str = "normal", limits: dict[str, int] | None = None) -> ParentChildRequest:
+def _request(
+    document: bytes,
+    mode: str = "normal",
+    limits: dict[str, object] | None = None,
+    contract_version: int = PARENT_CHILD_CONTRACT_VERSION,
+) -> ParentChildRequest:
     return ParentChildRequest(
-        contract_version=PARENT_CHILD_CONTRACT_VERSION,
+        contract_version=contract_version,
         attempt_id="s1-test",
         document_bytes=document,
-        limits=limits or {"zlib_maximum_output_length": 2000},
+        limits={"zlib_maximum_output_length": 2000} if limits is None else limits,
         mode=mode,
     )
+
+
+def test_child_rejects_missing_explicit_per_stream_limit() -> None:
+    run = run_child(_request(_compressed_pdf(), limits={}), timeout_seconds=20, cwd=BACKEND_DIR)
+    assert run.ok
+    assert run.result is not None
+    assert run.result.outcome is ChildProcessingOutcome.FAILED
+    assert run.result.error_category is ChildErrorCategory.INVALID_REQUEST
+
+
+def test_child_rejects_invalid_per_stream_limit_values() -> None:
+    for invalid in (True, False, 0, -1, 1.5, "2000", None):
+        run = run_child(
+            _request(_compressed_pdf(), limits={"zlib_maximum_output_length": invalid}),
+            timeout_seconds=20,
+            cwd=BACKEND_DIR,
+        )
+        assert run.ok
+        assert run.result is not None
+        assert run.result.outcome is ChildProcessingOutcome.FAILED
+        assert run.result.error_category is ChildErrorCategory.INVALID_REQUEST
+
+
+def test_child_rejects_unsupported_contract_version() -> None:
+    run = run_child(_request(_compressed_pdf(), contract_version=999), timeout_seconds=20, cwd=BACKEND_DIR)
+    assert run.ok
+    assert run.result is not None
+    assert run.result.outcome is ChildProcessingOutcome.FAILED
+    assert run.result.error_category is ChildErrorCategory.INVALID_REQUEST
+
+
+def test_child_rejects_unknown_mode() -> None:
+    run = run_child(_request(_compressed_pdf(), mode="unexpected"), timeout_seconds=20, cwd=BACKEND_DIR)
+    assert run.ok
+    assert run.result is not None
+    assert run.result.outcome is ChildProcessingOutcome.FAILED
+    assert run.result.error_category is ChildErrorCategory.INVALID_REQUEST
 
 
 def test_child_receives_valid_request_and_uses_locked_pypdf() -> None:
