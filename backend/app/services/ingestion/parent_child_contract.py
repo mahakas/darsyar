@@ -15,12 +15,69 @@ PDF Child prototype. In S1 this contract is used by real OS-process IPC
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
 PARENT_CHILD_CONTRACT_VERSION = 1
+
+REQUEST_KEYS = {"contract_version", "attempt_id", "document_bytes", "limits", "mode"}
+RESULT_KEYS = {
+    "contract_version",
+    "attempt_id",
+    "outcome",
+    "error_category",
+    "page_count",
+    "decoded_stream_length",
+    "pypdf_version",
+    "memory_bytes",
+    "artifact_metadata",
+}
+REQUEST_LIMIT_KEYS = {"zlib_maximum_output_length"}
+
+
+def _reject_duplicate_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON field")
+        result[key] = value
+    return result
+
+
+def _load_json_object(raw: str) -> dict[str, Any]:
+    if not isinstance(raw, str):
+        raise ValueError("JSON payload must be text")
+    try:
+        payload = json.loads(
+            raw,
+            object_pairs_hook=_reject_duplicate_pairs,
+            parse_constant=lambda _value: (_ for _ in ()).throw(ValueError("invalid JSON constant")),
+        )
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise ValueError("invalid JSON payload") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("JSON payload must be an object")
+    return payload
+
+
+def _require_exact_keys(payload: dict[str, Any], expected: set[str]) -> None:
+    if payload.keys() != expected:
+        raise ValueError("JSON payload fields do not match the contract")
+
+
+def _require_int(value: Any, field_name: str, *, minimum: int = 0) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise ValueError(f"{field_name} must be an integer >= {minimum}")
+    return value
+
+
+def _require_optional_int(value: Any, field_name: str) -> int | None:
+    if value is None:
+        return None
+    return _require_int(value, field_name)
 
 
 class ChildProcessingOutcome(str, Enum):
@@ -72,13 +129,35 @@ class ParentChildRequest:
 
     @classmethod
     def from_json(cls, raw: str) -> ParentChildRequest:
-        payload = json.loads(raw)
+        payload = _load_json_object(raw)
+        _require_exact_keys(payload, REQUEST_KEYS)
+
+        version = _require_int(payload["contract_version"], "contract_version", minimum=1)
+        attempt_id = payload["attempt_id"]
+        encoded_bytes = payload["document_bytes"]
+        limits = payload["limits"]
+        mode = payload["mode"]
+
+        if not isinstance(attempt_id, str) or not attempt_id.strip():
+            raise ValueError("attempt_id must be a non-empty string")
+        if not isinstance(encoded_bytes, str):
+            raise ValueError("document_bytes must be a base64 string")
+        try:
+            document_bytes = base64.b64decode(encoded_bytes, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError("document_bytes is not valid base64") from exc
+        if not isinstance(limits, dict) or limits.keys() != REQUEST_LIMIT_KEYS:
+            raise ValueError("limits must contain exactly the supported keys")
+        _require_int(limits["zlib_maximum_output_length"], "zlib_maximum_output_length", minimum=1)
+        if not isinstance(mode, str) or not mode:
+            raise ValueError("mode must be a non-empty string")
+
         return cls(
-            contract_version=int(payload.get("contract_version", PARENT_CHILD_CONTRACT_VERSION)),
-            attempt_id=str(payload.get("attempt_id", "")),
-            document_bytes=base64.b64decode(payload.get("document_bytes", "")),
-            limits=dict(payload.get("limits", {})),
-            mode=str(payload.get("mode", "normal")),
+            contract_version=version,
+            attempt_id=attempt_id,
+            document_bytes=document_bytes,
+            limits=limits,
+            mode=mode,
         )
 
 
@@ -118,15 +197,28 @@ class ParentChildResult:
 
     @classmethod
     def from_json(cls, raw: str) -> ParentChildResult:
-        payload = json.loads(raw)
+        payload = _load_json_object(raw)
+        _require_exact_keys(payload, RESULT_KEYS)
+
+        version = _require_int(payload["contract_version"], "contract_version", minimum=1)
+        attempt_id = payload["attempt_id"]
+        pypdf_version = payload["pypdf_version"]
+        artifact_metadata = payload["artifact_metadata"]
+        if not isinstance(attempt_id, str) or not attempt_id.strip():
+            raise ValueError("attempt_id must be a non-empty string")
+        if not isinstance(pypdf_version, str):
+            raise ValueError("pypdf_version must be a string")
+        if not isinstance(artifact_metadata, dict) or any(not isinstance(key, str) for key in artifact_metadata):
+            raise ValueError("artifact_metadata must be an object with string keys")
+
         return cls(
-            contract_version=int(payload.get("contract_version", PARENT_CHILD_CONTRACT_VERSION)),
-            attempt_id=str(payload.get("attempt_id", "")),
-            outcome=ChildProcessingOutcome(payload.get("outcome", ChildProcessingOutcome.UNSUPPORTED.value)),
-            error_category=ChildErrorCategory(payload.get("error_category", ChildErrorCategory.NONE.value)),
-            page_count=payload.get("page_count"),
-            decoded_stream_length=payload.get("decoded_stream_length"),
-            pypdf_version=str(payload.get("pypdf_version", "")),
-            memory_bytes=payload.get("memory_bytes"),
-            artifact_metadata=dict(payload.get("artifact_metadata", {})),
+            contract_version=version,
+            attempt_id=attempt_id,
+            outcome=ChildProcessingOutcome(payload["outcome"]),
+            error_category=ChildErrorCategory(payload["error_category"]),
+            page_count=_require_optional_int(payload["page_count"], "page_count"),
+            decoded_stream_length=_require_optional_int(payload["decoded_stream_length"], "decoded_stream_length"),
+            pypdf_version=pypdf_version,
+            memory_bytes=_require_optional_int(payload["memory_bytes"], "memory_bytes"),
+            artifact_metadata=artifact_metadata,
         )
