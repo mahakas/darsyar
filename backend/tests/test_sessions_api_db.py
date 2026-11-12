@@ -5,7 +5,6 @@ import uuid
 
 import pytest
 import pytest_asyncio
-
 from app.api.deps import get_current_user
 from app.api.v1.sessions import router
 from app.core.config import get_settings
