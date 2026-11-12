@@ -1,5 +1,6 @@
-"""مدل durable ingestion job — فقط persistence؛ بدون claim/lease/heartbeat runtime.
+"""مدل durable ingestion job؛ چرخهٔ claim/lease/fencing در سرویس مستقل است.
 
+این مدل هیچ مصرف‌کنندهٔ ARQ یا پردازش عملیاتی PDF را فعال نمی‌کند.
 حالت job اجرایی است و با چرخهٔ عمر منبع (R-156) مستقل است.
 """
 
