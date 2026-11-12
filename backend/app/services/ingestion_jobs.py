@@ -200,6 +200,8 @@ async def complete_ingestion_job(
     _validate_instant(now, "now")
     values = {
         "status": SUCCEEDED_STATE,
+        "last_error_code": None,
+        "last_error_summary": None,
         "finished_at": now,
         "updated_at": now,
         **_clear_lease_values(),
