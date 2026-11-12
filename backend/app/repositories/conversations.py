@@ -31,7 +31,8 @@ async def list_owned(
     statement = select(Conversation).where(Conversation.user_id == user_id)
     normalized_query = query.strip() if query else ""
     if normalized_query:
-        statement = statement.where(Conversation.title.ilike(f"%{normalized_query}%"))
+        escaped_query = normalized_query.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+        statement = statement.where(Conversation.title.ilike(f"%{escaped_query}%", escape="!"))
     if before is not None:
         statement = statement.where(Conversation.id < before)
     statement = statement.order_by(Conversation.updated_at.desc(), Conversation.id.desc()).limit(limit).offset(offset)
@@ -45,7 +46,8 @@ async def count_owned(
     statement = select(func.count()).select_from(Conversation).where(Conversation.user_id == user_id)
     normalized_query = query.strip() if query else ""
     if normalized_query:
-        statement = statement.where(Conversation.title.ilike(f"%{normalized_query}%"))
+        escaped_query = normalized_query.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+        statement = statement.where(Conversation.title.ilike(f"%{escaped_query}%", escape="!"))
     result = await session.execute(statement)
     return int(result.scalar_one())
 
