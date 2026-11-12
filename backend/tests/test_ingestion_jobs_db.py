@@ -26,7 +26,6 @@ from app.services.ingestion_jobs import (
     renew_ingestion_job_lease,
     retry_ingestion_job,
 )
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
