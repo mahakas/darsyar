@@ -376,6 +376,7 @@
 | backend/app/services/ingestion/linux_sandbox.py | پروب/رانر sandbox Linux (Gate B-S2): اندازه‌گیری و تأیید enforcement (network/fs/memory/CPU/PID) و run_sandboxed_child. |
 | backend/tests/test_gate_b_pdf_validation.py | تست‌های synthetic-only اعتبارسنجی PDF (Gate B-S0؛ 22 تست). |
 | backend/tests/test_gate_b_parent_child.py | تست‌های synthetic-only Parent/Child (Gate B-S1؛ 17 تست). |
+| backend/tests/test_ingestion_synthetic_e2e.py | تست انتهابه‌انتها PostgreSQL Job → Parent/Child synthetic PDF → staging/publish با fencing؛ success/failure paths. |
 | backend/tests/test_gate_b_linux_sandbox.py | تست‌های synthetic-only sandbox Linux (Gate B-S2؛ 13 تست enforcement). |
 | backend/tests/sandbox/Dockerfile.sandbox | ایمیج مستقل آزمایشی sandbox Linux (Gate B-S2؛ pypdf 6.21.3؛ نه بخش Deployment). |
 | backend/tests/test_gate_b_s4_aggregate_decompression.py | آزمایش A (Gate B-S4): بودجه decompression کل/جریان با pypdf 6.21.3 (8 تست). |

@@ -342,13 +342,19 @@ def test_cpu_enforcement_status_reported() -> None:
     assert run.ok
 
 
-def test_temporary_working_data_cleaned() -> None:
+def test_temporary_working_data_cleaned(tmp_path, monkeypatch) -> None:
     import tempfile
 
-    before = set(os.listdir(tempfile.gettempdir()))
+    # Use an isolated temp directory owned by this test; system temp may be
+    # modified concurrently by the container runtime or unrelated CI processes.
+    isolated_temp = tmp_path / "parent-child-temp"
+    isolated_temp.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(isolated_temp))
+
+    before = set(isolated_temp.iterdir())
     run = run_child(_request(_compressed_pdf()), timeout_seconds=20, cwd=BACKEND_DIR)
     assert run.ok
-    after = set(os.listdir(tempfile.gettempdir()))
+    after = set(isolated_temp.iterdir())
     assert after == before
 
 
