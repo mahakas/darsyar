@@ -31,3 +31,10 @@
 - The production static frontend sets `Cache-Control: no-store` for the SPA entrypoint; hashed assets remain served by the ordinary static-file location.
 - HSTS is intentionally absent from the HTTP-only templates. It must be enabled at the real TLS termination point only after the production domain/HTTPS coverage and subdomain policy have been verified.
 - CI validates both Nginx configurations with the same `nginx:1.28-alpine` image used by the frontend production image and performs an HTTP header smoke test against the static frontend container.
+
+
+## Supply-chain scanning baseline — 2026-11-12
+
+CI now runs Trivy on repository filesystem and the exact resolved digests of the default PostgreSQL/pgvector, Redis, Nginx, Python and Node base images. Trivy Action is pinned to verified commit `ed142fd0673e97e23eac54620cfb913e5ce36c25` (v0.36.0); Trivy binary is pinned to v0.76.2. JSON reports are stored as 30-day workflow artifacts.
+
+The first rollout is report-only (`exit-code: 0`) for baseline discovery and triage; this is not a clean scan assertion or a vulnerability acceptance decision. Dockerfiles still reference version tags, and production digest pinning, SBOM/provenance attestation, finding triage and enforcement thresholds remain outstanding.
