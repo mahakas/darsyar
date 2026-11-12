@@ -108,7 +108,7 @@ make test-db
 
 تست‌های DB به PostgreSQL واقعی نیاز دارند؛ SQLite جایگزین معتبر این پروژه نیست. برخی تست‌های sandbox یا مدل واقعی فقط در محیط محدودشده/دارای منابع لازم اجرا می‌شوند و ممکن است در CI عمومی به‌صورت صریح skip شوند.
 
-آخرین اجرای کامل CI مشاهده‌شده در 2026-11-12 روی شاخهٔ PR #17، Run [43142397701](https://github.com/mahakas/darsyar/actions/runs/43142397701)، با موفقیت به پایان رسید: Backend/migration/Ruff، Frontend lint/typecheck/build، Linux SIGTERM، Nginx config/header smoke و Trivy report-only همگی موفق بودند. در Backend برخی تست‌های محیطی skip می‌شوند؛ اجرای RAG evaluation نیز به دلیل نبود golden dataset در workflow اجرا نشد. موفقیت Trivy یعنی اسکن و تولید گزارش انجام شد، نه اینکه آسیب‌پذیری صفر باشد.
+آخرین CI موفق روی `main` پس از ادغام PR #24، commit `385a3d1fdedb429250e478ed836c96e9e1422a9e`، در 2026-11-12 اجرا شد: [Run 43254717321](https://github.com/mahakas/darsyar/actions/runs/43254717321). Backend: **545 passed, 21 skipped, 1 warning**؛ Ruff، mypy (132 فایل)، migration smoke، Frontend lint/typecheck/build، Linux SIGTERM، Nginx smoke و Trivy report-only همگی موفق بودند. RAG evaluation به دلیل نبود golden dataset اجرا نشد و تست‌های sandbox/cgroup و real-model به دلیل پیش‌نیاز محیطی Skip شدند. Trivy report-only فقط تولید گزارش را ثابت می‌کند، نه صفر بودن آسیب‌پذیری‌ها.
 
 ## حاکمیت، امنیت و منابع
 

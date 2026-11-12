@@ -17,16 +17,15 @@
 
 ## شواهد CI
 
-آخرین اجرای CI روی `main` پس از ادغام بازیابی امن SSE، commit `5b4c94c3817ae36e8a2906ed051cc3660342c086`، در 2026-11-12 موفق شد:
-- Backend: **495 passed, 21 skipped, 1 warning**.
-- Frontend: lint، typecheck و build موفق.
-- Linux SIGTERM acceptance: موفق.
-- Migration smoke و Ruff: موفق.
-- اجرا: [Run 43137588528](https://github.com/mahakas/darsyar/actions/runs/43137588528).
+آخرین اجرای CI روی `main` پس از ادغام PR #24، commit `385a3d1fdedb429250e478ed836c96e9e1422a9e`، در 2026-11-12 موفق شد: [Run 43254717321](https://github.com/mahakas/darsyar/actions/runs/43254717321).
+- Backend: **545 passed, 21 skipped, 1 warning**.
+- Ruff، mypy (132 source files)، Alembic migration smoke: PASS.
+- Frontend lint/typecheck/build: PASS.
+- Linux SIGTERM acceptance و Nginx config/header smoke: PASS.
+- Trivy filesystem/base-image report-only scans: PASS؛ تولید گزارش به معنی صفر آسیب‌پذیری نیست.
+- RAG evaluation به دلیل نبود golden dataset بازبینی‌شده اجرا نشد؛ sandbox/cgroup و real-model checks نیز در CI عمومی به‌دلیل نبود محیط/منابع اختصاصی Skip شدند.
 
-شاخهٔ foundation فاز ۷، HEAD `879f302f837889ffe1cdd6486ca113abbc385e2a`، نیز اجرای CI استاندارد (بدون autofix) را با Backend **495 passed, 21 skipped, 1 warning**، Ruff، Frontend و Linux SIGTERM موفق گذرانده است: [Run 43138628126](https://github.com/mahakas/darsyar/actions/runs/43138628126). این تغییر هنوز در PR منتشر/ادغام نشده است.
-
-Skipهای صریح شامل برخی تست‌های sandbox/cgroup و مدل‌های واقعی به‌دلیل نیاز به محیط محدودشده/منابع اضافی هستند؛ بنابراین سبز بودن CI به معنی تأیید Gateهای امنیتی PDF یا Production نیست.
+Skipهای صریح را نباید Passed شمرد؛ سبز بودن CI به معنی تأیید Gateهای امنیتی PDF، مجوز منابع یا Production نیست.
 
 ## قواعد پیشروی
 - هر فاز دقیقاً یک سند canonical در `specs/phase-N.md` دارد.
