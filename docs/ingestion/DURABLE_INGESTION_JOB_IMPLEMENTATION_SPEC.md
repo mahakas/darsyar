@@ -1,6 +1,6 @@
 # Durable Ingestion Job — Implementation Specification
 
-**Date:** 2026-11-10. Implementation-ready engineering specification. Slice 1 (persistence) and Slice 2 (transactional creation service + tests) code exist; runtime/validation status is tracked in the Statuses section below.
+**Date:** 2026-11-10; implementation status refreshed 2026-11-12. This specification tracks the durable ingestion lifecycle from persistence through synthetic artifact staging; see the Statuses section for merged and in-review slices.
 
 Statuses:
 - `CONCEPTUAL_ARCHITECTURE: APPROVED_WITH_CONDITIONS` (owner, 2026-11-10)
@@ -9,8 +9,9 @@ Statuses:
 - `SLICE_2_CODE: IMPLEMENTED` (service + tests written; ruff/mypy clean)
 - `SLICE_2_POSTGRESQL_VALIDATION: PASSED` (2026-11-10: 9/9 in ephemeral runner on `darsyar_test`, PostgreSQL 18.6)
 - `SLICE_2: CLOSED`
-- `SLICE_4_CLAIM_LEASE_FENCING: IMPLEMENTED` (2026-11-12; PostgreSQL CI: 528 passed, 21 skipped, 1 warning; commit merged via PR #21)
 - `SLICE_3_OUTBOX_PUBLISHER: CLOSED` (2026-11-11; PostgreSQL + Redis/ARQ synthetic validation 13/13; see `SLICE_3_OUTBOX_PUBLISHER_IMPLEMENTATION.md`)
+- `SLICE_4_CLAIM_LEASE_FENCING: IMPLEMENTED` (2026-11-12; PostgreSQL CI: 528 passed, 21 skipped, 1 warning; commit merged via PR #21)
+- `SLICE_6_STAGING_ARTIFACT_LIFECYCLE: IMPLEMENTATION_UNDER_REVIEW` (PR #22; synthetic-only; CI pending; not operational intake or document processing)
 - `RUNTIME_CONFIGURATION: PENDING_OWNER_APPROVAL`
 - `LICENSING_AND_AUTHORIZATION: PENDING`
 - `PRODUCTION: NOT_APPROVED`
@@ -29,7 +30,7 @@ These code slices do not authorize a real PDF or register an ARQ consumer.
 ## A. Existing-system compatibility audit (verified)
 
 - **SQLAlchemy:** async, 2.x `Mapped[]`/`mapped_column` (e.g., `app/models/reservation.py`), `Base` from `app.db.base`; `DateTime(timezone=True)`; `gen_random_uuid()`; check/unique constraints via `__table_args__`.
-- **Alembic:** versions in `backend/alembic/versions/`; latest `0017_stream_lease_billable`; tests built via `alembic upgrade head` (make test-db), PostgreSQL only.
+- **Alembic:** versions in `backend/alembic/versions/`; the initial compatibility baseline was `0017_stream_lease_billable`; `main` has since advanced through `0023_admin_audit_append_only` as of 2026-11-12. Tests use `alembic upgrade head` (`make test-db`) on PostgreSQL only.
 - **ARQ:** `backend/app/services/worker.py` `WorkerSettings` (`functions=[worker_probe]`, cron, `max_jobs=4`, `job_timeout=300`, arq 0.28.0 with `_job_id`/`_job_try`). No ingestion job registered.
 - **Redis:** used via `RedisSettings.from_dsn(settings.redis_url)`; arq delivery only.
 - **Transactions:** async sessions + commit/rollback; existing patterns (reservation/recovery) — chat/heartbeat recovery is **not** reusable verbatim for ingestion idempotency.
