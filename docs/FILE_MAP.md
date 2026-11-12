@@ -328,7 +328,7 @@
 | `docs/ingestion/INGESTION_ARCHITECTURE_OWNER_DECISION.md` | بستهٔ تصمیم یکپارچه مالک برای معماری ingestion (Group 1/2/3؛ Owner decision PENDING). |
 | `docs/ingestion/DURABLE_INGESTION_JOB_IMPLEMENTATION_SPEC.md` | مشخصات پیاده‌سازی durable ingestion job/outbox/fencing (OWNER_APPROVED_WITH_CONDITIONS؛ Slice 1 IMPLEMENTED). |
 | `backend/app/models/ingestion_document.py` | مدل هویت canonical سند (R-157). |
-| `backend/app/models/ingestion_job.py` | مدل durable ingestion job (persistence only). |
+| `backend/app/models/ingestion_job.py` | مدل durable ingestion job و فیلدهای lease/fencing (persistence). |
 | `backend/app/models/outbox_event.py` | مدل transactional outbox (publisher در Slice بعدی). |
 | `backend/alembic/versions/0018_ingestion_persistence.py` | مهاجرت Slice 1 (ingestion_documents/jobs/outbox_events). |
 | `backend/tests/test_ingestion_persistence.py` | تست ساختاری + PostgreSQL برای persistence ingestion. |
@@ -345,6 +345,8 @@
 | `backend/tests/test_ingestion_creation_db.py` | تست PostgreSQL Slice 2 (ایجاد اتمیک، idempotency، هم‌زمانی). |
 | `backend/app/services/ingestion_jobs.py` | Slice 4: claim اتمیک، lease/heartbeat، fencing، retry و cancellation؛ بدون ARQ consumer یا runtime defaults. |
 | `backend/tests/test_ingestion_jobs_db.py` | تست یکپارچهٔ PostgreSQL برای رقابت workerها، lease منقضی، fencing، retry و cancellation (synthetic-only). |
+| `backend/app/services/ingestion_staging.py` | Slice 6: staging مصنوعی attempt-scoped، کنترل checksum/size، انتشار immutable با lease/fencing معتبر و پاک‌سازی صریح؛ بدون upload/consumer. |
+| `backend/tests/test_ingestion_staging_db.py` | تست‌های PostgreSQL و filesystem برای staging، symlink/path traversal، integrity، stale fence و orphan cleanup (synthetic-only). |
 | docs/ingestion/INGESTION_PROGRESS_AND_OPEN_DECISIONS.md | گزارش یکپارچه پیشرفت و تصمیم‌های باز مالک (snapshot 2026-11-10). |
 | docs/ingestion/OUTBOX_RETENTION_AND_SLICE_3_OWNER_DECISION.md | بستهٔ تصمیم مالک برای retention outbox و دامنهٔ Slice 3 (سنتزیک). |
 | docs/ingestion/SLICE_3_OUTBOX_PUBLISHER_IMPLEMENTATION.md | مشخصات پیاده‌سازی Slice 3: outbox publisher/reconciliation (S-1/S-2 APPROVED_WITH_CONDITIONS؛ CLOSED). |

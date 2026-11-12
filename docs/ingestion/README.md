@@ -11,6 +11,7 @@ This directory contains the architecture, security, authorization, acceptance, a
 - Manifest validation, metadata checks, Persian normalization, and bounded parent/child chunking.
 - Embedding adapter, PostgreSQL/pgvector indexing primitives, retrieval primitives, and fail-closed active-index registry checks.
 - Durable IngestionDocument, IngestionJob, and IngestionChunk models and transactional job-plus-outbox creation with request idempotency.
+- Synthetic PostgreSQL job lifecycle primitives: atomic type-filtered claim, lease renewal, monotonic fencing, retry/terminal failure, cancellation acknowledgement, and explicit expired-cancellation finalization. CI evidence is recorded in the durable-job implementation spec; this does not register an ARQ consumer.
 - Outbox publishing/reconciliation to the dedicated arq:queue:ingestion queue using deterministic ARQ job IDs. This is at-least-once delivery and is not a running consumer.
 - Synthetic-only PDF validation, parent/child IPC and process-supervisor prototypes, and Linux sandbox probes. These are not an approved production parser/renderer or an operational PDF pipeline.
 

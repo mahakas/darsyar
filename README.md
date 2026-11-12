@@ -9,7 +9,7 @@
 - فازهای ۰ و ۱ تکمیل‌شده‌اند.
 - فاز ۲ تکمیل‌شده با محدودیت‌های عملیاتی مستند است.
 - فاز ۳ تکمیل‌شده و شواهد CI/خاموشی کنترل‌شده ثبت شده‌اند.
-- فاز ۴ دارای اجزای synthetic برای manifest، chunking، embedding، indexing و retrieval است؛ اما ingestion عملیاتی PDF، مجوز هر منبع و گیت‌های Gate A/B/C هنوز باز هستند.
+- فاز ۴ علاوه بر اجزای synthetic مربوط به manifest، chunking، embedding، indexing و retrieval، چرخهٔ durable job شامل claim/lease/fencing/retry/cancellation را نیز دارد (PR #21)؛ اما ingestion عملیاتی PDF، مجوز هر منبع و گیت‌های Gate A/B/C هنوز باز هستند.
 - فاز ۵ نمونهٔ اولیهٔ retrieval و ارزیابی synthetic دارد؛ دیتاست طلایی حداقل ۱۵۰ پرسشی، evidence snapshot و اتصال کامل evidence/citation به پاسخ چت باقی است.
 - فاز ۶ احراز هویت نشست، پایهٔ تحصیلی صریح، تاریخچهٔ مالک‌محور، pagination/search و replay/status recovery پایدار SSE دارد؛ SourceCard، Markdown امن، دسترس‌پذیری و پذیرش کامل رابط باقی است.
 - فاز ۷ زیرساخت محدود مجوز مدیر و audit تغییرناپذیر در PostgreSQL دارد؛ پنل مدیریت، routeهای مدیریتی، seed عملیاتی، MFA/step-up و acting session هنوز پیاده‌سازی/پذیرفته نشده‌اند. ADR-051 همچنان Proposed است.
