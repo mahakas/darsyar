@@ -168,10 +168,12 @@ class ChatStreamService:
     def _sse(seq: int, event: str, payload: dict[str, Any]) -> str:
         return f"id:{seq}\nevent:{event}\ndata:{json.dumps(payload, ensure_ascii=False)}\n\n"
 
-    async def _resolve_conversation(self, conversation_id: uuid.UUID | None, user_id: uuid.UUID) -> Conversation:
+    async def _resolve_conversation(
+        self, conversation_id: uuid.UUID | None, user_id: uuid.UUID, *, title: str | None = None
+    ) -> Conversation:
         if conversation_id is None:
             async with self._session_factory() as session:
-                new_conv = await conv_repo.create_conversation(session, user_id=user_id)
+                new_conv = await conv_repo.create_conversation(session, user_id=user_id, title=title)
                 await session.commit()
                 return new_conv
         async with self._session_factory() as session:
@@ -514,7 +516,8 @@ class ChatStreamService:
             async for ev in self._replay(assistant, existing_conversation.id):
                 yield ev
             return
-        conv = await self._resolve_conversation(req.conversation_id, user.id)
+        title = " ".join(req.content.split())[:120] or None
+        conv = await self._resolve_conversation(req.conversation_id, user.id, title=title)
         user_msg_id, assistant_id = await self._create_messages(conv.id, user.id, req.content, req.client_request_id, reservation.id)
         # مالکیت Stream + heartbeat اولیه (fencing برای recovery)
         owner_token = str(uuid.uuid4())
