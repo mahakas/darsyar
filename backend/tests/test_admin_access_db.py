@@ -9,11 +9,11 @@ from starlette.requests import Request
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
+from app.api.deps import require_admin
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.security import create_token
 from app.repositories import users as users_repo
-from app.api.deps import require_admin
 
 
 pytestmark = pytest.mark.skipif(
