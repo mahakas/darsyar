@@ -1,52 +1,49 @@
-# Darsyar Knowledge Ingestion — Design Documentation
+# Darsyar Knowledge Ingestion — Phase 4
 
-## Purpose
+This directory contains the architecture, security, authorization, acceptance, and implementation records for the Darsyar knowledge-ingestion pipeline.
 
-This is the technical design specification for Darsyar's **Knowledge Ingestion** pipeline (Phase 4). It covers the full lifecycle from source registration through authorization, integrity, page inventory, extraction, chunking, indexing references, state, and observability — for the two verified pilot textbooks and for future official educational resources.
+## Current status — 2026-11-12
 
-## Status
+**Phase 4 is PARTIAL and remains GATED; it is not accepted.** The repository contains synthetic implementation and PostgreSQL persistence slices. These are real code, but they do not constitute an operational textbook-ingestion service and do not authorize processing a real textbook.
 
-- Phase 4: **Planned / Gated** (not implemented).
-- All documents here are **design proposals**, not implemented functionality.
-- No PDF was processed in producing these documents; only the documented preflight results already in the repository were used.
+### Implemented (synthetic or persistence-only)
 
-## Scope
+- Manifest validation, metadata checks, Persian normalization, and bounded parent/child chunking.
+- Embedding adapter, PostgreSQL/pgvector indexing primitives, retrieval primitives, and fail-closed active-index registry checks.
+- Durable IngestionDocument, IngestionJob, and IngestionChunk models and transactional job-plus-outbox creation with request idempotency.
+- Outbox publishing/reconciliation to the dedicated arq:queue:ingestion queue using deterministic ARQ job IDs. This is at-least-once delivery and is not a running consumer.
+- Synthetic-only PDF validation, parent/child IPC and process-supervisor prototypes, and Linux sandbox probes. These are not an approved production parser/renderer or an operational PDF pipeline.
 
-The design must:
-- Respect `AGENTS.md` and accepted ADRs (especially ADR-024, ADR-037, ADR-038).
-- Be compatible with R-150 through R-157.
-- Be provider-agnostic, asynchronous, failure-safe, and testable.
-- Handle Persian/RTL textbook content.
-- Extend beyond the two pilot books to other grades/subjects/editions/formats.
+### Not implemented or not accepted
+
+- Source-by-source documentary authorization and separate scope approval for acquisition, storage, extraction, rendering, OCR, embedding/indexing, retrieval, and display. Reference 13529 remains unverified and grants no automatic permission.
+- An authenticated intake/upload API, quarantine lifecycle, and registered ingestion consumer in ARQ. WorkerSettings.functions still does not register process_ingestion_event; the dedicated queue has no Darsyar ingestion consumer.
+- Operational PDF extraction, OCR, rendering, formula/image fidelity, and end-to-end processing of an authorized textbook.
+- Closure of Gate A, all required Gate B security/resource controls, and Gate C equivalence/quality validation.
+- Production runtime settings and an operational active index record.
+
+### Authorization boundary
+
+The two pilot manifests must remain needs_review until the documentary evidence and resource/operation scopes satisfy ADR-024. Owner confirmation and a registered reference are not equivalent to reviewed legal permission. Do not download, render, extract, OCR, embed, index, quote, or otherwise process a real pilot PDF until the relevant operation is explicitly cleared.
+
+The Gate B numeric policies approved with conditions are policy decisions only; they do not configure runtime defaults. In particular, the aggregate decompression budget and several renderer/container/upload limits remain pending owner decision and/or measurement. Synthetic tests must continue to use explicit test-supplied limits.
 
 ## Document index
 
 | Document | Purpose |
 |---|---|
-| `ARCHITECTURE.md` | High-level architecture, component boundaries, data flow, security boundaries |
-| `PIPELINE_STAGES.md` | Stage-by-stage contracts, inputs/outputs, authorization checks, failure behavior |
-| `EXTRACTION_STRATEGY.md` | Mathematics, Physics, and general extraction strategy |
-| `CHUNKING_AND_PROVENANCE.md` | Chunk hierarchy, R-150 provenance propagation, citations |
-| `AUTHORIZATION_GATE.md` | Resource/operation authorization matrix, pending states, reference 13529 |
-| `STATE_MACHINE_AND_FAILURES.md` | R-156 state machine, error codes, retry/recovery |
-| `ACCEPTANCE_CRITERIA.md` | Measurable acceptance criteria per stage/doc type |
+| ARCHITECTURE.md | System boundaries and data flow |
+| PIPELINE_STAGES.md | Stage contracts and failure behavior |
+| EXTRACTION_STRATEGY.md | Extraction/OCR strategy; not production approval |
+| CHUNKING_AND_PROVENANCE.md | Chunk hierarchy and citation provenance |
+| AUTHORIZATION_GATE.md | Source-by-source authorization matrix |
+| STATE_MACHINE_AND_FAILURES.md | Resource/job lifecycle and recovery |
+| ACCEPTANCE_CRITERIA.md | Measurable acceptance criteria |
+| GATE_A_RENDERER_DECISION.md | Conditional renderer candidate assessment |
+| GATE_B_S3_NUMERIC_POLICY_OWNER_DECISION.md | Owner decisions and pending numeric controls |
+| GATE_B_S5_PDF_PARSER_DECODER_ARCHITECTURE_COMPARISON.md | Parser/decoder evidence and unresolved selection |
+| ARQ_PDF_JOB_INTEGRATION_AUDIT.md | Current persistence, publisher, queue, and worker gaps |
 
-## Implementation prerequisites
+## Phase closure
 
-- Actual source-specific authorization evidence and scope review (ADR-024) — reference 13529 is pending.
-- Legacy grade mappings where applicable (ADR-037, OQ-009 closed).
-- Edition metadata policy (ADR-038).
-- The ingestion pipeline is **not yet implemented**.
-
-## Current governance blockers
-
-- Governance design: documented and designed.
-- Owner confirmation: received.
-- Reference 13529: registered (pending evidence/scope).
-- Documentary evidence: **pending**.
-- Resource scope: **pending**.
-- Operation scope: **pending**.
-- Independent legal verification: **not performed**.
-- The two pilot manifests remain `ingestion_status: needs_review`.
-- Neither source may be marked `ready` until ADR-024 evidence/scope requirements are satisfied.
-- The design is governance-aligned and fail-closed; it is **not** a claim that sources are verified/cleared/lawful.
+Phase 4 may be marked COMPLETE only after the canonical phase specification and acceptance criteria are satisfied with repeatable evidence, all relevant security gates are closed, the real source and each operation are authorized, end-to-end ingestion runs against an authorized source, and the resulting chunks/index/citations are validated. Synthetic CI success alone is insufficient.

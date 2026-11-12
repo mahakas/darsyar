@@ -35,6 +35,29 @@ from app.services.ingestion.parent_child_contract import (
 FLATE_ZLIB_LIMIT_KEY = "zlib_maximum_output_length"
 
 
+def _validated_zlib_limit(request: ParentChildRequest, *, allow_test_hang: bool = False) -> int:
+    """Validate the S1 IPC contract and require an explicit positive stream cap.
+
+    No parser default is silently promoted into Darsyar policy. The test-only
+    hang mode is accepted only by the executable entry point for termination
+    tests; normal processing never accepts it.
+    """
+    if request.contract_version != PARENT_CHILD_CONTRACT_VERSION:
+        raise ValueError("unsupported contract version")
+    allowed_modes = {"normal", "decode_stream"}
+    if allow_test_hang:
+        allowed_modes.add("hang")
+    if request.mode not in allowed_modes:
+        raise ValueError("unsupported child mode")
+    if not isinstance(request.limits, dict) or FLATE_ZLIB_LIMIT_KEY not in request.limits:
+        raise ValueError("explicit per-stream limit is required")
+
+    value = request.limits[FLATE_ZLIB_LIMIT_KEY]
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError("per-stream limit must be a positive integer")
+    return value
+
+
 def _read_request() -> ParentChildRequest:
     raw = sys.stdin.read()
     if not raw.strip():
@@ -81,8 +104,12 @@ def process_request(request: ParentChildRequest) -> ParentChildResult:
     page_count: int | None = None
     decoded_len: int | None = None
 
-    zlib_limit = int(request.limits.get(FLATE_ZLIB_LIMIT_KEY, 75_000_000)) if request.limits else 75_000_000
-    scoped = Configuration(zlib_maximum_output_length=zlib_limit)
+    try:
+        zlib_limit = _validated_zlib_limit(request)
+        scoped = Configuration(zlib_maximum_output_length=zlib_limit)
+    except (TypeError, ValueError):
+        # Fail closed: never fall back to pypdf's package default as a Darsyar policy.
+        return _result(request, ChildProcessingOutcome.FAILED, ChildErrorCategory.INVALID_REQUEST)
 
     try:
         with apply_configuration(scoped):
@@ -141,7 +168,13 @@ def main() -> int:
         return 2
 
     if request.mode == "hang":
-        # Simulate a child that ignores graceful termination.
+        # Simulate a child that ignores graceful termination. This test-only path
+        # still validates the versioned request and explicit policy first.
+        try:
+            _validated_zlib_limit(request, allow_test_hang=True)
+        except (TypeError, ValueError):
+            sys.stderr.write("BAD_REQUEST InvalidChildRequest\n")
+            return 2
         while True:
             pass
 
