@@ -75,6 +75,7 @@ async def test_claim_queued_job_assigns_lease_and_increments_fence() -> None:
     async with SESSION_FACTORY() as session:
         lease = await claim_next_ingestion_job(
             session,
+            job_type=TEST_JOB_TYPE,
             worker_id="synthetic-worker-a",
             now=NOW,
             lease_duration=dt.timedelta(seconds=60),
@@ -104,6 +105,7 @@ async def test_concurrent_claimers_never_receive_same_job() -> None:
         async with SESSION_FACTORY() as session:
             lease = await claim_next_ingestion_job(
                 session,
+                job_type=TEST_JOB_TYPE,
                 worker_id=worker_id,
                 now=NOW,
                 lease_duration=dt.timedelta(minutes=1),
@@ -130,6 +132,7 @@ async def test_expired_lease_reclaims_job_and_fences_stale_attempt() -> None:
     async with SESSION_FACTORY() as session:
         old_lease = await claim_next_ingestion_job(
             session,
+            job_type=TEST_JOB_TYPE,
             worker_id="worker-old",
             now=NOW,
             lease_duration=dt.timedelta(seconds=30),
@@ -140,6 +143,7 @@ async def test_expired_lease_reclaims_job_and_fences_stale_attempt() -> None:
     async with SESSION_FACTORY() as session:
         new_lease = await claim_next_ingestion_job(
             session,
+            job_type=TEST_JOB_TYPE,
             worker_id="worker-new",
             now=NOW + dt.timedelta(seconds=31),
             lease_duration=dt.timedelta(minutes=2),
@@ -176,6 +180,7 @@ async def test_heartbeat_renews_only_current_live_lease() -> None:
     async with SESSION_FACTORY() as session:
         lease = await claim_next_ingestion_job(
             session,
+            job_type=TEST_JOB_TYPE,
             worker_id="heartbeat-worker",
             now=NOW,
             lease_duration=dt.timedelta(seconds=30),
@@ -227,6 +232,7 @@ async def test_retry_waits_until_explicit_retry_instant_then_can_fail_terminally
     async with SESSION_FACTORY() as session:
         first = await claim_next_ingestion_job(
             session,
+            job_type=TEST_JOB_TYPE,
             worker_id="retry-worker",
             now=NOW,
             lease_duration=dt.timedelta(minutes=1),
@@ -250,6 +256,7 @@ async def test_retry_waits_until_explicit_retry_instant_then_can_fail_terminally
     async with SESSION_FACTORY() as session:
         not_yet = await claim_next_ingestion_job(
             session,
+            job_type=TEST_JOB_TYPE,
             worker_id="retry-worker",
             now=retry_at - dt.timedelta(microseconds=1),
             lease_duration=dt.timedelta(minutes=1),
@@ -257,6 +264,7 @@ async def test_retry_waits_until_explicit_retry_instant_then_can_fail_terminally
         assert not_yet is None
         second = await claim_next_ingestion_job(
             session,
+            job_type=TEST_JOB_TYPE,
             worker_id="retry-worker",
             now=retry_at,
             lease_duration=dt.timedelta(minutes=1),
@@ -284,6 +292,7 @@ async def test_success_after_retry_clears_previous_error_metadata() -> None:
     async with SESSION_FACTORY() as session:
         first = await claim_next_ingestion_job(
             session,
+            job_type=TEST_JOB_TYPE,
             worker_id="retry-success-worker",
             now=NOW,
             lease_duration=dt.timedelta(minutes=1),
@@ -301,6 +310,7 @@ async def test_success_after_retry_clears_previous_error_metadata() -> None:
     async with SESSION_FACTORY() as session:
         second = await claim_next_ingestion_job(
             session,
+            job_type=TEST_JOB_TYPE,
             worker_id="retry-success-worker",
             now=retry_at,
             lease_duration=dt.timedelta(minutes=1),
@@ -347,6 +357,7 @@ async def test_running_cancellation_requires_current_worker_acknowledgement() ->
     async with SESSION_FACTORY() as session:
         lease = await claim_next_ingestion_job(
             session,
+            job_type=TEST_JOB_TYPE,
             worker_id="cancel-worker",
             now=NOW,
             lease_duration=dt.timedelta(minutes=1),
@@ -392,6 +403,7 @@ async def test_expired_cancellation_can_be_finalized_without_a_worker() -> None:
     async with SESSION_FACTORY() as session:
         lease = await claim_next_ingestion_job(
             session,
+            job_type=TEST_JOB_TYPE,
             worker_id="crashed-worker",
             now=NOW,
             lease_duration=dt.timedelta(seconds=20),
@@ -428,6 +440,7 @@ async def test_expired_attempt_cannot_heartbeat_or_complete() -> None:
     async with SESSION_FACTORY() as session:
         lease = await claim_next_ingestion_job(
             session,
+            job_type=TEST_JOB_TYPE,
             worker_id="expired-worker",
             now=NOW,
             lease_duration=dt.timedelta(seconds=5),
@@ -449,6 +462,7 @@ async def test_expired_attempt_cannot_heartbeat_or_complete() -> None:
     async with SESSION_FACTORY() as session:
         reclaimed = await claim_next_ingestion_job(
             session,
+            job_type=TEST_JOB_TYPE,
             worker_id="recovery-worker",
             now=expired_at + dt.timedelta(seconds=1),
             lease_duration=dt.timedelta(minutes=1),
@@ -473,6 +487,7 @@ async def test_service_rejects_unsafe_runtime_arguments() -> None:
         with pytest.raises(ValueError, match="worker_id"):
             await claim_next_ingestion_job(
                 session,
+                job_type=TEST_JOB_TYPE,
                 worker_id=" ",
                 now=NOW,
                 lease_duration=dt.timedelta(seconds=1),
@@ -480,6 +495,7 @@ async def test_service_rejects_unsafe_runtime_arguments() -> None:
         with pytest.raises(ValueError, match="job_type"):
             await claim_next_ingestion_job(
                 session,
+                job_type=TEST_JOB_TYPE,
                 worker_id="valid-worker",
                 now=NOW,
                 lease_duration=dt.timedelta(seconds=1),
@@ -488,6 +504,7 @@ async def test_service_rejects_unsafe_runtime_arguments() -> None:
         with pytest.raises(ValueError, match="lease_duration"):
             await claim_next_ingestion_job(
                 session,
+                job_type=TEST_JOB_TYPE,
                 worker_id="valid-worker",
                 now=NOW,
                 lease_duration=dt.timedelta(0),
@@ -495,6 +512,7 @@ async def test_service_rejects_unsafe_runtime_arguments() -> None:
         with pytest.raises(ValueError, match="timezone-aware"):
             await claim_next_ingestion_job(
                 session,
+                job_type=TEST_JOB_TYPE,
                 worker_id="valid-worker",
                 now=dt.datetime(2026, 11, 12),
                 lease_duration=dt.timedelta(seconds=1),
