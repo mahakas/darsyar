@@ -24,6 +24,7 @@ Base path مسیرهای محصول: `/api/v1`. سه endpoint عملیاتی roo
 | POST/GET | `/conversations` | 3 | ساخت و فهرست مکالمه‌های خود کاربر |
 | POST | `/conversations/{id}/messages` | 3/5 | پاسخ استریم‌شده با reservation پیش از provider |
 | GET | `/conversations/{id}/messages` | 3 | پیام‌ها با cursor pagination و مالکیت query-level |
+| GET | `/conversations/{id}/messages/{message_id}` | 6 | وضعیت پایدار یک پیام برای بازیابی امن SSE؛ فقط مالک گفتگو |
 | POST | `/documents` | 4 | ایجاد ingestion job برای منبع مجاز |
 | GET | `/documents/{id}` | 4/7 | وضعیت ingestion، فقط با مجوز |
 | POST | `/billing/checkout` | 2 | ایجاد سفارش با مبلغ ذخیره‌شده در DB |
@@ -67,7 +68,12 @@ Base path مسیرهای محصول: `/api/v1`. سه endpoint عملیاتی roo
 - تصمیم‌های ادمین (لغو/بازپرداخت) در این فاز فقط از سرویس دامنه (`PlanService`)؛ UI ادمین در Phase 7.
 
 ## Streaming
-از `fetch` + `ReadableStream` استفاده می‌شود؛ نه `EventSource` برای bearer-authenticated POST stream. قرارداد eventها باید `event`, `id`, `data` را مشخص کند، `Last-Event-ID` را برای resume امن تعریف کند و خروجی نیمه‌کاره را از پایان موفق جدا کند.
+از `fetch` + `ReadableStream` استفاده می‌شود؛ نه `EventSource` برای bearer-authenticated POST stream.
+- هر turn یک `client_request_id` ثابت دارد. پس از قطع شبکه، کلاینت باید همان body و همان شناسه را دوباره POST کند؛ ساخت شناسهٔ جدید برای retry ممنوع است، چون می‌تواند یک turn/رزرو تازه بسازد.
+- Backend در retry همان پیام پایدار را replay می‌کند و provider/reservation را دوباره اجرا نمی‌کند. replay ممکن است `done.status=streaming` برگرداند؛ این **پایان موفق نیست**.
+- وقتی status برابر `streaming` است، کلاینت با GET مسیر `/conversations/{id}/messages/{message_id}` متن و وضعیت پایدار را poll می‌کند تا به `completed`, `partial`, `failed` یا `cancelled` برسد. polling محدود است؛ در صورت پایان مهلت، کلاینت همان turn را با همان idempotency key دوباره بررسی می‌کند.
+- `Last-Event-ID` در قرارداد فعلی cursor قابل‌بازیابی رویداد نیست و نباید برای event-offset resume استفاده شود. بازیابی از state پایدار پیام و idempotency turn انجام می‌شود.
+- EOF بدون رویداد `done` قطع‌شدن stream محسوب می‌شود؛ کلاینت مجاز است یک retry محدود با همان شناسه انجام دهد. خروجی `partial` از `completed` جدا می‌ماند.
 
 تغییر path/schema/status/code نیازمند ADR و به‌روزرسانی هم‌زمان این سند، کد و تست‌ها است.
 

@@ -388,3 +388,27 @@ async def test_chat_rejects_missing_selected_grade_before_reserving_credit() -> 
     assert excinfo.value.code == "grade_required"
     assert provider.calls == 0
     assert (await _balance(uid)) == 10
+
+
+@pytest.mark.asyncio
+async def test_replay_of_active_stream_reports_streaming_snapshot_not_completion() -> None:
+    service = ChatStreamService(
+        provider=FakeProvider([]),
+        session_factory=TEST_SESSION_FACTORY,
+    )
+    assistant = Message(
+        id=uuid.uuid4(),
+        conversation_id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        role="assistant",
+        status="streaming",
+        content="persisted partial snapshot",
+        sequence=1,
+    )
+    events = [event async for event in service._replay(assistant, assistant.conversation_id)]
+    assert any("event:delta" in event and "persisted partial snapshot" in event for event in events)
+    done = next(event for event in events if "event:done" in event)
+    payload_line = next(line for line in done.splitlines() if line.startswith("data:"))
+    payload = json.loads(payload_line.removeprefix("data:"))
+    assert payload["status"] == "streaming"
+    assert payload["content"] == "persisted partial snapshot"

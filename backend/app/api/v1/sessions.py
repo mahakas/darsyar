@@ -68,3 +68,26 @@ async def list_conversation_messages(
         after_sequence=after_sequence,
         next_after_sequence=next_sequence,
     )
+
+
+
+@router.get("/{conversation_id}/messages/{message_id}", response_model=HistoryMessageOut)
+async def get_conversation_message(
+    conversation_id: UUID,
+    message_id: UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> HistoryMessageOut:
+    """Read a single durable message for safe SSE recovery/polling, with owner checks."""
+    conversation = await conv_repo.get_owned(session, conversation_id, user.id)
+    if conversation is None:
+        raise AppError("conversation_not_found", 404, "گفتگو یافت نشد.")
+    message = await conv_repo.get_message_for_user(
+        session,
+        message_id=message_id,
+        conversation_id=conversation_id,
+        user_id=user.id,
+    )
+    if message is None:
+        raise AppError("message_not_found", 404, "پیام یافت نشد.")
+    return HistoryMessageOut.model_validate(message)

@@ -51,5 +51,7 @@ export const ar = {
   "loadOlderConversations": "تحميل المحادثات الأقدم",
   "historyLoadingMore": "جارٍ تحميل المحادثات…",
   "loadMoreMessages": "تحميل المزيد من الرسائل",
-  "partialResponse": "إجابة جزئية؛ تم استلام جزء من المحتوى."
+  "partialResponse": "إجابة جزئية؛ تم استلام جزء من المحتوى.",
+  "resumeResponse": "استئناف الإجابة",
+  "responseRecovering": "جارٍ التحقق من حالة الإجابة المحفوظة…",
 } as const

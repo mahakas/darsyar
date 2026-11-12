@@ -51,5 +51,7 @@ export const en = {
   "loadOlderConversations": "Load older conversations",
   "historyLoadingMore": "Loading conversations…",
   "loadMoreMessages": "Load more messages",
-  "partialResponse": "Partial response; some content was received."
+  "partialResponse": "Partial response; some content was received.",
+  "resumeResponse": "Resume response",
+  "responseRecovering": "Checking the saved response status…",
 } as const

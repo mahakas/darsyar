@@ -127,3 +127,63 @@ async def test_conversation_history_offset_pagination(history_client) -> None:
     assert searched.json()["items"][0]["title"] == "Second"
     assert page.json()["items"][0]["id"] != next_page.json()["items"][0]["id"]
     assert page.json()["items"][0]["id"] == str(original_conversation_id)
+
+
+
+@pytest.mark.asyncio
+async def test_single_message_status_endpoint_supports_safe_recovery_polling(history_client) -> None:
+    make_client, owner, other, conversation_id = history_client
+    async with SESSION_FACTORY() as session:
+        messages = await conv_repo.list_messages_for_user(
+            session, conversation_id, owner.id, limit=10
+        )
+        assistant = next(message for message in messages if message.role == "assistant")
+        assistant.status = "streaming"
+        assistant.content = "persisted partial snapshot"
+        await session.commit()
+        message_id = assistant.id
+
+    async with await make_client(owner) as client:
+        response = await client.get(
+            f"/api/v1/conversations/{conversation_id}/messages/{message_id}"
+        )
+    assert response.status_code == 200
+    assert response.json()["id"] == str(message_id)
+    assert response.json()["status"] == "streaming"
+    assert response.json()["content"] == "persisted partial snapshot"
+    assert "provider_request_id" not in response.json()
+    assert "reservation_id" not in response.json()
+
+    async with await make_client(other) as client:
+        denied = await client.get(
+            f"/api/v1/conversations/{conversation_id}/messages/{message_id}"
+        )
+    assert denied.status_code == 404
+    assert denied.json()["code"] == "conversation_not_found"
+
+
+@pytest.mark.asyncio
+async def test_single_message_endpoint_does_not_cross_conversation_boundary(history_client) -> None:
+    make_client, owner, _, conversation_id = history_client
+    async with SESSION_FACTORY() as session:
+        message = await conv_repo.create_message(
+            session,
+            conversation_id=conversation_id,
+            user_id=owner.id,
+            role="assistant",
+            status="completed",
+            content="private result",
+        )
+        await session.commit()
+        message_id = message.id
+        foreign_conversation = await conv_repo.create_conversation(
+            session, user_id=owner.id, title="different conversation"
+        )
+        await session.commit()
+
+    async with await make_client(owner) as client:
+        response = await client.get(
+            f"/api/v1/conversations/{foreign_conversation.id}/messages/{message_id}"
+        )
+    assert response.status_code == 404
+    assert response.json()["code"] == "message_not_found"

@@ -10,6 +10,7 @@ export type ChatMessage = {
   content: string
   status: 'streaming' | 'complete' | 'partial' | 'error'
   errorCode?: string
+  sequence?: number
 }
 
 export type ConversationSummary = {
@@ -27,15 +28,47 @@ export type ChatStreamHandlers = {
   signal?: AbortSignal
 }
 
+export type ConversationMessagesPage = {
+  items: ChatMessage[]
+  nextAfterSequence: number | null
+}
+
+function mapHistoryMessage(message: {
+  id: string
+  role: string
+  content: string
+  status: string
+  sequence?: number
+}): ChatMessage {
+  return {
+    id: message.id,
+    role: message.role === 'user' ? 'user' : 'assistant',
+    content: message.content,
+    status: message.status === 'failed' || message.status === 'cancelled'
+      ? 'error'
+      : message.status === 'partial'
+        ? 'partial'
+        : message.status === 'streaming'
+          ? 'streaming'
+          : 'complete',
+    errorCode: message.status === 'failed' || message.status === 'cancelled' ? message.status : undefined,
+    sequence: message.sequence,
+  }
+}
+
 export function makeClientRequestId(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(8))
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-/** Stream a turn; grade is read only from the authenticated server-side profile. */
+/**
+ * Stream one idempotent turn. The request ID is supplied by the caller and must be
+ * reused for any reconnect; generating a new ID would create a second billable turn.
+ */
 export async function streamChat(
   content: string,
   conversationId: string | null,
+  clientRequestId: string,
   handlers: ChatStreamHandlers,
 ): Promise<void> {
   const headers = new Headers({ Accept: 'text/event-stream', 'Content-Type': 'application/json' })
@@ -45,7 +78,7 @@ export async function streamChat(
   const body = JSON.stringify({
     conversation_id: conversationId || null,
     content,
-    client_request_id: makeClientRequestId(),
+    client_request_id: clientRequestId,
   })
 
   const response = await fetch(`${API_BASE}/chat/stream`, {
@@ -58,11 +91,12 @@ export async function streamChat(
 
   if (!response.ok) {
     let payload: { code?: string; message?: string } = {}
-    try { payload = await response.json() as typeof payload } catch { /* noop */ }
+    try { payload = await response.json() as typeof payload } catch { /* non-JSON gateway response */ }
     handlers.onError?.(payload.code || 'http_error', payload.message || 'Request failed')
     return
   }
 
+  let receivedDone = false
   await readSseStream(response, (message) => {
     let payload: {
       request_id?: string
@@ -88,6 +122,7 @@ export async function streamChat(
         if (typeof payload.content === 'string') handlers.onDelta?.(payload.content)
         break
       case 'done':
+        receivedDone = true
         handlers.onDone?.(payload.status)
         break
       case 'error':
@@ -95,6 +130,10 @@ export async function streamChat(
         break
     }
   }, handlers.signal)
+
+  if (!handlers.signal?.aborted && !receivedDone) {
+    throw new Error('SSE stream ended before a terminal done event')
+  }
 }
 
 /** Fetch the current user's conversation history with bounded pagination. */
@@ -110,11 +149,6 @@ export async function listConversations(
   )
 }
 
-export type ConversationMessagesPage = {
-  items: ChatMessage[]
-  nextAfterSequence: number | null
-}
-
 /** Fetch an owner-scoped page of conversation history. */
 export async function fetchConversationMessages(
   conversationId: string,
@@ -124,23 +158,27 @@ export async function fetchConversationMessages(
   const params = new URLSearchParams({ limit: String(limit) })
   if (afterSequence !== undefined) params.set('after_sequence', String(afterSequence))
   const data = await apiFetch<{
-    items: Array<{ id: string; role: string; content: string; status: string }>
+    items: Array<{ id: string; role: string; content: string; status: string; sequence: number }>
     next_after_sequence: number | null
   }>(`/conversations/${conversationId}/messages?${params.toString()}`)
   return {
-    items: (data.items || []).map((m) => ({
-      id: m.id,
-      role: m.role === 'user' ? 'user' : 'assistant',
-      content: m.content,
-      status: m.status === 'failed' || m.status === 'cancelled'
-        ? 'error'
-        : m.status === 'partial'
-          ? 'partial'
-          : m.status === 'streaming'
-            ? 'streaming'
-            : 'complete',
-      errorCode: m.status === 'failed' || m.status === 'cancelled' ? m.status : undefined,
-    })),
+    items: (data.items || []).map(mapHistoryMessage),
     nextAfterSequence: data.next_after_sequence,
   }
+}
+
+/** Poll one durable message state after a stream disconnect/replay. */
+export async function fetchConversationMessage(
+  conversationId: string,
+  messageId: string,
+  signal?: AbortSignal,
+): Promise<ChatMessage> {
+  const data = await apiFetch<{
+    id: string
+    role: string
+    content: string
+    status: string
+    sequence: number
+  }>(`/conversations/${conversationId}/messages/${messageId}`, { signal })
+  return mapHistoryMessage(data)
 }
