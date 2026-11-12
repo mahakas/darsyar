@@ -10,18 +10,19 @@
 | 3 | `specs/phase-3.md` | provider gateway، inference service/remote، گفتگو و استریم | فازهای 0/1 و ADRهای مربوط | تکمیل‌شده (2026-11-08؛ شواهد پذیرش Phase 3 ثبت‌شده) |
 | 4 | `specs/phase-4.md` | منابع، manifest، مجوز، استخراج/OCR، chunking و worker | فازهای 0/3 | **Partial — synthetic building blocks موجود؛ فاز هنوز Planned/Gated و پذیرفته‌نشده**. مسیر کامل intake/worker، Gate A/B/C و مجوز واقعی منابع باقی است. |
 | 5 | `specs/phase-5.md` | RAG هیبرید، فیلتر پایه، RRF، rerank، evidence و وب | فاز 4 + دیتاست طلایی | **Partial prototype — retrieval و ارزیابی synthetic موجود؛ فاز پذیرفته نشده**. ADR-043 و دیتاست طلایی حداقل ۱۵۰ پرسشی، evidence snapshot و اتصال به پاسخ واقعی باقی است. |
-| 6 | `specs/phase-6.md` | رابط چت، منبع‌ها، Markdown/KaTeX/Mermaid امن، تاریخچه و i18n | فازهای 1/3/5 | **Partial prototype — shell و چت streaming اولیه موجود**؛ تجربهٔ کامل، تاریخچه، citation/source cards، Markdown امن، accessibility و احراز هویت فرانت‌اند باقی است. |
+| 6 | `specs/phase-6.md` | رابط چت، منبع‌ها، Markdown/KaTeX/Mermaid امن، تاریخچه و i18n | فازهای 1/3/5 | **Partial — authenticated session/profile + explicit grade + owner-scoped searchable/paginated conversation and message history merged 2026-11-12**؛ robust SSE reconnect/resume، evidence SourceCard، safe Markdown/KaTeX/Mermaid، accessibility، responsive/theme acceptance باقی است. |
 | 7 | `specs/phase-7.md` + `docs/ADMIN_CONSOLE_SPEC.md` | Admin Control Center | فازهای ۱–۶ و primitives حسابرسی | **Specification only**؛ ADR-051 Proposed و پیاده‌سازی پنل/endpointها تکمیل نشده است. |
 | 8 | `specs/phase-8.md` | قابلیت‌های یادگیری آینده؛ خارج از MVP و غیرفعال | ADR جدید و تأیید مالک | تعویق‌شده؛ endpoint نساز. |
 | 9 | `specs/phase-9.md` | سخت‌سازی تولید، امنیت، بکاپ/بازیابی، انطباق و عملیات | فازهای MVP | برنامه‌ریزی‌شده؛ هیچ Production release تأیید نشده است. |
 
 ## شواهد CI
 
-آخرین اجرای CI روی commit `571fc2e09f31e361e9773ecf794601930e21349b` در 2026-11-11 موفق شد:
-- Backend: 463 passed, 21 skipped.
-- Frontend: lint و build موفق.
+آخرین اجرای CI روی `main` پس از ادغام Phase 6، commit `536699ff7aa521dd465ca8e374440347b2fc5988`، در 2026-11-12 موفق شد:
+- Backend: 481 passed, 21 skipped, 1 warning.
+- Frontend: lint، typecheck و build موفق.
 - Linux SIGTERM acceptance: موفق.
 - Migration smoke: موفق.
+- اجرای CI: [Run 43126829480](https://github.com/mahakas/darsyar/actions/runs/43126829480).
 
 Skipهای صریح شامل برخی تست‌های sandbox/cgroup و مدل‌های واقعی به‌دلیل نیاز به محیط محدودشده/منابع اضافی هستند؛ بنابراین سبز بودن CI به معنی تأیید Gateهای امنیتی PDF یا Production نیست.
 
