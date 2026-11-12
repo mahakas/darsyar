@@ -49,5 +49,7 @@ export const fa = {
   "historyLoadError": "بارگذاری تاریخچه انجام نشد.",
   "untitledConversation": "گفتگوی بدون عنوان",
   "loadOlderConversations": "گفتگوهای قدیمی‌تر",
-  "historyLoadingMore": "در حال بارگذاری گفتگوها…"
+  "historyLoadingMore": "در حال بارگذاری گفتگوها…",
+  "loadMoreMessages": "پیام‌های بیشتر",
+  "partialResponse": "پاسخ ناقص؛ بخشی از پاسخ دریافت شد."
 } as const
