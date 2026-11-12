@@ -12,7 +12,6 @@ from sqlalchemy.pool import NullPool
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.security import create_token
-from app.db.session import get_db
 from app.repositories import users as users_repo
 from app.api.deps import require_admin
 
@@ -73,7 +72,7 @@ async def test_require_admin_returns_503_before_auth_when_no_active_admin_is_see
             await require_admin(_request_with_token(None), session)
 
         assert exc_info.value.code == "no_admin_seeded"
-        assert exc_info.value.status_code == 503
+        assert exc_info.value.http_status == 503
         await session.rollback()
 
 
@@ -89,7 +88,7 @@ async def test_require_admin_uses_database_role_not_jwt_role_claim() -> None:
         with pytest.raises(AppError) as denied:
             await require_admin(_request_with_token(forged_user_token), session)
         assert denied.value.code == "admin_required"
-        assert denied.value.status_code == 403
+        assert denied.value.http_status == 403
 
         # Conversely, the persisted admin role is authoritative even if the token
         # carries an old/stale role claim; no privilege is granted from JWT metadata.
