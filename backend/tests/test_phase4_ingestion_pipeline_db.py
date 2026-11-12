@@ -16,8 +16,8 @@ import pytest
 import pytest_asyncio
 from app.core.config import get_settings
 from app.core.errors import AppError
-from app.models.ingestion_chunk import IngestionChunk
 from app.models.index_meta import IndexMeta
+from app.models.ingestion_chunk import IngestionChunk
 from app.models.ingestion_document import IngestionDocument
 from app.services.ingestion.chunking import chunk_two_level
 from app.services.ingestion.embedding_service import embed_batch
