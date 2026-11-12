@@ -14,7 +14,8 @@ This directory contains the architecture, security, authorization, acceptance, a
 - Synthetic PostgreSQL job lifecycle primitives: atomic type-filtered claim, lease renewal, monotonic fencing, retry/terminal failure, cancellation acknowledgement, and explicit expired-cancellation finalization. CI evidence is recorded in the durable-job implementation spec; this does not register an ARQ consumer.
 - Outbox publishing/reconciliation to the dedicated arq:queue:ingestion queue using deterministic ARQ job IDs. This is at-least-once delivery and is not a running consumer.
 - Durable claim/lease/fencing/retry/cancellation primitives and synthetic attempt-scoped staging/publishing with explicit integrity checks and cleanup (PRs #21/#22). These helpers are not registered in ARQ.
-- Low-cardinality process-local metrics for claims, lease renewals, fixed job transitions, and successful artifact operations are under review in PR #23. They do not label metrics with job/document/worker IDs, filenames, or checksums.
+- Low-cardinality process-local metrics for claims, lease renewals, fixed job transitions, and successful artifact operations are merged in PR #23. They do not label metrics with job/document/worker IDs, filenames, or checksums.
+- PR #24 adds synthetic PostgreSQL end-to-end success/failure tests across durable job claim, isolated Parent/Child, metadata-only artifact staging/publish, and fenced terminal job transition. It does not register an ARQ consumer or process a real PDF.
 - Synthetic-only PDF validation, parent/child IPC and process-supervisor prototypes, and Linux sandbox probes. These are not an approved production parser/renderer or an operational PDF pipeline.
 
 ### Not implemented or not accepted

@@ -1,6 +1,6 @@
 # Phase 4: Knowledge Ingestion
 
-**Status:** Partial synthetic implementation exists; Phase remains Planned / Gated and is not accepted. ADR-024, ADR-037 and ADR-038 are accepted, but source-specific authorization, PDF processing gates and operational intake remain prerequisites.  
+**Status:** Partial synthetic implementation exists; Phase remains Partial / Gated and is not accepted. ADR-024, ADR-037 and ADR-038 are accepted, but source-specific authorization, PDF processing gates and operational intake remain prerequisites.  
 **Dependencies:** Phase 0 and phase 3 inference/worker interfaces
 
 ### Implemented safely (synthetic only)
@@ -10,9 +10,10 @@
 - PostgreSQL/pgvector chunk indexing and synthetic integration tests.
 - Child overlap enforcement and strict parent size/coverage bounds.
 - Fail-closed active `index_meta` registry enforcement for indexing; provider model, vector dimension and metric must match the active registry before replacing existing chunks.
-- Durable ingestion document/job/outbox persistence, publisher/reconciliation, fenced claim/lease/retry/cancellation (PR #21), and attempt-scoped artifact staging/publish/recovery (PR #22).
-- Low-cardinality job/artifact observability metrics are in review (PR #23); the administrative recovery surface is not implemented.
-- Synthetic PostgreSQL claim/lease/fencing/retry/cancellation lifecycle (PR #21 merged 2026-11-12); no ARQ consumer or PDF processing is activated.
+- Durable ingestion document/job/outbox persistence and publisher/reconciliation; PostgreSQL claim/lease/fencing/retry/cancellation (PR #21).
+- Attempt-scoped synthetic artifact staging, integrity verification, lease/fencing-guarded immutable publish, and explicit orphan cleanup (PR #22).
+- Low-cardinality process-local metrics for job claims, renewals, fixed transitions, and successful artifact operations (PR #23); no job/document/worker IDs or file metadata are labels.
+- Synthetic PostgreSQL end-to-end tests cover job claim → isolated Parent/Child subprocess → metadata-only artifact publish → successful terminal state, plus malformed-child failure with no artifact publication (PR #24).
 
 These components do not constitute an operational textbook-ingestion workflow. No real textbook has been processed under this synthetic test path. The active-index registry code does not auto-seed any active model: a real index remains unavailable until an operator provisions a verified record that matches the physical 1024-dimensional cosine vector index and the selected provider.
 
@@ -27,12 +28,14 @@ These components do not constitute an operational textbook-ingestion workflow. N
 
 ### Implementation CI evidence — 2026-11-12
 
-Branch `feat/active-index-meta-enforcement`, exact HEAD `259b13916a4579d2e947da27209e504a71f94ea4`, GitHub Actions Run [43129891289](https://github.com/mahakas/darsyar/actions/runs/43129891289):
-- Backend: **492 passed, 21 skipped, 1 warning**; Ruff clean.
+PR #24 (`test/phase4-synthetic-job-child-artifact-e2e`), head `886e9d53612e409f6299dc56c18e8f5b7dd3fcf8`, GitHub Actions Runs [43254207065](https://github.com/mahakas/darsyar/actions/runs/43254207065) and [43254283612](https://github.com/mahakas/darsyar/actions/runs/43254283612):
+- Backend: **545 passed, 21 skipped, 1 warning**; Ruff and mypy clean (132 source files), Alembic migration smoke PASS.
 - Frontend lint/typecheck/build: PASS.
 - Linux SIGTERM acceptance: PASS.
+- Nginx config/header smoke: PASS.
+- Trivy report-only filesystem/image scans: PASS (report generation only; not zero vulnerabilities).
 
-The branch is not yet merged when this evidence is recorded. Passing CI validates synthetic/test paths, not legal authorization or PDF-processing gates.
+PR #24 is merged to `main` (`385a3d1fdedb429250e478ed836c96e9e1422a9e`). These checks validate synthetic-only paths, not legal authorization, sandbox enforcement, PDF renderer approval, operational consumer readiness, or real textbook quality.
 
 ## Goal
 
