@@ -16,7 +16,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.services.ingestion.embedding_service import embed_batch
-from app.services.ingestion.index_registry import require_active_index_meta, validate_embedding_provider
+from app.services.ingestion.index_registry import (
+    require_active_index_meta,
+    validate_embedding_provider,
+)
 from app.services.ingestion.retrieval import RetrievalResult, hybrid_retrieve
 
 EmbedFn = Callable[[list[str]], Awaitable[list[list[float]]]]
