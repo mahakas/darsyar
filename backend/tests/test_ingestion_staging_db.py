@@ -31,7 +31,7 @@ ENGINE = create_async_engine(get_settings().database_url, poolclass=NullPool)
 SESSION_FACTORY = async_sessionmaker(ENGINE, expire_on_commit=False)
 
 
-async def _new_lease() -> tuple[IngestionJobLease, dt.datetime]:
+async def _new_lease() -> tuple[IngestionJobLease, dt.datetime, str]:
     job_type = f"staging_{uuid.uuid4().hex[:16]}"
     async with SESSION_FACTORY() as session:
         document = IngestionDocument(
@@ -63,7 +63,7 @@ async def _new_lease() -> tuple[IngestionJobLease, dt.datetime]:
         )
         assert lease is not None and lease.job_id == job_id
         await session.commit()
-    return lease, now
+    return lease, now, job_type
 
 
 def test_stage_verify_and_explicit_max_bytes(tmp_path: Path) -> None:
@@ -178,7 +178,7 @@ def test_discard_attempt_is_idempotent_and_scoped(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_publish_requires_current_live_fenced_lease_and_is_idempotent(tmp_path: Path) -> None:
-    lease, now = await _new_lease()
+    lease, now, job_type = await _new_lease()
     store = StagingArtifactStore(tmp_path / "artifacts")
     metadata = store.stage_artifact(
         job_id=lease.job_id,
@@ -210,6 +210,68 @@ async def test_publish_requires_current_live_fenced_lease_and_is_idempotent(tmp_
                 session, lease=stale, metadata=metadata, now=now, max_bytes=128
             )
         await session.rollback()
+
+
+
+@pytest.mark.asyncio
+async def test_stale_fenced_attempt_cannot_publish_after_reclaim(tmp_path: Path) -> None:
+    lease, _now, job_type = await _new_lease()
+    store = StagingArtifactStore(tmp_path / "artifacts")
+    metadata = store.stage_artifact(
+        job_id=lease.job_id,
+        fencing_token=lease.fencing_token,
+        artifact_name="old-attempt.json",
+        data=b"stale",
+        media_type="application/json",
+        max_bytes=64,
+    )
+    reclaim_at = lease.lease_expires_at + dt.timedelta(microseconds=1)
+    async with SESSION_FACTORY() as session:
+        replacement = await claim_next_ingestion_job(
+            session,
+            job_type=job_type,
+            worker_id="replacement-worker",
+            now=reclaim_at,
+            lease_duration=dt.timedelta(minutes=2),
+        )
+        assert replacement is not None
+        assert replacement.job_id == lease.job_id
+        assert replacement.fencing_token == lease.fencing_token + 1
+        await session.commit()
+
+    async with SESSION_FACTORY() as session:
+        with pytest.raises(StaleArtifactAttemptError, match="stale"):
+            await store.publish_staged_artifact(
+                session,
+                lease=lease,
+                metadata=metadata,
+                now=reclaim_at,
+                max_bytes=64,
+            )
+        await session.rollback()
+
+    assert not (store.root / "published" / str(lease.job_id) / str(lease.fencing_token)).exists()
+
+
+def test_attempt_directory_symlink_is_rejected(tmp_path: Path) -> None:
+    root = tmp_path / "artifacts"
+    store = StagingArtifactStore(root)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    staging = root / "staging"
+    staging.mkdir()
+    job_parent = staging / str(uuid.uuid4())
+    job_parent.symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(StagingArtifactError, match="symlink"):
+        store.stage_artifact(
+            job_id=uuid.UUID(job_parent.name),
+            fencing_token=1,
+            artifact_name="escape.bin",
+            data=b"no",
+            media_type="application/octet-stream",
+            max_bytes=8,
+        )
 
 
 @pytest.mark.asyncio
