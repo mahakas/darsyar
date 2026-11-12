@@ -23,6 +23,8 @@ export default function ChatPanel({
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyLoadingMore, setHistoryLoadingMore] = useState(false)
+  const [historyNextSequence, setHistoryNextSequence] = useState<number | null>(null)
   const [historyError, setHistoryError] = useState('')
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId)
   const abortRef = useRef<AbortController | null>(null)
@@ -37,6 +39,7 @@ export default function ChatPanel({
     setConversationId(initialConversationId)
     if (!initialConversationId) {
       setMessages([])
+      setHistoryNextSequence(null)
       setHistoryLoading(false)
       return () => {
         active = false
@@ -45,8 +48,11 @@ export default function ChatPanel({
     setMessages([])
     setHistoryLoading(true)
     void fetchConversationMessages(initialConversationId)
-      .then((history) => {
-        if (active) setMessages(history)
+      .then((page) => {
+        if (active) {
+          setMessages(page.items)
+          setHistoryNextSequence(page.nextAfterSequence)
+        }
       })
       .catch(() => {
         if (active) setHistoryError(t('historyLoadError'))
@@ -58,6 +64,20 @@ export default function ChatPanel({
       active = false
     }
   }, [initialConversationId, t])
+
+  const loadMoreMessages = async () => {
+    if (!conversationId || historyNextSequence === null || historyLoadingMore) return
+    setHistoryLoadingMore(true)
+    try {
+      const page = await fetchConversationMessages(conversationId, 100, historyNextSequence)
+      setMessages((current) => [...current, ...page.items])
+      setHistoryNextSequence(page.nextAfterSequence)
+    } catch {
+      setHistoryError(t('historyLoadError'))
+    } finally {
+      setHistoryLoadingMore(false)
+    }
+  }
 
   useEffect(() => () => {
     abortRef.current?.abort()
@@ -103,8 +123,13 @@ export default function ChatPanel({
           assistantId = messageId
         },
         onDelta: (delta) => updateLast({}, delta),
-        onDone: () => {
-          updateLast({ id: assistantId || `assistant-${Date.now()}`, status: 'complete' })
+        onDone: (status) => {
+          const finalStatus = status === 'partial'
+            ? 'partial'
+            : status === 'failed' || status === 'cancelled'
+              ? 'error'
+              : 'complete'
+          updateLast({ id: assistantId || `assistant-${Date.now()}`, status: finalStatus })
           setBusy(false)
           abortRef.current = null
           if (activeConversationId) onConversationChange?.(activeConversationId)
@@ -117,6 +142,7 @@ export default function ChatPanel({
         },
       })
     } catch {
+      if (controller.signal.aborted) return
       updateLast({ status: 'error', errorCode: 'network_error', content: t('networkError') })
       setBusy(false)
       abortRef.current = null
@@ -145,8 +171,19 @@ export default function ChatPanel({
             <div className="message-role">{message.role === 'user' ? t('you') : t('assistant')}</div>
             <div className="message-content">{message.content || (message.status === 'streaming' ? '…' : '')}</div>
             {message.status === 'error' && <div className="message-error">{message.errorCode}</div>}
+            {message.status === 'partial' && <div className="message-status">{t('partialResponse')}</div>}
           </article>
         ))}
+        {historyNextSequence !== null && (
+          <button
+            className="history-item history-messages-more"
+            type="button"
+            onClick={() => { void loadMoreMessages() }}
+            disabled={historyLoadingMore || historyLoading}
+          >
+            {historyLoadingMore ? t('historyLoadingMore') : t('loadMoreMessages')}
+          </button>
+        )}
       </div>
       <form className="composer" onSubmit={submit}>
         <label className="sr-only" htmlFor="chat-input">{t('askPlaceholder')}</label>
