@@ -38,8 +38,7 @@
 | `backend/app/api/v1/billing.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
 | `backend/app/api/v1/chat.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
 | `backend/app/api/v1/documents.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
-| `backend/app/api/v1/health.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
-| `backend/app/api/v1/router.py` | تجمیع health + auth (فاز ۱). |
+| `backend/app/api/v1/health.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. || `backend/app/api/v1/router.py` | تجمیع health + auth (فاز ۱). |
 | `backend/app/api/v1/router.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
 | `backend/app/api/v1/sessions.py` | روتر/وابستگی API؛ برخی فایل‌ها placeholder فاز آینده‌اند. |
 | `backend/app/core/__init__.py` | تنظیمات، امنیت پایه، لاگ، خطا یا عملیات مرکزی. |
@@ -58,7 +57,8 @@
 | `backend/app/inference/__init__.py` | پوستهٔ inference؛ مدل سنگین در فاز صفر لود نمی‌شود. |
 | `backend/app/inference/main.py` | پوستهٔ inference؛ مدل سنگین در فاز صفر لود نمی‌شود. |
 | `backend/app/inference/models.py` | پوستهٔ inference؛ مدل سنگین در فاز صفر لود نمی‌شود. |
-| `backend/app/main.py` | پیکربندی و اسکلت اجرایی backend. || `backend/app/models/.gitkeep` | محل مدل‌های SQLAlchemy؛ فعلاً اسکلت. |
+| `backend/app/main.py` | پیکربندی و اسکلت اجرایی backend. |
+| `backend/app/models/.gitkeep` | محل مدل‌های SQLAlchemy؛ فعلاً اسکلت. |
 | `backend/app/models/__init__.py` | رجیستری مدل‌های SQLAlchemy؛ `IndexMeta`, `User`, `OtpChallenge`, `RefreshToken`, `AdminAuditLog`. |
 | `backend/app/models/admin_audit_log.py` | مدل لاگ حسابرسی ادمین append-only (فاز ۱). |
 | `backend/app/models/index_meta.py` | مدل جدول `index_meta` با سبک `Mapped[]` (R-042/R-087). |
@@ -77,8 +77,7 @@
 | `backend/app/scripts/seed_admin.py` | CLI ادمین اولیه با تأیید و حسابرسی (فاز ۱). |
 | `backend/app/services/__init__.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/auth.py` | سرویس دامنهٔ OTP و چرخش/ابطال refresh (فاز ۱). |
-| `backend/app/services/citation.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
-| `backend/app/services/embedding.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
+| `backend/app/services/citation.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. || `backend/app/services/embedding.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/ingestion/.gitkeep` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/ingestion/__init__.py` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
 | `backend/app/services/learning/.gitkeep` | سرویس/adapter؛ placeholder تا فاز مربوطه مگر آنکه در کد توضیح داده شده باشد. |
@@ -156,8 +155,7 @@
 | `backend/tests/conftest.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
 | `backend/tests/integration/.gitkeep` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
 | `backend/tests/security/.gitkeep` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
-| `backend/tests/test_config.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
-| `backend/tests/test_errors.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
+| `backend/tests/test_config.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. || `backend/tests/test_errors.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
 | `backend/tests/test_health.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
 | `backend/tests/test_inference_shell.py` | تست شکل خطای استاندارد و صداقت shell سرویس inference. |
 | `backend/tests/test_logging.py` | تست پایه یا placeholder برای تست‌های مرحله‌ای. |
@@ -176,7 +174,8 @@
 | `docs/CONSENT_AND_PRIVACY_DRAFT.md` | سند مرجع طراحی، امنیت، عملیات یا ریسک. |
 | `docs/DATA_MODEL.md` | سند مرجع طراحی، امنیت، عملیات یا ریسک. |
 | `docs/DECISIONS.md` | سند مرجع طراحی، امنیت، عملیات یا ریسک. |
-| `docs/DEPLOYMENT.md` | سند مرجع طراحی، امنیت، عملیات یا ریسک. || `docs/GRADE_MAPPING.md` | سند مرجع طراحی، امنیت، عملیات یا ریسک. |
+| `docs/DEPLOYMENT.md` | سند مرجع طراحی، امنیت، عملیات یا ریسک. |
+| `docs/GRADE_MAPPING.md` | سند مرجع طراحی، امنیت، عملیات یا ریسک. |
 | `docs/INCIDENTS.md` | سند مرجع طراحی، امنیت، عملیات یا ریسک. |
 | `docs/OPEN_QUESTIONS.md` | سند مرجع طراحی، امنیت، عملیات یا ریسک. |
 | `docs/PRODUCT_SPEC.md` | سند مرجع طراحی، امنیت، عملیات یا ریسک. |
@@ -195,8 +194,7 @@
 | `docs/adr/ADR-006-heavy-model-workers.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
 | `docs/adr/ADR-007-credit-ledger.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
 | `docs/adr/ADR-008-configuration-secrets.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
-| `docs/adr/ADR-009-dependency-policy.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
-| `docs/adr/ADR-010-grade-filter.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
+| `docs/adr/ADR-009-dependency-policy.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. || `docs/adr/ADR-010-grade-filter.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
 | `docs/adr/ADR-011-admin-bootstrap.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
 | `docs/adr/ADR-012-web-fallback.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
 | `docs/adr/ADR-024-resource-licensing.md` | ثبت تصمیم معماری؛ وضعیت proposed/accepted در خود سند آمده است. |
@@ -274,8 +272,7 @@
 | `backend/app/models/message.py` | مدل پیام و وضعیت‌های استریم (فاز ۳). |
 | `backend/app/models/rate_limit_counter.py` | مدل شمارندهٔ fallback ریت‌لیمیت (OQ-006). |
 | `backend/app/repositories/conversations.py` | دسترسی گفتگو/پیام با مالکیت در query. |
-| `backend/app/schemas/conversation.py` | schemaهای گفتگو/پیام/استریم (فاز ۳). |
-| `backend/app/services/llm.py` | درگاه provider سازگار OpenAI (NVIDIA/OpenAI) برای استریم چت (فاز ۳). |
+| `backend/app/schemas/conversation.py` | schemaهای گفتگو/پیام/استریم (فاز ۳). || `backend/app/services/llm.py` | درگاه provider سازگار OpenAI (NVIDIA/OpenAI) برای استریم چت (فاز ۳). |
 | `backend/tests/test_llm_provider.py` | تست واحد درگاه LLM با respx. |
 | `backend/tests/test_chat_persistence_db.py` | تست‌های یکپارچهٔ گفتگو/پیام روی PostgreSQL واقعی. |
 | `backend/tests/test_rate_limit_fallback_db.py` | تست‌های fallback ریت‌لیمیت مبتنی بر PostgreSQL. |
@@ -294,7 +291,8 @@
 | `backend/tests/test_slice_f_observability.py` | تست‌های متریک‌ها، drain و lifecycle خاموشی (Slice F). |
 | `backend/tests/test_phase3_http_acceptance.py` | پذیرش یکپارچه فاز ۳: HTTP واقعی (Uvicorn subprocess) + PostgreSQL + Provider mock محلی. |
 | `backend/scripts/phase3_sigterm_acceptance.py` | پذیرش process-level: SIGTERM واقعی در Linux/Docker برای چت استریم. |
-| `backend/tests/test_deployment_hardening.py` | تست‌های سخت‌سازی Deployment: امنیت Metrics، Early Draining و زمان‌بندی بازیابی worker. || `backend/app/core/run_server.py` | Runner حداقلی Uvicorn با Early Draining (فعال‌سازی draining از لحظه SIGTERM). |
+| `backend/tests/test_deployment_hardening.py` | تست‌های سخت‌سازی Deployment: امنیت Metrics، Early Draining و زمان‌بندی بازیابی worker. |
+| `backend/app/core/run_server.py` | Runner حداقلی Uvicorn با Early Draining (فعال‌سازی draining از لحظه SIGTERM). |
 | `backend/scripts/phase3_sigterm_linux.py` | آزمون process-level Linux CI: Open SSE + SIGTERM واقعی + تأیید مالی PostgreSQL. |
 | `resources/math/grade2/manifest.yaml` | manifest آزمایشی ریاضی دوم دبستان (کد 2051)؛ حالت needs_review. |
 | `resources/physics/grade12/manifest.yaml` | manifest آزمایشی فیزیک ۳ دوازدهم (کد 112209)؛ حالت needs_review. |
@@ -313,8 +311,7 @@
 | `docs/ingestion/OWNER_DECISIONS.md` | بستهٔ تصمیم مالک برای سه گیت (renderer، محدودیت‌های امنیتی، آزمون هم‌ارزی) — آماده‌سازی، بدون تصمیم. |
 | `.github/workflows/ingestion-pdfium-linux-preflight.yml` | workflow دستی (workflow_dispatch) برای preflight Linux pypdfium2+Pillow در `python:3.13-slim` (فقط دستی؛ بدون اجرا توسط KiloCode). |
 | `scripts/ci/pdfium_linux_preflight.py` | هارنس CI-only برای تست Linux pypdfium2 5.15.2 + Pillow 12.3.0 (ماژول کاربردی نیست). |
-| `docs/ingestion/PDFIUM_LINUX_PREFLIGHT.md` | ثبت شواهد Run #6 (PASS فنی؛ بدون تأیید Production؛ Gate A OPEN). |
-| `docs/ingestion/GATE_A_RENDERER_DECISION.md` | ارزیابی نهایی Gate A؛ توصیه pypdfium2 به‌عنوان پیشنهاد تأیید مالک (نه Production). |
+| `docs/ingestion/PDFIUM_LINUX_PREFLIGHT.md` | ثبت شواهد Run #6 (PASS فنی؛ بدون تأیید Production؛ Gate A OPEN). || `docs/ingestion/GATE_A_RENDERER_DECISION.md` | ارزیابی نهایی Gate A؛ توصیه pypdfium2 به‌عنوان پیشنهاد تأیید مالک (نه Production). |
 | `docs/ingestion/PDFIUM_LICENSE_INVENTORY.md` | موجودی فنی مجوز/notices برای pypdfium2 5.15.2 (ایعزلوله/Windows)؛ تأیید حقوقی نیست. |
 | `docs/ingestion/PDFIUM_OWNER_LEGAL_REVIEW.md` | خلاصه یادمند مالک/حقوقی برای pypdfium2 5.15.2 (چک‌لیست تصمیم‌ها؛ بدون تصمیم‌گیری). |
 | `docs/ingestion/PDFIUM_CONCURRENCY_DECISION.md` | ارزیابی فرایندهای isolated/هم‌زمانی برای pypdfium2 (پیشنهاد Option C؛ بدون تصمیم مالک). |
@@ -353,4 +350,45 @@
 | docs/ingestion/GATE_B_S1_PARENT_CHILD_PROTOTYPE.md | پیاده‌سازی Gate B-S1 (Approve_With_Conditions): Parent Supervisor + PDF Child ایزوله (IPC v1، pypdf 6.21.3، timeout/خاتمه/بازیابی، ایزوله‌سازی env)؛ تست‌های synthetic-only (17 passed)؛ بدون pilot/آپلود/رندر/Production. |
 | docs/ingestion/GATE_B_S2_LINUX_SANDBOX_PROTOTYPE.md | پیاده‌سازی Gate B-S2 (Approve_With_Conditions): sandbox ایزولهٔ Linux (network none، read-only rootfs، memory/CPU/PID limits، cap-drop، non-root) با شواهد probe؛ 52 passed در کانتینر؛ غیر از Deployment Dockerfile/Compose. |
 | docs/ingestion/GATE_B_S3_NUMERIC_POLICY_OWNER_DECISION.md | بستهٔ تصمیم مالک Gate B-S3: 18 تصمیم عددی/امنیتی؛ `GATE_B_S3_PARTIAL_OWNER_DECISION=APPROVE_WITH_CONDITIONS` (6 تأییدشده: GB-01/02/03/08/09/18؛ 12 PENDING)؛ بدون پیاده‌سازی/فعال‌سازی. |
-| docs/ingestion/GATE_B_S4_AGGREGATE_DECOMPRESSION_AND_CGROUP_EVIDENCE.md | آزمایش آزمایشگاهی Gate B-S4 (Approve_With_Conditions): بودجه decompression کل سند (256 MiB candidate: قابل‌اجرا، بدون تأیید) + شواهد شمارنده cgroup v2 مستقیم (memory OOM/CPU throttling/PID). |
+| docs/ingestion/GATE_B_S4_AGGREGATE_DECOMPRESSION_AND_CGROUP_EVIDENCE.md | آزمایش آزمایشگاهی Gate B-S4 (Approve_With_Conditions): بودجه decompression کل سند (256 MiB candidate: قابل‌اجرا، بدون تأیید) + شواهد شمارنده cgroup v2 مستقیم (memory OOM/CPU throttling/PID). || docs/ingestion/GATE_B_S4_1_AGGREGATE_DECOMPRESSION_COVERAGE.md | آزمایش Gate B-S4.1 (Approve_With_Conditions): پوشش/کشف جریان‌ها، حسابداری شکست‌ها، ایزوله‌سازی هم‌زمانی؛ Q1=PARTIALLY؛ بدون تأیید GB-04. |
+| docs/ingestion/GATE_B_S4_2_PARSE_TIME_DECOMPRESSION_AND_PYPDF_SECURITY_REVIEW.md | آزمایش Gate B-S4.2 (Approve_With_Conditions): decompression ضمنی هنگام parse، ایزوله‌سازی فرایند per-document، بازبینی نسخه/مشاوره pypdf (4 نسخه)؛ قفل 6.21.3 بدون تغییر؛ **LAB_VALIDATION_PARTIAL** (شکاف‌های شواهد ثبت‌شده). |
+| docs/ingestion/GATE_B_S5_PDF_PARSER_DECODER_ARCHITECTURE_COMPARISON.md | مقایسه معماری/امنیت پارسر-دیکودر Gate B-S5 (Approve_With_Conditions): 4 نامزد (pypdf 6.21.3/7.0.1، pypdfium2/PDFium، PyMuPDF/MuPDF، orchestration مستقل)؛ بازبینی رسمی pypdf (8 advisory scope) + pypdfium2/PyMuPDF/qpdf؛ بدون انتخاب/ارتقا؛ **ARCHITECTURE_REVIEW_COMPLETE**. |
+| docs/reports/AUTONOMOUS_PROJECT_COMPLETION_REPORT.md | گزارش تحویل نهایی خودگردان: وضعیت واقعی، فازها (0–3 کامل؛ 4–9 گیت‌شده)، شواهد تست/استاتیک/build، گیت‌ها، تصمیمات در انتظار مالک. |
+| docs/reports/AUTONOMOUS_EXECUTION_STATE.md | چک‌پوینت وضعیت اجرای خودگردان (directive §9): وضعیت فازها/گیت‌ها، ارزیابی ایزوله pypdf 7.0.1 (57 passed؛ 2 delta مورد انتظار)، ثبت تصمیمات تفویض‌شده، بلاک‌کننده 13529، اقدام بعدی دقیق. |
+| docs/ingestion/PYPDF_RESOURCE_LIMITS_AUDIT.md | ممیزی منابع pypdf (per-filter/stream caps؛ نه بودجهٔ کلی) و رفتار validator (شمارش صفحه بدون decode جریان)؛ یکسانی رفتاری 6.21.3 و 6.21.4 تأییدشده (22 تست در هر دو). |
+| backend/app/services/ingestion/pdf_validation.py | لایهٔ اعتبارسنجی مشترک PDF (Gate B-S0): امضا/ساختار/صفحه/رمزنگاری/محدودیت‌های صریح؛ بدون استخراج متن/رندر. |
+| backend/app/services/ingestion/parent_child_contract.py | قرارداد نسخه‌دار Parent/Child (IPC v1؛ Gate B-S0/S1). |
+| backend/app/services/ingestion/parent_supervisor.py | سرپرست Parent (Gate B-S1): spawn فرایند ایزوله، allowlist محیط، timeout/خاتمه/بازیابی، اعتبارسنجی نتیجه. |
+| backend/app/services/ingestion/pdf_child.py | فرایند فرزند PDF (Gate B-S1): `python -m ...pdf_child`؛ scoped Configuration pypdf؛ decode جریان؛ نتیجهٔ ساخت‌یافته. |
+| backend/app/services/ingestion/linux_sandbox.py | پروب/رانر sandbox Linux (Gate B-S2): اندازه‌گیری و تأیید enforcement (network/fs/memory/CPU/PID) و run_sandboxed_child. |
+| backend/tests/test_gate_b_pdf_validation.py | تست‌های synthetic-only اعتبارسنجی PDF (Gate B-S0؛ 22 تست). |
+| backend/tests/test_gate_b_parent_child.py | تست‌های synthetic-only Parent/Child (Gate B-S1؛ 17 تست). |
+| backend/tests/test_gate_b_linux_sandbox.py | تست‌های synthetic-only sandbox Linux (Gate B-S2؛ 13 تست enforcement). |
+| backend/tests/sandbox/Dockerfile.sandbox | ایمیج مستقل آزمایشی sandbox Linux (Gate B-S2؛ pypdf 6.21.3؛ نه بخش Deployment). |
+| backend/tests/test_gate_b_s4_aggregate_decompression.py | آزمایش A (Gate B-S4): بودجه decompression کل/جریان با pypdf 6.21.3 (8 تست). |
+| backend/tests/test_gate_b_s4_cgroup_evidence.py | آزمایش B (Gate B-S4): شواهد شمارنده cgroup v2 (memory/CPU/PID) (7 تست). |
+| backend/tests/sandbox/s4_cgroup_lib.py | کتابخانهٔ probeهای cgroup (test-only). |
+| backend/tests/sandbox/s4_cgroup_probe.py | درایور چاپ شواهد cgroup (test-only). |
+| backend/tests/sandbox/s4_1_lib.py | کتابخانهٔ test-only S4.1 (builders/Orchestratorها). |
+| backend/app/models/ingestion_chunk.py | مدل chunk سند (R-150؛ parent/child، Vector(1024)، متادیتا). |
+| backend/app/services/ingestion/manifest.py | اعتبارسنجی manifest (R-153/154). |
+| backend/app/services/ingestion/chunking.py | chunking دو سطحی (R-158/159). |
+| backend/app/services/ingestion/normalize.py | نرمال‌سازی فارسی (R-164). |
+| backend/app/services/ingestion/embedding_service.py | سرویس embedding (batch/timeout/retry/dim). |
+| backend/app/services/ingestion/indexing.py | ایندکس idempotent اتمیک chunk+embedding. |
+| backend/app/services/ingestion/retrieval.py | بازیابی هیبرید (pgvector+pg_trgm، RRF k=60، فیلتر grade در SQL، rerank top-20). |
+| backend/alembic/versions/0020_ingestion_chunks.py | مهاجرت جدول ingestion_chunks (فاز 4). |
+| backend/alembic/versions/0021_ingestion_chunks_indexes.py | مهاجرت ایندکس‌های سنگین HNSW/GIN (فاز 4). |
+| backend/tests/test_phase4_ingestion_pipeline_db.py | تست‌های یکپارچه فاز 4 (10 تست؛ PostgreSQL واقعی). |
+| backend/app/services/ingestion/retrieval_service.py | سرویس orchestration بازیابی فاز 5 (provider wiring + citation guard). |
+| backend/app/services/ingestion/evaluation.py | ارزیابی gold مصنوعی RAG (فاز 5؛ grade leakage/citation). |
+| backend/tests/test_phase5_rag_evaluation_db.py | تست‌های فاز 5 (گیت‌های RAG روی دادهٔ مصنوعی). |
+| backend/tests/test_gate_b_s4_1_stream_coverage.py | آزمایش A S4.1: پوشش/کشف جریان‌ها. |
+| backend/tests/test_gate_b_s4_1_failure_accounting.py | آزمایش B S4.1: حسابداری شکست/partial. |
+| backend/tests/test_gate_b_s4_1_concurrency_isolation.py | آزمایش C S4.1: ایزوله‌سازی هم‌زمانی (threads/async). |
+| backend/tests/sandbox/s4_2_lib.py | کتابخانهٔ test-only S4.2 (فرایند فرزند per-document). |
+| backend/tests/sandbox/pypdf_version_probe.py | درایور مستقل version-matrix (S4.2). |
+| backend/tests/test_gate_b_s4_2_parse_time_decompression.py | آزمایش A S4.2: decompression ضمنی هنگام parse. |
+| backend/tests/test_gate_b_s4_2_process_isolation.py | آزمایش B S4.2: فرایند فرزند per-document. || backend/tests/test_gate_b_s4_2_security_regressions.py | آزمایش C/D S4.2: مشاوره/فیلترها (6.21.3). |
+| backend/alembic/versions/0019_outbox_job_fk_restrict.py | مهاجرت R-1: تغییر FK `fk_outbox_events_job` از CASCADE به RESTRICT (برگشت‌پذیر؛ R1-IMPL؛ روی `darsyar` اعمال شد 2026-11-11). |
+| backend/tests/test_ingestion_restrict_db.py | تست PostgreSQL R-1: metadata/catalog/RESTRICT، رد حذف SQL و ORM، حفظ والد/فرزند، حذف job بی‌outbox، head 0019 (7 تست). |
