@@ -349,6 +349,9 @@ async def test_new_chat_retry_reuses_original_conversation_and_reservation() -> 
     assert await _balance(uid) == bal_before - 1
     async with TEST_SESSION_FACTORY() as session:
         assert await conv_repo.count_owned(session, uid) == 1
+        conversations = await conv_repo.list_owned(session, uid, limit=10)
+        assert len(conversations) == 1
+        assert conversations[0].title == "same turn"
 
 
 @pytest.mark.asyncio
