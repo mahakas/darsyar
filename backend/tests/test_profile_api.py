@@ -2,7 +2,6 @@
 
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-
 import pytest
 
 from app.api.deps import get_current_user
