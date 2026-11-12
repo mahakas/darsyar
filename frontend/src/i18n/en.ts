@@ -47,5 +47,7 @@ export const en = {
   "historyLoading": "Loading history…",
   "historyEmpty": "No conversations found.",
   "historyLoadError": "Conversation history could not be loaded.",
-  "untitledConversation": "Untitled conversation"
+  "untitledConversation": "Untitled conversation",
+  "loadOlderConversations": "Load older conversations",
+  "historyLoadingMore": "Loading conversations…"
 } as const
