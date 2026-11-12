@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getMyProfile, logout, updateSelectedGrade, type SessionUser } from './api/auth'
+import { listConversations, type ConversationSummary } from './api/chat'
 import { apiFetch } from './api/client'
 import AuthPanel from './components/AuthPanel'
 import ChatPanel from './components/ChatPanel'
@@ -20,6 +21,11 @@ export default function App() {
   const [gradeDraft, setGradeDraft] = useState('')
   const [gradeSaving, setGradeSaving] = useState(false)
   const [profileError, setProfileError] = useState('')
+  const [conversations, setConversations] = useState<ConversationSummary[]>([])
+  const [historyQuery, setHistoryQuery] = useState('')
+  const [historyVersion, setHistoryVersion] = useState(0)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
 
   useEffect(() => {
     const language = i18n.resolvedLanguage || 'fa'
@@ -59,6 +65,29 @@ export default function App() {
     return () => controller.abort()
   }, [])
 
+  useEffect(() => {
+    if (sessionState !== 'signed_in' || !user || user.selected_grade === null) {
+      setConversations([])
+      setHistoryLoading(false)
+      return
+    }
+    let active = true
+    setHistoryLoading(true)
+    void listConversations(50, 0)
+      .then((page) => {
+        if (active) setConversations(page.items)
+      })
+      .catch(() => {
+        if (active) setConversations([])
+      })
+      .finally(() => {
+        if (active) setHistoryLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [sessionState, user?.id, user?.selected_grade, historyVersion])
+
   const changeLanguage = (language: string) => {
     void i18n.changeLanguage(language)
   }
@@ -85,6 +114,8 @@ export default function App() {
       await logout()
     } finally {
       setUser(null)
+      setConversations([])
+      setSelectedConversationId(null)
       setSessionState('signed_out')
       setGradeDraft('')
       setView('welcome')
@@ -96,14 +127,62 @@ export default function App() {
     setSessionState('signed_in')
   }
 
+  const startNewChat = () => {
+    setSelectedConversationId(null)
+    setView('chat')
+  }
+
+  const selectConversation = (conversationId: string) => {
+    setSelectedConversationId(conversationId)
+    setView('chat')
+  }
+
+  const handleConversationChange = (conversationId: string | null) => {
+    setSelectedConversationId(conversationId)
+    if (conversationId) setHistoryVersion((version) => version + 1)
+  }
+
+  const filteredConversations = conversations.filter((conversation) =>
+    (conversation.title || '').toLocaleLowerCase().includes(historyQuery.trim().toLocaleLowerCase()),
+  )
+
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="Main navigation">
         <div className="brand-mark" aria-hidden="true">د</div>
         <div className="brand-copy"><strong>{t('appName')}</strong><span>AI Learning</span></div>
-        <button className="new-chat" type="button" onClick={() => setView('chat')} disabled={sessionState !== 'signed_in' || user?.selected_grade === null}>＋ <span>{t('newChat')}</span></button>
+        <button className="new-chat" type="button" onClick={startNewChat} disabled={sessionState !== 'signed_in' || user?.selected_grade === null}>＋ <span>{t('newChat')}</span></button>
         <div className="side-label">{t('learningSpace')}</div>
         <button className={'nav-item ' + (view === 'chat' ? 'active' : '')} type="button" onClick={() => setView('chat')} disabled={sessionState !== 'signed_in' || user?.selected_grade === null}>✳ <span>{t('smartChat')}</span></button>
+        {sessionState === 'signed_in' && user?.selected_grade !== null && (
+          <section className="conversation-history" aria-label={t('conversationHistory')}>
+            <div className="side-label">{t('conversationHistory')}</div>
+            <label className="sr-only" htmlFor="history-search">{t('searchHistory')}</label>
+            <input
+              id="history-search"
+              className="history-search"
+              type="search"
+              value={historyQuery}
+              onChange={(event) => setHistoryQuery(event.target.value)}
+              placeholder={t('searchHistory')}
+            />
+            {historyLoading && <span className="history-hint">{t('historyLoading')}</span>}
+            {!historyLoading && filteredConversations.length === 0 && (
+              <span className="history-hint">{t('historyEmpty')}</span>
+            )}
+            {filteredConversations.map((conversation) => (
+              <button
+                key={conversation.id}
+                className={'history-item ' + (selectedConversationId === conversation.id ? 'active' : '')}
+                type="button"
+                onClick={() => selectConversation(conversation.id)}
+                title={conversation.title || t('untitledConversation')}
+              >
+                {conversation.title || t('untitledConversation')}
+              </button>
+            ))}
+          </section>
+        )}
         <button className="nav-item" type="button" disabled>▤ <span>{t('privateTeacher')} <small>{t('soon')}</small></span></button>
         <button className="nav-item" type="button" disabled>▧ <span>{t('projects')} <small>{t('soon')}</small></span></button>
         <div className="sidebar-bottom"><div className="avatar">د</div><div><strong>{user?.name || user?.phone || t('environment')}</strong><span>{user ? t('signedIn') : t('preview')}</span></div></div>
@@ -150,7 +229,12 @@ export default function App() {
 
         {sessionState === 'signed_in' && user && user.selected_grade !== null && (
           view === 'chat' ? (
-            <ChatPanel selectedGrade={user.selected_grade} />
+            <ChatPanel
+              key={selectedConversationId || 'new-conversation'}
+              selectedGrade={user.selected_grade}
+              initialConversationId={selectedConversationId}
+              onConversationChange={handleConversationChange}
+            />
           ) : (
             <section className="welcome-area">
               <div className="orb" aria-hidden="true"><span>د</span></div>
