@@ -1,6 +1,6 @@
 # Durable Ingestion Job — Implementation Specification
 
-**Date:** 2026-11-10; implementation status refreshed 2026-11-12. This specification tracks the durable ingestion lifecycle from persistence through synthetic artifact staging; see the Statuses section for merged and in-review slices.
+**Date:** 2026-11-10; implementation status refreshed 2026-11-12. This specification tracks the durable ingestion lifecycle from persistence through synthetic artifact staging and low-cardinality metrics; see the Statuses section for merged and in-review slices.
 
 Statuses:
 - `CONCEPTUAL_ARCHITECTURE: APPROVED_WITH_CONDITIONS` (owner, 2026-11-10)
@@ -11,7 +11,8 @@ Statuses:
 - `SLICE_2: CLOSED`
 - `SLICE_3_OUTBOX_PUBLISHER: CLOSED` (2026-11-11; PostgreSQL + Redis/ARQ synthetic validation 13/13; see `SLICE_3_OUTBOX_PUBLISHER_IMPLEMENTATION.md`)
 - `SLICE_4_CLAIM_LEASE_FENCING: IMPLEMENTED` (2026-11-12; PostgreSQL CI: 528 passed, 21 skipped, 1 warning; commit merged via PR #21)
-- `SLICE_6_STAGING_ARTIFACT_LIFECYCLE: IMPLEMENTATION_UNDER_REVIEW` (PR #22; synthetic-only; CI pending; not operational intake or document processing)
+- `SLICE_6_STAGING_ARTIFACT_LIFECYCLE: IMPLEMENTED` (PR #22 merged 2026-11-12; CI 542 passed, 21 skipped, 1 warning; synthetic-only, no upload or PDF processing)
+- `SLICE_8_OBSERVABILITY: PARTIAL_IMPLEMENTED` (PR #23 in progress; low-cardinality metrics for claim/lease/transitions/artifact operations; admin recovery/console not implemented)
 - `RUNTIME_CONFIGURATION: PENDING_OWNER_APPROVAL`
 - `LICENSING_AND_AUTHORIZATION: PENDING`
 - `PRODUCTION: NOT_APPROVED`
@@ -23,7 +24,8 @@ Execution model: **at-least-once**. Do not claim or design exactly-once executio
 - Slice 1–3 (durable persistence, transactional creation, manual outbox publisher/reconciliation) are implemented and closed with synthetic PostgreSQL/Redis evidence.
 - Slice 4 (atomic claim, lease renewal, fencing, retry/failure, cancellation and expired-cancellation finalization) is implemented in `backend/app/services/ingestion_jobs.py`; PostgreSQL tests use unique synthetic job types. CI run [43246224745](https://github.com/mahakas/darsyar/actions/runs/43246224745): Backend 528 passed, 21 skipped, 1 warning; Ruff, mypy, migration smoke, frontend, SIGTERM, Nginx and report-only supply-chain jobs passed. RAG evaluation was skipped because the reviewed golden dataset is not present.
 - Slice 5 Parent/Child remains a synthetic Gate B-S1 prototype, not an ARQ-integrated execution path.
-- Slice 6 staging artifact lifecycle is the next synthetic-only implementation slice; it must pass its own PostgreSQL and adversarial filesystem tests before closure.
+- Slice 6 staging artifact lifecycle is implemented in `backend/app/services/ingestion_staging.py`: attempt-scoped directory isolation, explicit byte ceilings, SHA-256 verification, immutable atomic publish behind a live PostgreSQL lease/fencing check, symlink/path-traversal defenses, and explicit idempotent cleanup. PR #22 CI run [43249286568](https://github.com/mahakas/darsyar/actions/runs/43249286568): Backend 542 passed, 21 skipped, 1 warning; all five CI jobs passed.
+- Slice 8 observability is being extended with fixed low-cardinality metrics; it deliberately excludes job/document/worker IDs, checksums and file names. Manual admin recovery surfaces remain deferred until the Phase 7 authorization/ADR requirements are met.
 
 These code slices do not authorize a real PDF or register an ARQ consumer.
 

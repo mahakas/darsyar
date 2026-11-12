@@ -10,7 +10,8 @@
 - PostgreSQL/pgvector chunk indexing and synthetic integration tests.
 - Child overlap enforcement and strict parent size/coverage bounds.
 - Fail-closed active `index_meta` registry enforcement for indexing; provider model, vector dimension and metric must match the active registry before replacing existing chunks.
-- Durable ingestion document/job/outbox persistence and publisher/reconciliation slices.
+- Durable ingestion document/job/outbox persistence, publisher/reconciliation, fenced claim/lease/retry/cancellation (PR #21), and attempt-scoped artifact staging/publish/recovery (PR #22).
+- Low-cardinality job/artifact observability metrics are in review (PR #23); the administrative recovery surface is not implemented.
 - Synthetic PostgreSQL claim/lease/fencing/retry/cancellation lifecycle (PR #21 merged 2026-11-12); no ARQ consumer or PDF processing is activated.
 
 These components do not constitute an operational textbook-ingestion workflow. No real textbook has been processed under this synthetic test path. The active-index registry code does not auto-seed any active model: a real index remains unavailable until an operator provisions a verified record that matches the physical 1024-dimensional cosine vector index and the selected provider.
