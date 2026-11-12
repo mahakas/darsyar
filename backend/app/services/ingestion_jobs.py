@@ -320,7 +320,9 @@ async def request_ingestion_job_cancellation(
         METRICS.ingestion_job_transition_attempts.inc({"transition": "cancel_requested", "outcome": "missing"})
         return None
 
+    outcome = "unchanged"
     if job.status in CLAIMABLE_JOB_STATES:
+        outcome = "applied"
         job.status = CANCELLED_STATE
         job.cancellation_requested = True
         job.finished_at = now
@@ -330,13 +332,14 @@ async def request_ingestion_job_cancellation(
         job.lease_expires_at = None
         job.heartbeat_at = None
     elif job.status == RUNNING_JOB_STATE:
+        outcome = "applied"
         job.status = CANCELLATION_REQUESTED_STATE
         job.cancellation_requested = True
         job.updated_at = now
     await session.flush()
-    if job.status == CANCELLED_STATE:
+    if outcome == "applied" and job.status == CANCELLED_STATE:
         METRICS.ingestion_job_transition_attempts.inc({"transition": "cancelled", "outcome": "applied"})
-    elif job.status == CANCELLATION_REQUESTED_STATE:
+    elif outcome == "applied":
         METRICS.ingestion_job_transition_attempts.inc({"transition": "cancel_requested", "outcome": "applied"})
     else:
         METRICS.ingestion_job_transition_attempts.inc({"transition": "cancel_requested", "outcome": "unchanged"})

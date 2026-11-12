@@ -573,10 +573,12 @@ async def test_ingestion_job_metrics_are_low_cardinality_and_record_transitions(
     job_id = await _new_job(job_type)
     claimed_key = (("result", "claimed"),)
     renewed_key = (("outcome", "renewed"),)
-    completed_key = (("transition", "succeeded"), ("outcome", "applied"))
+    completed_key = (("outcome", "applied"), ("transition", "succeeded"))
+    unchanged_cancel_key = (("outcome", "unchanged"), ("transition", "cancel_requested"))
     before_claimed = METRICS.ingestion_job_claim_attempts.snapshot().get(claimed_key, 0)
     before_renewed = METRICS.ingestion_job_lease_renewal_attempts.snapshot().get(renewed_key, 0)
     before_completed = METRICS.ingestion_job_transition_attempts.snapshot().get(completed_key, 0)
+    before_unchanged_cancel = METRICS.ingestion_job_transition_attempts.snapshot().get(unchanged_cancel_key, 0)
 
     async with SESSION_FACTORY() as session:
         lease = await claim_next_ingestion_job(
@@ -606,9 +608,18 @@ async def test_ingestion_job_metrics_are_low_cardinality_and_record_transitions(
         )
         await session.commit()
 
+    async with SESSION_FACTORY() as session:
+        assert await request_ingestion_job_cancellation(
+            session,
+            job_id=job_id,
+            now=NOW + dt.timedelta(seconds=3),
+        ) == "succeeded"
+        await session.commit()
+
     assert METRICS.ingestion_job_claim_attempts.snapshot()[claimed_key] == before_claimed + 1
     assert METRICS.ingestion_job_lease_renewal_attempts.snapshot()[renewed_key] == before_renewed + 1
     assert METRICS.ingestion_job_transition_attempts.snapshot()[completed_key] == before_completed + 1
+    assert METRICS.ingestion_job_transition_attempts.snapshot()[unchanged_cancel_key] == before_unchanged_cancel + 1
 
     exposition = METRICS.as_prometheus_text()
     assert 'ingestion_job_claim_attempts{result="claimed"}' in exposition
