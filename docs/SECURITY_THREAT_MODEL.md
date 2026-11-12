@@ -22,3 +22,12 @@
 - وضعیت fail-open چت هنگام قطعی Redis باید با سقف هزینهٔ اضطراری تعیین تکلیف شود؛ چت هزینه‌زا بدون guard جایگزین فعال نشود.
 - طراحی نهایی CSRF، refresh grace و بازاتصال stream در فاز ۱/۳ تست شود.
 - هیچ مدعای انطباق حقوقی خودکار از این سند برداشت نشود؛ `R-211` لازم‌الاجرا است.
+
+
+## Reverse-proxy and browser response headers — 2026-11-12
+
+- The Nginx templates explicitly set `X-Frame-Options: DENY` alongside CSP `frame-ancestors 'none'`.
+- The API proxy path sets `Cache-Control: no-store` so authenticated API and streaming responses are not retained by browser/intermediary caches.
+- The production static frontend sets `Cache-Control: no-store` for the SPA entrypoint; hashed assets remain served by the ordinary static-file location.
+- HSTS is intentionally absent from the HTTP-only templates. It must be enabled at the real TLS termination point only after the production domain/HTTPS coverage and subdomain policy have been verified.
+- CI validates both Nginx configurations with the same `nginx:1.28-alpine` image used by the frontend production image and performs an HTTP header smoke test against the static frontend container.
