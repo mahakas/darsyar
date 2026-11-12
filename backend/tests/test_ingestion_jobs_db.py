@@ -495,7 +495,6 @@ async def test_service_rejects_unsafe_runtime_arguments() -> None:
         with pytest.raises(ValueError, match="job_type"):
             await claim_next_ingestion_job(
                 session,
-                job_type=TEST_JOB_TYPE,
                 worker_id="valid-worker",
                 now=NOW,
                 lease_duration=dt.timedelta(seconds=1),
