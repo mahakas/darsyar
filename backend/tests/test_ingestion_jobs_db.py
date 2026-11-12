@@ -37,6 +37,7 @@ pytestmark = pytest.mark.skipif(
 ENGINE = create_async_engine(get_settings().database_url, poolclass=NullPool)
 SESSION_FACTORY = async_sessionmaker(ENGINE, expire_on_commit=False)
 NOW = dt.datetime.now(dt.UTC)
+TEST_JOB_TYPE = "synthetic_test"
 
 
 async def _new_job() -> uuid.UUID:
@@ -53,6 +54,7 @@ async def _new_job() -> uuid.UUID:
             session,
             document_id=document.id,
             request_idempotency_key=f"test-{uuid.uuid4().hex}",
+            job_type=TEST_JOB_TYPE,
             request_hash=hashlib.sha256(uuid.uuid4().bytes).hexdigest(),
         )
         created.job.retry_available_at = NOW - dt.timedelta(seconds=1)
@@ -474,6 +476,14 @@ async def test_service_rejects_unsafe_runtime_arguments() -> None:
                 worker_id=" ",
                 now=NOW,
                 lease_duration=dt.timedelta(seconds=1),
+            )
+        with pytest.raises(ValueError, match="job_type"):
+            await claim_next_ingestion_job(
+                session,
+                worker_id="valid-worker",
+                now=NOW,
+                lease_duration=dt.timedelta(seconds=1),
+                job_type=" " + ("x" * 32),
             )
         with pytest.raises(ValueError, match="lease_duration"):
             await claim_next_ingestion_job(

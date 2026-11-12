@@ -96,6 +96,7 @@ async def claim_next_ingestion_job(
     worker_id: str,
     now: datetime,
     lease_duration: timedelta,
+    job_type: str | None = None,
 ) -> IngestionJobLease | None:
     """Atomically claim one eligible job or reclaim an expired running attempt.
 
@@ -103,7 +104,8 @@ async def claim_next_ingestion_job(
     plus running jobs whose lease expired. SELECT FOR UPDATE SKIP LOCKED prevents
     concurrent claimers from receiving the same row. Every claim increments both
     attempt_count and the monotonic fencing_token; a stale attempt can no longer
-    complete or heartbeat after reclamation.
+    complete or heartbeat after reclamation. An optional job_type restricts this
+    claim to a specific worker queue without changing the default all-type queue.
 
     No lease duration is selected here. The caller must provide an approved,
     measured runtime value; this helper is suitable for synthetic/PostgreSQL tests
@@ -112,6 +114,8 @@ async def claim_next_ingestion_job(
     _validate_worker_id(worker_id)
     _validate_instant(now, "now")
     _validate_lease_duration(lease_duration)
+    if job_type is not None and (not isinstance(job_type, str) or not job_type.strip() or len(job_type) > 32):
+        raise ValueError("job_type must be a non-empty string of at most 32 characters")
 
     eligible = or_(
         and_(
@@ -127,6 +131,9 @@ async def claim_next_ingestion_job(
             ),
         ),
     )
+    if job_type is not None:
+        eligible = and_(eligible, IngestionJob.job_type == job_type)
+
     statement = (
         select(IngestionJob)
         .where(eligible)
