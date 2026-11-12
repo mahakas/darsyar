@@ -176,6 +176,18 @@ def run_child(
                 forbidden_env_seen=child_forbidden,
             )
 
+        if result_obj is not None and result_obj.attempt_id != request.attempt_id:
+            return ChildRunResult(
+                ok=False,
+                result=result_obj,
+                exit_code=exit_code,
+                timed_out=timed_out,
+                terminated=terminated,
+                forced_terminated=forced,
+                message="child result attempt id mismatch",
+                forbidden_env_seen=child_forbidden,
+            )
+
         if timed_out:
             return ChildRunResult(
                 ok=False,
