@@ -146,9 +146,10 @@ class ParentChildRequest:
             document_bytes = base64.b64decode(encoded_bytes, validate=True)
         except (binascii.Error, ValueError) as exc:
             raise ValueError("document_bytes is not valid base64") from exc
-        if not isinstance(limits, dict) or limits.keys() != REQUEST_LIMIT_KEYS:
-            raise ValueError("limits must contain exactly the supported keys")
-        _require_int(limits["zlib_maximum_output_length"], "zlib_maximum_output_length", minimum=1)
+        if not isinstance(limits, dict) or not limits.keys() <= REQUEST_LIMIT_KEYS:
+            raise ValueError("limits must be an object with only supported keys")
+        # Validate the wire shape here, but leave policy-value validation to the
+        # child processor so it can return a typed INVALID_REQUEST result.
         if not isinstance(mode, str) or not mode:
             raise ValueError("mode must be a non-empty string")
 
