@@ -8,6 +8,7 @@ import pytest_asyncio
 from app.api.deps import get_current_user
 from app.api.v1.sessions import router
 from app.core.config import get_settings
+from app.core.errors import install_error_handlers
 from app.db.session import get_db
 from app.models.user import User
 from app.repositories import conversations as conv_repo
@@ -41,6 +42,7 @@ async def history_client():
         owner_id, other_id, conversation_id = owner.id, other.id, conversation.id
 
     app = FastAPI()
+    install_error_handlers(app)
     app.include_router(router, prefix="/api/v1")
     current_user: User | None = None
 
