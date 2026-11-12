@@ -47,7 +47,6 @@ async def chat_stream(
         RateLimitRule(limit=settings.chat_rate_user, window_seconds=60),
         degraded_allowed=True,
     )
-    last_event_id = request.headers.get("Last-Event-ID")
 
     def on_financial(outcome: str) -> None:
         METRICS.financial_outcome.inc({"outcome": outcome})
@@ -69,7 +68,7 @@ async def chat_stream(
         from collections.abc import AsyncGenerator
         from typing import cast
 
-        stream_iterator: AsyncGenerator[str] = cast(AsyncGenerator[str], service.stream_chat(payload, user, last_event_id))
+        stream_iterator: AsyncGenerator[str] = cast(AsyncGenerator[str], service.stream_chat(payload, user))
         try:
             async for event in stream_iterator:
                 if first_billable is None and "event:delta" in event:
