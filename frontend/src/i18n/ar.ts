@@ -49,5 +49,7 @@ export const ar = {
   "historyLoadError": "تعذّر تحميل سجل المحادثات.",
   "untitledConversation": "محادثة بلا عنوان",
   "loadOlderConversations": "تحميل المحادثات الأقدم",
-  "historyLoadingMore": "جارٍ تحميل المحادثات…"
+  "historyLoadingMore": "جارٍ تحميل المحادثات…",
+  "loadMoreMessages": "تحميل المزيد من الرسائل",
+  "partialResponse": "إجابة جزئية؛ تم استلام جزء من المحتوى."
 } as const
