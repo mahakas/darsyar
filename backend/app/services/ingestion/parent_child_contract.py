@@ -41,6 +41,7 @@ class ChildErrorCategory(str, Enum):
     RESOURCE_LIMIT = "resource_limit"
     TIMEOUT = "timeout"
     INTERNAL = "internal"
+    INVALID_REQUEST = "invalid_request"
 
 
 @dataclass(frozen=True)
