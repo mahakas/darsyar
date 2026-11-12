@@ -1,7 +1,7 @@
 # ARQ ↔ PDF Job Integration Audit
 
 **Updated:** 2026-11-12
-**Scope:** Repository code and tests on main at 99a56c25327123957fdff7e4599cc0313bc75182.
+**Scope:** Repository code and tests on main at 4302fda5a438434900feb39232a260e1476f7f7a.
 **Verdict:** DURABLE_PERSISTENCE_AND_SYNTHETIC_PARENT_CHILD_EXIST; OPERATIONAL_CONSUMER_NOT_REGISTERED.
 
 This is a current-state audit, not permission to activate ingestion, publish live outbox events, or process real PDFs.
@@ -28,6 +28,8 @@ This is a current-state audit, not permission to activate ingestion, publish liv
 
 - backend/app/services/ingestion/parent_supervisor.py launches app.services.ingestion.pdf_child as a separate Python process with shell=False, a narrow environment allowlist, explicit working directory, and structured stdin/stdout IPC.
 - The parent owns the process lifecycle and attempts terminate/kill plus wait on timeout; the child receives serialized document bytes and explicit test limits, not database/Redis handles or application credentials.
+- `services/ingestion_staging.py` now supplies synthetic attempt-scoped artifact staging, explicit byte/checksum validation, symlink-safe paths, immutable publication guarded by the current live lease/fencing token, and explicit orphan cleanup (PR #22; 542 passed, 21 skipped, 1 warning).
+- Low-cardinality observability metrics for job claim/lease/transitions and successful staging operations are being added in PR #23. No job ID, document ID, worker ID, file name, or checksum is emitted as a metric label.
 - Synthetic tests exercise successful parse/page count, explicit FlateDecode limits, malformed input, timeout, termination, parent recovery after child failure, and credential/environment separation.
 - This is the Gate B-S1 synthetic prototype. It is not a PDFium renderer, not a worker-integrated supervisor, not an operational parser pipeline, and not real-textbook validation.
 
@@ -38,7 +40,7 @@ This is a current-state audit, not permission to activate ingestion, publish liv
 | Source authorization | Reference 13529 is pending evidence and scope review | Documentary evidence and approved scope per source and operation |
 | Intake | No authenticated ingestion upload/intake route | Admin authorization, audit, quarantine, integrity and size controls |
 | Consumer | No process_ingestion_event function in WorkerSettings | Registered consumer with bounded concurrency and safe lifecycle |
-| Job claiming/recovery | Claim/lease/fencing/retry/cancellation primitives implemented and PostgreSQL-tested; no ARQ consumer invokes them | Integrate the primitives into an approved consumer, add heartbeat orchestration, parent/child cancellation and shutdown/reaping, retry policy/runtime limits, and end-to-end recovery tests |
+| Job claiming/recovery | Claim/lease/fencing/retry/cancellation primitives implemented and PostgreSQL-tested; no ARQ consumer invokes them. Synthetic staging/publish is also implemented and fenced. | Integrate the primitives into an approved consumer, add heartbeat orchestration, parent/child cancellation and shutdown/reaping, retry policy/runtime limits, and end-to-end recovery tests |
 | Parent/child integration | S1 subprocess prototype is test-only and invoked directly by tests | Async ARQ integration, cancellation propagation, child reaping on worker shutdown, bounded IPC/output and temp cleanup |
 | Parser/renderer | pypdf S0/S1 checks and conditional renderer research exist | Gate A licensing/selection and Gate B parser/resource-security closure |
 | Aggregate decompression | No complete aggregate document budget is proven/approved | Owner decision, complete parse-time/lazy-stream accounting, adversarial tests and resource backstop |
@@ -50,7 +52,7 @@ This is a current-state audit, not permission to activate ingestion, publish liv
 - Duplicate request creation: database uniqueness plus request hash protects job creation.
 - Duplicate queue enqueue: deterministic ARQ job ID reduces duplicate queue entries.
 - Duplicate job execution: atomic claim and fencing primitives now protect concurrent attempts when explicitly called; no registered consumer calls them yet, so queue-to-worker duplicate-execution behavior remains unverified.
-- Worker cancellation/shutdown: the standalone synchronous supervisor tests timeout termination, but there is no ARQ cancellation/shutdown integration proving child cleanup.
+- Worker cancellation/shutdown: the standalone synchronous supervisor tests timeout termination, but there is no ARQ cancellation/shutdown integration proving child cleanup. Explicit staging cleanup is callable but not scheduled.
 - Child crash/timeout: handled only by the standalone prototype tests; no operational job-state transition/retry is wired around it.
 - Database/Redis split failure: outbox delivery is at-least-once; a crash after enqueue but before PostgreSQL commit may enqueue again. Downstream idempotency remains mandatory.
 - Outbox retention: the application database FK was migrated to RESTRICT; deleting a job with retained outbox history is intentionally blocked.

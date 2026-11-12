@@ -293,7 +293,7 @@
 | `backend/tests/test_inference_shell.py` | تست قرارداد endpointهای inference با runtime جعلی. |
 | `backend/tests/test_inference_remote.py` | تست backend دورستی با respx (بدون تماس واقعی). |
 | `backend/tests/test_inference_backend_selection.py` | ماتریس انتخاب backend بر اساس EMBEDDING_BACKEND (ADR-054). |
-| `backend/app/core/metrics.py` | متریک‌های سبک درون‌فرایندی (Slice F): Counter/Gauge/Histogram؛ low-cardinality و privacy-safe. |
+| `backend/app/core/metrics.py` | متریک‌های سبک درون‌فرایندی (Counter/Gauge/Histogram)؛ متریک‌های کم‌کاردینالیتی و privacy-safe برای ingestion در PR #23. |
 | `backend/app/core/shutdown.py` | حالت خاموشی تدریجی درون‌فرایندی (draining + active_streams). |
 | `backend/tests/test_slice_f_observability.py` | تست‌های متریک‌ها، drain و lifecycle خاموشی (Slice F). |
 | `backend/tests/test_phase3_http_acceptance.py` | پذیرش یکپارچه فاز ۳: HTTP واقعی (Uvicorn subprocess) + PostgreSQL + Provider mock محلی. |
@@ -344,9 +344,9 @@
 | `backend/app/services/ingestion_creation.py` | سرویس Slice 2: ایجاد اتمیک job+outbox با idempotency درخواست. |
 | `backend/tests/test_ingestion_creation_db.py` | تست PostgreSQL Slice 2 (ایجاد اتمیک، idempotency، هم‌زمانی). |
 | `backend/app/services/ingestion_jobs.py` | Slice 4: claim اتمیک، lease/heartbeat، fencing، retry و cancellation؛ بدون ARQ consumer یا runtime defaults. |
-| `backend/tests/test_ingestion_jobs_db.py` | تست یکپارچهٔ PostgreSQL برای رقابت workerها، lease منقضی، fencing، retry و cancellation (synthetic-only). |
+| `backend/tests/test_ingestion_jobs_db.py` | تست یکپارچهٔ PostgreSQL برای رقابت workerها، lease منقضی، fencing، retry، cancellation و کم‌کاردینالیتی متریک‌ها (synthetic-only). |
 | `backend/app/services/ingestion_staging.py` | Slice 6: staging مصنوعی attempt-scoped، کنترل checksum/size، انتشار immutable با lease/fencing معتبر و پاک‌سازی صریح؛ بدون upload/consumer. |
-| `backend/tests/test_ingestion_staging_db.py` | تست‌های PostgreSQL و filesystem برای staging، symlink/path traversal، integrity، stale fence و orphan cleanup (synthetic-only). |
+| `backend/tests/test_ingestion_staging_db.py` | تست‌های PostgreSQL و filesystem برای staging، symlink/path traversal، integrity، stale fence، cleanup و متریک‌های artifact (synthetic-only). |
 | docs/ingestion/INGESTION_PROGRESS_AND_OPEN_DECISIONS.md | گزارش یکپارچه پیشرفت و تصمیم‌های باز مالک (snapshot 2026-11-10). |
 | docs/ingestion/OUTBOX_RETENTION_AND_SLICE_3_OWNER_DECISION.md | بستهٔ تصمیم مالک برای retention outbox و دامنهٔ Slice 3 (سنتزیک). |
 | docs/ingestion/SLICE_3_OUTBOX_PUBLISHER_IMPLEMENTATION.md | مشخصات پیاده‌سازی Slice 3: outbox publisher/reconciliation (S-1/S-2 APPROVED_WITH_CONDITIONS؛ CLOSED). |
