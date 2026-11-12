@@ -12,6 +12,13 @@ export type ChatMessage = {
   errorCode?: string
 }
 
+export type ConversationSummary = {
+  id: string
+  title: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type ChatStreamHandlers = {
   onAck?: (info: { conversationId: string; messageId: string }) => void
   onDelta?: (text: string) => void
@@ -89,6 +96,16 @@ export async function streamChat(
   }, handlers.signal)
 }
 
+/** Fetch the current user's conversation history with bounded pagination. */
+export async function listConversations(
+  limit = 50,
+  offset = 0,
+): Promise<{ items: ConversationSummary[]; limit: number; offset: number; total: number }> {
+  return apiFetch<{ items: ConversationSummary[]; limit: number; offset: number; total: number }>(
+    `/conversations?limit=${limit}&offset=${offset}`,
+  )
+}
+
 /** Fetch conversation history (used to rehydrate a chat on reload). */
 export async function fetchConversationMessages(conversationId: string): Promise<ChatMessage[]> {
   const data = await apiFetch<{ items: Array<{ id: string; role: string; content: string; status: string }> }>(
@@ -98,6 +115,11 @@ export async function fetchConversationMessages(conversationId: string): Promise
     id: m.id,
     role: m.role === 'user' ? 'user' : 'assistant',
     content: m.content,
-    status: m.status === 'failed' ? 'error' : 'complete',
+    status: m.status === 'failed' || m.status === 'cancelled'
+      ? 'error'
+      : m.status === 'streaming'
+        ? 'streaming'
+        : 'complete',
+    errorCode: m.status === 'failed' || m.status === 'cancelled' ? m.status : undefined,
   }))
 }
