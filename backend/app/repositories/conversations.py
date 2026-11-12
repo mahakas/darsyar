@@ -1,13 +1,17 @@
 """دسترسی دادهٔ گفتگو و پیام؛ مالکیت در query اعمال می‌شود (R-121)."""
 
 import uuid
+from typing import cast
 from collections.abc import Sequence
 
 from sqlalchemy import func, select, update
+from sqlalchemy.engine import CursorResult as _CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.conversation import Conversation
 from app.models.message import Message
+
+CursorResult = _CursorResult[object]
 
 
 async def create_conversation(session: AsyncSession, *, user_id: uuid.UUID, title: str | None = None) -> Conversation:
@@ -88,7 +92,7 @@ async def create_message(
         .where(Conversation.id == conversation_id, Conversation.user_id == user_id)
         .values(updated_at=func.now())
     )
-    if touched.rowcount != 1:
+    if cast(CursorResult, touched).rowcount != 1:
         from app.core.errors import AppError
 
         raise AppError("conversation_not_found", 404, "گفتگو یافت نشد.")
