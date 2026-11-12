@@ -5,10 +5,10 @@ not register an ARQ consumer or read/process any textbook PDF.
 """
 
 import asyncio
+import datetime as dt
 import hashlib
 import os
 import uuid
-import datetime as dt
 
 import pytest
 from app.core.config import get_settings
