@@ -1,6 +1,6 @@
 """Gate B-S4.2 — security regression + decoder/filter coverage review.
 
-On the locked pypdf 6.21.3 baseline: records which advisory-relevant paths are
+On the locked pypdf 7.0.1 baseline: records which advisory-relevant paths are
 present, and which Configuration fields each decoder reads. Source-review based;
 synthetic fixtures are used only where safe.
 """
@@ -70,7 +70,7 @@ def test_advisory_fix_paths_present_in_701() -> None:
 
 
 def test_filter_to_config_field_mapping() -> None:
-    # Which Configuration fields each decoder body references (6.21.3).
+    # Which Configuration fields each decoder body references (7.0.1).
     field_names = {f.name for f in dataclasses.fields(Configuration)}
     mapping: dict[str, set[str]] = {}
     for cls_name in (
@@ -88,7 +88,8 @@ def test_filter_to_config_field_mapping() -> None:
         src = _source_of(filters_mod, cls_name)
         used = {f for f in field_names if f in src}
         mapping[cls_name] = used
-    assert "zlib_maximum_output_length" in mapping.get("BrotliDecode", set()) or True  # see below
+    # The zlib cap is read by the shared decompression path, not BrotliDecode.
+    assert "zlib_maximum_output_length" in field_names
     assert "lzw_maximum_output_length" in mapping.get("LZWDecode", set())
     assert "run_length_maximum_output_length" in mapping.get("RunLengthDecode", set())
     assert "jbig2_maximum_output_length" in mapping.get("JBIG2Decode", set())
