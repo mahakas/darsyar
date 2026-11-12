@@ -1,14 +1,13 @@
-"""Phase 5: RAG evaluation harness over synthetic data (R-171/R-172).
+"""Phase 5: retrieval-only evaluation over synthetic gold data (R-171/R-172).
 
-Evaluates the retrieval pipeline against a small synthetic gold dataset:
-- grade leakage must be 0
-- invalid citation rate must be 0 on the reviewed sample
-- recall@k and answer groundedness are computed from the synthetic ground truth
-This is a synthetic-only evaluation; it is not a real-textbook benchmark.
+This module measures retrieval properties, not generated-answer faithfulness. Answer
+groundedness requires answer text and its evidence references plus human review; it is
+reported as NOT MEASURED here rather than inferred from retrieval precision.
 """
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 
 from app.services.ingestion.retrieval import RetrievalResult, RetrievedChunk
@@ -18,7 +17,7 @@ from app.services.ingestion.retrieval import RetrievalResult, RetrievedChunk
 class GoldItem:
     query: str
     grade: int
-    ground_truth_chunk_keys: set[tuple[int, int]]  # (grade, chunk_index) that must be retrieved
+    ground_truth_chunk_keys: set[tuple[int, int]]  # (grade, chunk_index), synthetic keys for now
 
 
 @dataclass(frozen=True)
@@ -26,13 +25,32 @@ class EvalResult:
     grade_leakage: float
     invalid_citation_rate: float
     recall_at_5: float
-    groundedness: float
+    retrieval_precision_at_5: float
+    answer_groundedness: float | None = None
     sample_size: int = 0
     notes: list[str] = field(default_factory=list)
 
 
 def _chunk_key(chunk: RetrievedChunk) -> tuple[int, int]:
     return (int(chunk.grade_level), int(chunk.chunk_index))
+
+
+def _valid_citation_metadata(chunk: RetrievedChunk) -> bool:
+    """Validate fields required to build a source citation from server metadata."""
+    if not isinstance(chunk.title, str) or not chunk.title.strip():
+        return False
+    if not isinstance(chunk.subject, str) or not chunk.subject.strip():
+        return False
+    if not 1 <= int(chunk.grade_level) <= 12 or int(chunk.chunk_index) < 0:
+        return False
+    if chunk.page_number is not None and int(chunk.page_number) < 1:
+        return False
+    try:
+        uuid.UUID(chunk.document_id)
+        uuid.UUID(chunk.chunk_id)
+    except (ValueError, TypeError, AttributeError):
+        return False
+    return True
 
 
 def evaluate_retrieval(
@@ -42,35 +60,40 @@ def evaluate_retrieval(
     if len(gold) != len(results):
         raise ValueError("gold/results length mismatch")
 
-    total = 0
     leaked = 0
-    invalid_cites = 0
-    recall_sum = 0.0
-    grounded = 0.0
+    retrieved_total = 0
+    invalid_citations = 0
+    citation_total = 0
+    true_positives_at_5 = 0
+    gold_total = 0
+    retrieved_at_5_total = 0
 
     for item, res in zip(gold, results, strict=True):
-        total += 1
-        retrieved = [c for c in res.chunks]
-        # grade leakage: retrieved chunk grade must be <= the query grade
-        for c in retrieved:
-            if int(c.grade_level) > item.grade:
-                leaked += 1
-        # ground truth keys present in top-5
-        top5 = retrieved[:5]
-        tp = sum(1 for c in top5 if _chunk_key(c) in item.ground_truth_chunk_keys)
-        recall_sum += tp / max(len(item.ground_truth_chunk_keys), 1)
-        # groundedness proxy: fraction of retrieved chunks that are ground truth (top-5)
-        grounded += tp / max(len(top5), 1)
-        # citation validity: citations built from real chunk metadata (title/present)
-        for c in top5:
-            if c.title is None and c.document_id == "":
-                invalid_cites += 1
+        retrieved = list(res.chunks)
+        retrieved_total += len(retrieved)
+        leaked += sum(1 for chunk in retrieved if int(chunk.grade_level) > item.grade)
 
-    n = max(total, 1)
+        top5 = retrieved[:5]
+        retrieved_at_5_total += len(top5)
+        gold_total += len(item.ground_truth_chunk_keys)
+        true_positives_at_5 += sum(
+            1 for chunk in top5 if _chunk_key(chunk) in item.ground_truth_chunk_keys
+        )
+
+        for chunk in top5:
+            citation_total += 1
+            if not _valid_citation_metadata(chunk):
+                invalid_citations += 1
+
     return EvalResult(
-        grade_leakage=leaked / n,
-        invalid_citation_rate=invalid_cites / n,
-        recall_at_5=recall_sum / n,
-        groundedness=grounded / n,
-        sample_size=total,
+        grade_leakage=leaked / max(retrieved_total, 1),
+        invalid_citation_rate=invalid_citations / max(citation_total, 1),
+        recall_at_5=true_positives_at_5 / max(gold_total, 1),
+        retrieval_precision_at_5=true_positives_at_5 / max(retrieved_at_5_total, 1),
+        answer_groundedness=None,
+        sample_size=len(gold),
+        notes=[
+            "answer_groundedness_not_measured_by_retrieval_only_evaluation",
+            "citation_validity_checks_server_metadata_not_generated_answer_text",
+        ],
     )
