@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from collections.abc import AsyncIterator
 
 import pytest
 import pytest_asyncio
@@ -72,7 +73,7 @@ def _make_manifest(path: str, *, grade: int = 5, subject: str = "math", valid: b
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def _clean_chunks():
+async def _clean_chunks() -> AsyncIterator[None]:
     async with SESSION_FACTORY() as s:
         await s.execute(text("TRUNCATE ingestion_chunks, ingestion_documents CASCADE"))
         await s.execute(text("DELETE FROM index_meta"))
