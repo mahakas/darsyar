@@ -276,7 +276,7 @@ def test_attempt_directory_symlink_is_rejected(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_expired_lease_cannot_publish_and_rollback_orphan_can_be_discarded(tmp_path: Path) -> None:
-    lease, now = await _new_lease()
+    lease, now, _job_type = await _new_lease()
     store = StagingArtifactStore(tmp_path / "artifacts")
     metadata = store.stage_artifact(
         job_id=lease.job_id,
