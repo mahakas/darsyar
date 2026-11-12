@@ -8,15 +8,21 @@ no PDFium.
 
 from __future__ import annotations
 
+import io
+import json
 import os
 import zlib
+
+import pytest
 
 from app.services.ingestion.parent_child_contract import (
     PARENT_CHILD_CONTRACT_VERSION,
     ChildErrorCategory,
     ChildProcessingOutcome,
     ParentChildRequest,
+    ParentChildResult,
 )
+from app.services.ingestion import parent_supervisor
 from app.services.ingestion.parent_supervisor import FORBIDDEN_ENV_FRAGMENTS, run_child
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -68,6 +74,86 @@ def _request(
         limits={"zlib_maximum_output_length": 2000} if limits is None else limits,
         mode=mode,
     )
+
+
+def test_request_ipc_round_trip_is_strict_and_lossless() -> None:
+    request = _request(_compressed_pdf())
+    decoded = ParentChildRequest.from_json(request.to_json())
+    assert decoded == request
+
+
+def test_request_ipc_rejects_unknown_and_missing_fields() -> None:
+    payload = json.loads(_request(_compressed_pdf()).to_json())
+    with_unknown = {**payload, "database_url": "postgres://must-not-cross"}
+    with_missing = {key: value for key, value in payload.items() if key != "mode"}
+    with pytest.raises(ValueError, match="fields"):
+        ParentChildRequest.from_json(json.dumps(with_unknown))
+    with pytest.raises(ValueError, match="fields"):
+        ParentChildRequest.from_json(json.dumps(with_missing))
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda payload: payload.update(contract_version=True),
+        lambda payload: payload.update(contract_version="1"),
+        lambda payload: payload.update(attempt_id=""),
+        lambda payload: payload.update(attempt_id=12),
+        lambda payload: payload.update(document_bytes="%%%"),
+        lambda payload: payload.update(document_bytes=123),
+        lambda payload: payload.update(limits=[]),
+        lambda payload: payload.update(limits={"zlib_maximum_output_length": True}),
+        lambda payload: payload.update(limits={"zlib_maximum_output_length": 1, "database_url": "x"}),
+        lambda payload: payload.update(mode=[]),
+    ],
+)
+def test_request_ipc_rejects_malformed_or_coerced_values(mutate) -> None:
+    payload = json.loads(_request(_compressed_pdf()).to_json())
+    mutate(payload)
+    with pytest.raises((TypeError, ValueError)):
+        ParentChildRequest.from_json(json.dumps(payload))
+
+
+def test_request_ipc_rejects_duplicate_json_fields() -> None:
+    raw = _request(_compressed_pdf()).to_json()
+    duplicate = raw[:-1] + ', "mode": "decode_stream"}'
+    with pytest.raises(ValueError, match="duplicate"):
+        ParentChildRequest.from_json(duplicate)
+
+
+def test_result_ipc_rejects_unknown_fields_and_invalid_types() -> None:
+    result = ParentChildResult(attempt_id="s1-test", outcome=ChildProcessingOutcome.SUCCESS)
+    payload = json.loads(result.to_json())
+    with pytest.raises(ValueError, match="fields"):
+        ParentChildResult.from_json(json.dumps({**payload, "secret": "not-allowed"}))
+    invalid = {**payload, "page_count": True}
+    with pytest.raises(ValueError, match="page_count"):
+        ParentChildResult.from_json(json.dumps(invalid))
+
+
+def test_parent_rejects_child_result_for_another_attempt(monkeypatch) -> None:
+    foreign_result = ParentChildResult(
+        attempt_id="different-attempt",
+        outcome=ChildProcessingOutcome.SUCCESS,
+    ).to_json().encode("utf-8")
+
+    class FakeProcess:
+        def __init__(self) -> None:
+            self.stdin = io.BytesIO()
+            self.stdout = io.BytesIO()
+            self.stderr = io.BytesIO()
+            self.returncode = 0
+
+        def communicate(self, timeout=None):
+            return foreign_result, b""
+
+        def poll(self):
+            return self.returncode
+
+    monkeypatch.setattr(parent_supervisor.subprocess, "Popen", lambda *args, **kwargs: FakeProcess())
+    result = run_child(_request(_compressed_pdf()), timeout_seconds=1, cwd=BACKEND_DIR)
+    assert not result.ok
+    assert result.message == "child result attempt id mismatch"
 
 
 def test_child_rejects_missing_explicit_per_stream_limit() -> None:
