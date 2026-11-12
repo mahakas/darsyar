@@ -107,4 +107,9 @@ async def test_conversation_history_offset_pagination(history_client) -> None:
     assert page.status_code == 200 and next_page.status_code == 200
     assert len(page.json()["items"]) == len(next_page.json()["items"]) == 1
     assert page.json()["total"] == next_page.json()["total"] == 2
+    async with await make_client(owner) as client:
+        searched = await client.get("/api/v1/conversations?q=Second")
+    assert searched.status_code == 200
+    assert searched.json()["total"] == 1
+    assert searched.json()["items"][0]["title"] == "Second"
     assert page.json()["items"][0]["id"] != next_page.json()["items"][0]["id"]
