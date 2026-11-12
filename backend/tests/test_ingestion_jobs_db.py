@@ -276,6 +276,48 @@ async def test_retry_waits_until_explicit_retry_instant_then_can_fail_terminally
 
 
 @pytest.mark.asyncio
+async def test_success_after_retry_clears_previous_error_metadata() -> None:
+    job_id = await _new_job()
+    retry_at = NOW + dt.timedelta(minutes=2)
+    async with SESSION_FACTORY() as session:
+        first = await claim_next_ingestion_job(
+            session,
+            worker_id="retry-success-worker",
+            now=NOW,
+            lease_duration=dt.timedelta(minutes=1),
+        )
+        assert first is not None and first.job_id == job_id
+        assert await retry_ingestion_job(
+            session,
+            lease=first,
+            now=NOW + dt.timedelta(seconds=1),
+            retry_available_at=retry_at,
+            error_code="temporary_backend_failure",
+        )
+        await session.commit()
+
+    async with SESSION_FACTORY() as session:
+        second = await claim_next_ingestion_job(
+            session,
+            worker_id="retry-success-worker",
+            now=retry_at,
+            lease_duration=dt.timedelta(minutes=1),
+        )
+        assert second is not None and second.job_id == job_id
+        assert await complete_ingestion_job(
+            session,
+            lease=second,
+            now=retry_at + dt.timedelta(seconds=1),
+        )
+        await session.commit()
+
+    job = await _job(job_id)
+    assert job.status == "succeeded"
+    assert job.last_error_code is None
+    assert job.last_error_summary is None
+
+
+@pytest.mark.asyncio
 async def test_queued_cancellation_is_immediate_and_idempotent() -> None:
     job_id = await _new_job()
     async with SESSION_FACTORY() as session:
