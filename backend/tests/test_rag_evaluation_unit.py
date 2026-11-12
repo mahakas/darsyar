@@ -14,6 +14,7 @@ def _chunk(
         chunk_id=chunk_id or str(uuid4()),
         document_id=document_id or str(uuid4()),
         chunk_index=index,
+        is_parent=False,
         grade_level=grade,
         subject="math",
         page_number=1,
