@@ -52,7 +52,7 @@ class InferenceRuntime:
             raise AppError("model_runtime_not_ready", 503, "مدل‌های inference بارگذاری نشدند.") from exc
 
     def _load_sync(self) -> None:
-        from FlagEmbedding import BGEM3FlagModel, FlagReranker  # type: ignore[import-untyped]
+        from FlagEmbedding import BGEM3FlagModel, FlagReranker  # type: ignore[import-not-found]
 
         use_fp16 = self._device == "cuda"
         self._embed = BGEM3FlagModel(self._settings.embedding_model, use_fp16=use_fp16, device=self._device)

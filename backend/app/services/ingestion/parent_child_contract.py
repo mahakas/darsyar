@@ -19,7 +19,7 @@ import binascii
 import json
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 PARENT_CHILD_CONTRACT_VERSION = 1
 
@@ -71,7 +71,7 @@ def _require_exact_keys(payload: dict[str, Any], expected: set[str]) -> None:
 def _require_int(value: Any, field_name: str, *, minimum: int = 0) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
         raise ValueError(f"{field_name} must be an integer >= {minimum}")
-    return value
+    return cast(int, value)
 
 
 def _require_optional_int(value: Any, field_name: str) -> int | None:
