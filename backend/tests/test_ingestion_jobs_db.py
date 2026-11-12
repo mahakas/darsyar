@@ -37,10 +37,15 @@ pytestmark = pytest.mark.skipif(
 ENGINE = create_async_engine(get_settings().database_url, poolclass=NullPool)
 SESSION_FACTORY = async_sessionmaker(ENGINE, expire_on_commit=False)
 NOW = dt.datetime.now(dt.UTC)
-TEST_JOB_TYPE = "synthetic_test"
 
 
-async def _new_job() -> uuid.UUID:
+
+def _test_job_type() -> str:
+    """Return a queue type isolated to a single test scenario."""
+    return f"test_{uuid.uuid4().hex[:16]}"
+
+
+async def _new_job(job_type: str) -> uuid.UUID:
     async with SESSION_FACTORY() as session:
         document = IngestionDocument(
             checksum=hashlib.sha256(uuid.uuid4().bytes).hexdigest(),
@@ -54,7 +59,7 @@ async def _new_job() -> uuid.UUID:
             session,
             document_id=document.id,
             request_idempotency_key=f"test-{uuid.uuid4().hex}",
-            job_type=TEST_JOB_TYPE,
+            job_type=job_type,
             request_hash=hashlib.sha256(uuid.uuid4().bytes).hexdigest(),
         )
         created.job.retry_available_at = NOW - dt.timedelta(seconds=1)
@@ -71,11 +76,12 @@ async def _job(job_id: uuid.UUID) -> IngestionJob:
 
 @pytest.mark.asyncio
 async def test_claim_queued_job_assigns_lease_and_increments_fence() -> None:
-    job_id = await _new_job()
+    job_type = _test_job_type()
+    job_id = await _new_job(job_type)
     async with SESSION_FACTORY() as session:
         lease = await claim_next_ingestion_job(
             session,
-            job_type=TEST_JOB_TYPE,
+            job_type=job_type,
             worker_id="synthetic-worker-a",
             now=NOW,
             lease_duration=dt.timedelta(seconds=60),
@@ -99,13 +105,14 @@ async def test_claim_queued_job_assigns_lease_and_increments_fence() -> None:
 
 @pytest.mark.asyncio
 async def test_concurrent_claimers_never_receive_same_job() -> None:
-    job_id = await _new_job()
+    job_type = _test_job_type()
+    job_id = await _new_job(job_type)
 
     async def _claim(worker_id: str) -> IngestionJobLease | None:
         async with SESSION_FACTORY() as session:
             lease = await claim_next_ingestion_job(
                 session,
-                job_type=TEST_JOB_TYPE,
+                job_type=job_type,
                 worker_id=worker_id,
                 now=NOW,
                 lease_duration=dt.timedelta(minutes=1),
@@ -128,11 +135,12 @@ async def test_concurrent_claimers_never_receive_same_job() -> None:
 
 @pytest.mark.asyncio
 async def test_expired_lease_reclaims_job_and_fences_stale_attempt() -> None:
-    job_id = await _new_job()
+    job_type = _test_job_type()
+    job_id = await _new_job(job_type)
     async with SESSION_FACTORY() as session:
         old_lease = await claim_next_ingestion_job(
             session,
-            job_type=TEST_JOB_TYPE,
+            job_type=job_type,
             worker_id="worker-old",
             now=NOW,
             lease_duration=dt.timedelta(seconds=30),
@@ -143,7 +151,7 @@ async def test_expired_lease_reclaims_job_and_fences_stale_attempt() -> None:
     async with SESSION_FACTORY() as session:
         new_lease = await claim_next_ingestion_job(
             session,
-            job_type=TEST_JOB_TYPE,
+            job_type=job_type,
             worker_id="worker-new",
             now=NOW + dt.timedelta(seconds=31),
             lease_duration=dt.timedelta(minutes=2),
@@ -176,11 +184,12 @@ async def test_expired_lease_reclaims_job_and_fences_stale_attempt() -> None:
 
 @pytest.mark.asyncio
 async def test_heartbeat_renews_only_current_live_lease() -> None:
-    job_id = await _new_job()
+    job_type = _test_job_type()
+    job_id = await _new_job(job_type)
     async with SESSION_FACTORY() as session:
         lease = await claim_next_ingestion_job(
             session,
-            job_type=TEST_JOB_TYPE,
+            job_type=job_type,
             worker_id="heartbeat-worker",
             now=NOW,
             lease_duration=dt.timedelta(seconds=30),
@@ -227,12 +236,13 @@ async def test_heartbeat_renews_only_current_live_lease() -> None:
 
 @pytest.mark.asyncio
 async def test_retry_waits_until_explicit_retry_instant_then_can_fail_terminally() -> None:
-    job_id = await _new_job()
+    job_type = _test_job_type()
+    job_id = await _new_job(job_type)
     retry_at = NOW + dt.timedelta(minutes=5)
     async with SESSION_FACTORY() as session:
         first = await claim_next_ingestion_job(
             session,
-            job_type=TEST_JOB_TYPE,
+            job_type=job_type,
             worker_id="retry-worker",
             now=NOW,
             lease_duration=dt.timedelta(minutes=1),
@@ -256,7 +266,7 @@ async def test_retry_waits_until_explicit_retry_instant_then_can_fail_terminally
     async with SESSION_FACTORY() as session:
         not_yet = await claim_next_ingestion_job(
             session,
-            job_type=TEST_JOB_TYPE,
+            job_type=job_type,
             worker_id="retry-worker",
             now=retry_at - dt.timedelta(microseconds=1),
             lease_duration=dt.timedelta(minutes=1),
@@ -264,7 +274,7 @@ async def test_retry_waits_until_explicit_retry_instant_then_can_fail_terminally
         assert not_yet is None
         second = await claim_next_ingestion_job(
             session,
-            job_type=TEST_JOB_TYPE,
+            job_type=job_type,
             worker_id="retry-worker",
             now=retry_at,
             lease_duration=dt.timedelta(minutes=1),
@@ -287,12 +297,13 @@ async def test_retry_waits_until_explicit_retry_instant_then_can_fail_terminally
 
 @pytest.mark.asyncio
 async def test_success_after_retry_clears_previous_error_metadata() -> None:
-    job_id = await _new_job()
+    job_type = _test_job_type()
+    job_id = await _new_job(job_type)
     retry_at = NOW + dt.timedelta(minutes=2)
     async with SESSION_FACTORY() as session:
         first = await claim_next_ingestion_job(
             session,
-            job_type=TEST_JOB_TYPE,
+            job_type=job_type,
             worker_id="retry-success-worker",
             now=NOW,
             lease_duration=dt.timedelta(minutes=1),
@@ -310,7 +321,7 @@ async def test_success_after_retry_clears_previous_error_metadata() -> None:
     async with SESSION_FACTORY() as session:
         second = await claim_next_ingestion_job(
             session,
-            job_type=TEST_JOB_TYPE,
+            job_type=job_type,
             worker_id="retry-success-worker",
             now=retry_at,
             lease_duration=dt.timedelta(minutes=1),
@@ -331,7 +342,8 @@ async def test_success_after_retry_clears_previous_error_metadata() -> None:
 
 @pytest.mark.asyncio
 async def test_queued_cancellation_is_immediate_and_idempotent() -> None:
-    job_id = await _new_job()
+    job_type = _test_job_type()
+    job_id = await _new_job(job_type)
     async with SESSION_FACTORY() as session:
         assert await request_ingestion_job_cancellation(
             session,
@@ -353,11 +365,12 @@ async def test_queued_cancellation_is_immediate_and_idempotent() -> None:
 
 @pytest.mark.asyncio
 async def test_running_cancellation_requires_current_worker_acknowledgement() -> None:
-    job_id = await _new_job()
+    job_type = _test_job_type()
+    job_id = await _new_job(job_type)
     async with SESSION_FACTORY() as session:
         lease = await claim_next_ingestion_job(
             session,
-            job_type=TEST_JOB_TYPE,
+            job_type=job_type,
             worker_id="cancel-worker",
             now=NOW,
             lease_duration=dt.timedelta(minutes=1),
@@ -399,11 +412,12 @@ async def test_running_cancellation_requires_current_worker_acknowledgement() ->
 
 @pytest.mark.asyncio
 async def test_expired_cancellation_can_be_finalized_without_a_worker() -> None:
-    job_id = await _new_job()
+    job_type = _test_job_type()
+    job_id = await _new_job(job_type)
     async with SESSION_FACTORY() as session:
         lease = await claim_next_ingestion_job(
             session,
-            job_type=TEST_JOB_TYPE,
+            job_type=job_type,
             worker_id="crashed-worker",
             now=NOW,
             lease_duration=dt.timedelta(seconds=20),
@@ -436,11 +450,12 @@ async def test_expired_cancellation_can_be_finalized_without_a_worker() -> None:
 
 @pytest.mark.asyncio
 async def test_expired_attempt_cannot_heartbeat_or_complete() -> None:
-    job_id = await _new_job()
+    job_type = _test_job_type()
+    job_id = await _new_job(job_type)
     async with SESSION_FACTORY() as session:
         lease = await claim_next_ingestion_job(
             session,
-            job_type=TEST_JOB_TYPE,
+            job_type=job_type,
             worker_id="expired-worker",
             now=NOW,
             lease_duration=dt.timedelta(seconds=5),
@@ -462,7 +477,7 @@ async def test_expired_attempt_cannot_heartbeat_or_complete() -> None:
     async with SESSION_FACTORY() as session:
         reclaimed = await claim_next_ingestion_job(
             session,
-            job_type=TEST_JOB_TYPE,
+            job_type=job_type,
             worker_id="recovery-worker",
             now=expired_at + dt.timedelta(seconds=1),
             lease_duration=dt.timedelta(minutes=1),
@@ -481,13 +496,46 @@ async def test_expired_attempt_cannot_heartbeat_or_complete() -> None:
     assert job.fencing_token == lease.fencing_token + 1
 
 
+
+@pytest.mark.asyncio
+async def test_claim_filter_never_claims_a_different_job_type() -> None:
+    first_type = _test_job_type()
+    second_type = _test_job_type()
+    first_job_id = await _new_job(first_type)
+    second_job_id = await _new_job(second_type)
+
+    async with SESSION_FACTORY() as session:
+        second_lease = await claim_next_ingestion_job(
+            session,
+            job_type=second_type,
+            worker_id="second-type-worker",
+            now=NOW,
+            lease_duration=dt.timedelta(minutes=1),
+        )
+        assert second_lease is not None
+        assert second_lease.job_id == second_job_id
+        await session.commit()
+
+    async with SESSION_FACTORY() as session:
+        first_lease = await claim_next_ingestion_job(
+            session,
+            job_type=first_type,
+            worker_id="first-type-worker",
+            now=NOW,
+            lease_duration=dt.timedelta(minutes=1),
+        )
+        assert first_lease is not None
+        assert first_lease.job_id == first_job_id
+        await session.commit()
+
 @pytest.mark.asyncio
 async def test_service_rejects_unsafe_runtime_arguments() -> None:
+    job_type = _test_job_type()
     async with SESSION_FACTORY() as session:
         with pytest.raises(ValueError, match="worker_id"):
             await claim_next_ingestion_job(
                 session,
-                job_type=TEST_JOB_TYPE,
+                job_type=job_type,
                 worker_id=" ",
                 now=NOW,
                 lease_duration=dt.timedelta(seconds=1),
@@ -503,7 +551,7 @@ async def test_service_rejects_unsafe_runtime_arguments() -> None:
         with pytest.raises(ValueError, match="lease_duration"):
             await claim_next_ingestion_job(
                 session,
-                job_type=TEST_JOB_TYPE,
+                job_type=job_type,
                 worker_id="valid-worker",
                 now=NOW,
                 lease_duration=dt.timedelta(0),
@@ -511,7 +559,7 @@ async def test_service_rejects_unsafe_runtime_arguments() -> None:
         with pytest.raises(ValueError, match="timezone-aware"):
             await claim_next_ingestion_job(
                 session,
-                job_type=TEST_JOB_TYPE,
+                job_type=job_type,
                 worker_id="valid-worker",
                 now=dt.datetime(2026, 11, 12),
                 lease_duration=dt.timedelta(seconds=1),
