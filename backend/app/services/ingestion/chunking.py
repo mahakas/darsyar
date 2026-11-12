@@ -76,12 +76,14 @@ def _split_sentences(paragraph: str, max_len: int, overlap: int) -> list[str]:
             current.append(sentence)
             continue
 
+        previous_parts = current.copy()
         flush()
         if overlap:
             carry: list[str] = []
             carry_len = 0
-            # Keep the largest suffix made of complete sentences that fits overlap.
-            for previous in reversed(sentences[: sentences.index(sentence)]):
+            # Keep the largest suffix made of complete sentences from the
+            # previous chunk that fits the requested overlap.
+            for previous in reversed(previous_parts):
                 separator = 1 if carry else 0
                 proposed = carry_len + separator + len(previous)
                 if proposed > overlap:
@@ -119,8 +121,8 @@ def chunk_two_level(
     for segment_text, page_number in segments:
         if not isinstance(segment_text, str):
             raise TypeError("segment text must be a string")
-        if page_number is not None and page_number < 1:
-            raise ValueError("page_number must be positive or None")
+        if page_number is not None and (type(page_number) is not int or page_number < 1):
+            raise ValueError("page_number must be a positive integer or None")
         for paragraph in _split_paragraphs(segment_text):
             for chunk_text in _split_sentences(paragraph, child_chunk_size, child_chunk_overlap):
                 children.append(
