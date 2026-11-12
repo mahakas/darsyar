@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.services.ingestion.embedding_service import embed_batch
+from app.services.ingestion.index_registry import require_active_index_meta, validate_embedding_provider
 from app.services.ingestion.retrieval import RetrievalResult, hybrid_retrieve
 
 EmbedFn = Callable[[list[str]], Awaitable[list[list[float]]]]
@@ -56,9 +57,19 @@ class RetrievalService:
         if selected_grade < 1 or selected_grade > 12:
             raise AppError("invalid_selected_grade", 422, "پایهٔ دانش‌آموز نامعتبر است.")
 
-        # embed the query with the live provider (dim validated)
-        res = await embed_batch([query], embed=self._embed, model=self._embedding_model,
-                                expected_dim=self._embedding_dim)
+        # The registry is the source of truth for the model/dimension used by this index.
+        active_index = await require_active_index_meta(session)
+        validate_embedding_provider(
+            active_index,
+            model=self._embedding_model,
+            dimension=self._embedding_dim,
+        )
+        res = await embed_batch(
+            [query],
+            embed=self._embed,
+            model=active_index.embedding_model,
+            expected_dim=active_index.embedding_dim,
+        )
         query_vector = res.vectors[0]
 
         return await hybrid_retrieve(
