@@ -9,9 +9,10 @@
 - Persian normalization, deterministic RRF (k=60) and tie-breaking.
 - Provider-callback reranking and a retrieval orchestration wrapper.
 - Synthetic PostgreSQL tests for grade ceiling, document isolation and citation formatting.
-- A synthetic evaluation helper reporting leakage/recall/grounding proxies.
+- Fail-closed active `index_meta` registry check for query embedding model/dimension and hybrid retrieval; no active index means no query.
+- Synthetic evaluator reports grade leakage, citation metadata validity, recall@5 and retrieval precision@5. Answer groundedness is explicitly `NOT MEASURED` by a retrieval-only harness.
 
-This is not yet an accepted educational RAG implementation: synthetic tests do not establish textbook answer quality, and the evaluator is not a substitute for the required reviewed gold set.
+This is not yet an accepted educational RAG implementation: synthetic tests do not establish textbook answer quality, and the evaluator is not a substitute for the required reviewed gold set. The active registry is not auto-provisioned; real retrieval remains fail-closed until an explicitly verified provider/model record exists.
 
 ## Remaining work
 
@@ -22,6 +23,10 @@ This is not yet an accepted educational RAG implementation: synthetic tests do n
 - [ ] Cache implementation whose key includes model, normalized query, all filters, edition and grade ceiling.
 - [ ] Bounded query rewrite and separately cited web fallback with SSRF defense.
 - [ ] Connect retrieval/evidence into the real chat response lifecycle; prove no unsupported model-memory answers.
+
+### Implementation CI evidence — 2026-11-12
+
+The active-index enforcement branch ran [GitHub Actions Run 43129891289](https://github.com/mahakas/darsyar/actions/runs/43129891289) on HEAD `259b13916a4579d2e947da27209e504a71f94ea4`: Backend **492 passed, 21 skipped, 1 warning**; Ruff, Frontend and Linux SIGTERM all passed. The branch is still a PR candidate, not merged at this point.
 
 ## Goal
 

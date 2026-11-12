@@ -248,3 +248,17 @@ GitHub Actions run **43113026123**, commit `571fc2e09f31e361e9773ecf794601930e21
 The skipped tests are explicitly environment-gated (restricted Linux sandbox/cgroup probes and real model loading). A green CI run is not proof that those skipped controls passed, and does not close Gate A/B/C, grant textbook rights, or approve Production.
 
 The current pinned `pypdf` runtime version is **7.0.1**. Historical Gate B experiments performed under 6.21.3/6.21.4 remain historical evidence and must not be read as the current lock version.
+
+
+## 14. Active embedding index registry enforcement — 2026-11-12
+
+**Implementation status: CI-verified on branch `feat/active-index-meta-enforcement`; merge pending at the time of this note.**
+
+- Indexing and retrieval now fail closed unless exactly one active `index_meta` row exists.
+- Active registry model and dimension are checked against the embedding provider; current physical vector column/HNSW index accepts only dimension 1024 and cosine distance.
+- Index replacement validates provider identity, vector count/dimension/finiteness and complete non-overlapping parent-child coverage before deleting prior chunks. It holds a PostgreSQL SHARE lock on the active registry row during the indexing transaction.
+- Query embedding validates the active registry before provider invocation; hybrid retrieval rejects missing active registry and query-vector dimension mismatch.
+- PostgreSQL synthetic tests use a test-only registry row (`test`, 1024, cosine), remove it before/after each fixture, and test fail-closed behavior and preservation of prior chunks on provider mismatch.
+- GitHub Actions Run [43129891289](https://github.com/mahakas/darsyar/actions/runs/43129891289), exact branch HEAD `259b13916a4579d2e947da27209e504a71f94ea4`: Backend 492 passed / 21 skipped / 1 warning; Ruff, Frontend lint/typecheck/build and Linux SIGTERM PASS.
+
+**Operational boundary:** no active registry row has been provisioned for a real model. No default provider is silently enabled. Until a verified and intentionally provisioned active row exists, all real indexing and retrieval remain unavailable by design. The code path is not a real textbook pipeline and does not close Gate A/B/C or grant rights to process sources.

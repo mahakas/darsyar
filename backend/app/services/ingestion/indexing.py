@@ -1,22 +1,28 @@
-"""Phase 4: idempotent chunk indexing (R-087/R-088/R-157/R-079).
+"""Phase 4: registry-bound, idempotent chunk indexing (R-087/R-088/R-157/R-079).
 
-Creates/updates child+parent chunks for a document with their embeddings in one
-transaction. Idempotent per (document_id, chunk_index): a rerun replaces the
-document's chunks atomically rather than duplicating them. Embedding vectors are
-stored via pgvector.
+The active index_meta row is mandatory and locked for share while chunks are
+written. Embedding model/dimension, vector values and parent-child ranges are
+validated before existing chunks are deleted, so a rejected replacement leaves
+the previous indexed representation intact when the caller rolls back normally.
 """
 
 from __future__ import annotations
 
+import math
 import uuid
 from dataclasses import dataclass
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import AppError
 from app.models.ingestion_chunk import IngestionChunk
 from app.models.ingestion_document import IngestionDocument
 from app.services.ingestion.chunking import ChunkingResult
+from app.services.ingestion.index_registry import (
+    require_active_index_meta,
+    validate_embedding_provider,
+)
 from app.services.ingestion.normalize import normalize_persian
 
 
@@ -28,6 +34,36 @@ class IndexResult:
     replaced: bool
 
 
+def _validate_chunk_ranges(chunking: ChunkingResult) -> None:
+    if not chunking.children or not chunking.parents:
+        raise AppError("empty_extraction", 422, "متن کافی برای ساخت chunk وجود ندارد.")
+    covered: list[int] = []
+    for parent in chunking.parents:
+        if (
+            parent.child_start < 0
+            or parent.child_end < parent.child_start
+            or parent.child_end >= len(chunking.children)
+        ):
+            raise AppError("invalid_parent_child_range", 422, "بازهٔ chunk والد/فرزند نامعتبر است.")
+        covered.extend(range(parent.child_start, parent.child_end + 1))
+    if sorted(covered) != list(range(len(chunking.children))):
+        raise AppError(
+            "invalid_parent_child_coverage",
+            422,
+            "تمام chunkهای فرزند باید دقیقاً زیر یک والد قرار بگیرند.",
+        )
+
+
+def _validate_vectors(vectors: list[list[float]], *, expected_count: int, dimension: int) -> None:
+    if len(vectors) != expected_count:
+        raise AppError("embedding_vector_count_mismatch", 422, "تعداد بردارهای embedding با chunkها برابر نیست.")
+    for vector in vectors:
+        if len(vector) != dimension:
+            raise AppError("embedding_dim_mismatch", 422, "ابعاد بردار با رجیستری ایندکس فعال ناسازگار است.")
+        if any(not math.isfinite(value) for value in vector):
+            raise AppError("embedding_non_finite", 422, "بردار embedding حاوی NaN/Inf است.")
+
+
 async def index_document_chunks(
     session: AsyncSession,
     *,
@@ -35,23 +71,42 @@ async def index_document_chunks(
     chunking: ChunkingResult,
     child_vectors: list[list[float]],
     parent_vectors: list[list[float]],
+    embedding_model: str,
     title: str | None = None,
     source_origin: str | None = None,
     source_type: str = "textbook",
     chapter: str | None = None,
 ) -> IndexResult:
-    """Atomically replace a document's chunks with new ones (idempotent)."""
-    existing = (await session.execute(select(IngestionChunk.id).where(IngestionChunk.document_id == document.id))).all()
+    """Replace a document's child/parent chunks under the active registry contract."""
+    active_index = await require_active_index_meta(session, lock_for_share=True)
+    validate_embedding_provider(
+        active_index,
+        model=embedding_model,
+        dimension=active_index.embedding_dim,
+    )
+    _validate_chunk_ranges(chunking)
+    _validate_vectors(
+        child_vectors,
+        expected_count=len(chunking.children),
+        dimension=active_index.embedding_dim,
+    )
+    _validate_vectors(
+        parent_vectors,
+        expected_count=len(chunking.parents),
+        dimension=active_index.embedding_dim,
+    )
+
+    existing = (
+        await session.execute(
+            select(IngestionChunk.id).where(IngestionChunk.document_id == document.id)
+        )
+    ).all()
     replaced = len(existing) > 0
 
+    # All policy/contract checks are complete before deleting the old representation.
     if replaced:
         await session.execute(delete(IngestionChunk).where(IngestionChunk.document_id == document.id))
         await session.flush()
-
-    if len(child_vectors) != len(chunking.children):
-        raise ValueError("child vectors/chunk count mismatch")
-    if len(parent_vectors) != len(chunking.parents):
-        raise ValueError("parent vectors/chunk count mismatch")
 
     parent_ids: dict[int, uuid.UUID] = {}
     for idx, parent in enumerate(chunking.parents):
@@ -75,7 +130,6 @@ async def index_document_chunks(
         )
         session.add(chunk)
         await session.flush()
-        # Link every child covered by this parent, not only the first child.
         for child_index in range(parent.child_start, parent.child_end + 1):
             parent_ids[child_index] = chunk.id
 
@@ -83,7 +137,7 @@ async def index_document_chunks(
     for idx, child in enumerate(chunking.children):
         chunk = IngestionChunk(
             document_id=document.id,
-            parent_id=parent_ids.get(child.order_index),
+            parent_id=parent_ids[child.order_index],
             chunk_index=child_base + idx,
             is_parent=False,
             content=child.text,

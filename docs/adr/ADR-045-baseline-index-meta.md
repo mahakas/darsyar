@@ -31,3 +31,16 @@ R-087 جدول `index_meta` با ستون‌های `(id, embedding_model, embedd
 - در فازهای بعدی، رکورد فعال این جدول باید با `EMBEDDING_MODEL`/`EMBEDDING_DIM` (R-088) هم‌خوان باشد و تغییر مدل فقط با مسیر reindex مستند R-089 انجام شود.
 - `distance_metric` در این جدول ثبت می‌شود؛ پارامترهای HNSW (R-090) از تنظیمات می‌آیند و در docstring مهاجرت/مستندات ثبت می‌شوند.
 - هیچ معکوس‌پذیری داده‌ای وجود ندارد؛ `downgrade` جدول را حذف می‌کند.
+
+
+## اجرای الزامات R-087 در فازهای ۴/۵ — 2026-11-12
+
+این بخش تصمیم مالک ADR را تغییر نمی‌دهد؛ implementation follow-up برای اجرای همان قرارداد است:
+
+- سرویس indexing قبل از هر replacement دقیقاً یک رکورد فعال را می‌خواند و با `FOR SHARE` قفل می‌کند؛ مدل provider، dimension بردارها، metric cosine و پوشش parent/child را پیش از حذف chunkهای قبلی اعتبارسنجی می‌کند.
+- سرویس query نیز باید دقیقاً یک رکورد فعال بخواند؛ نبود/ابهام رکورد، dimension نامتطابق یا metric ناسازگار → fail-closed.
+- بُعد فعلی schema و HNSW برابر 1024 و cosine است؛ dimension/metric دیگر بدون migration و reindex plan قابل فعال‌سازی نیست.
+- **هیچ active index row به‌صورت خودکار seed نشده است.** در محیط عملیاتی، تا زمان provision صریح یک model record که با provider واقعی و schema/index فیزیکی سازگار و آزمایش شده باشد، indexing/retrieval عمداً با 503 متوقف می‌شود.
+- تست‌های PostgreSQL synthetic فقط داخل fixture، رکورد موقت `test / 1024 / cosine` می‌سازند و پس از تست پاک می‌کنند؛ این رکورد نمونه مجوز فعال‌سازی محیط توسعه/production نیست.
+
+Evidence candidate: branch `feat/active-index-meta-enforcement`, HEAD `259b13916a4579d2e947da27209e504a71f94ea4`, GitHub Actions Run [43129891289](https://github.com/mahakas/darsyar/actions/runs/43129891289): Backend 492 passed / 21 skipped / 1 warning; Ruff, Frontend and Linux SIGTERM PASS. Merge is pending at the time of this note.
