@@ -45,6 +45,9 @@ jobs:
       - name: Ruff
         working-directory: backend
         run: uv run --locked ruff check .
+      - name: Mypy backend
+        working-directory: backend
+        run: uv run --locked mypy app
       - name: Unit and PostgreSQL integration tests
         working-directory: backend
         env:
