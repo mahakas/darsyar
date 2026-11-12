@@ -35,8 +35,8 @@ async def history_client():
         owner = await users_repo.create(session, phone=_phone(), role="user")
         other = await users_repo.create(session, phone=_phone(), role="user")
         conversation = await conv_repo.create_conversation(session, user_id=owner.id, title="History")
-        await conv_repo.create_message(session, conversation_id=conversation.id, user_id=owner.id, role="user", content="one", status="complete")
-        await conv_repo.create_message(session, conversation_id=conversation.id, user_id=owner.id, role="assistant", content="two", status="complete")
+        await conv_repo.create_message(session, conversation_id=conversation.id, user_id=owner.id, role="user", content="one", status="completed")
+        await conv_repo.create_message(session, conversation_id=conversation.id, user_id=owner.id, role="assistant", content="two", status="completed")
         await session.commit()
         owner_id, other_id, conversation_id = owner.id, other.id, conversation.id
 
