@@ -100,9 +100,12 @@ export async function streamChat(
 export async function listConversations(
   limit = 50,
   offset = 0,
+  query = '',
 ): Promise<{ items: ConversationSummary[]; limit: number; offset: number; total: number }> {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  if (query.trim()) params.set('q', query.trim())
   return apiFetch<{ items: ConversationSummary[]; limit: number; offset: number; total: number }>(
-    `/conversations?limit=${limit}&offset=${offset}`,
+    `/conversations?${params.toString()}`,
   )
 }
 
