@@ -11,11 +11,11 @@ import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import cast
 
 from sqlalchemy import and_, or_, select, update
-from sqlalchemy.engine import CursorResult as _CursorResult
+from sqlalchemy.engine import ColumnElement, CursorResult as _CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import cast
 
 from app.models.ingestion_job import IngestionJob
 
@@ -67,7 +67,7 @@ def _validate_error_code(error_code: str) -> None:
         raise ValueError("error_code must be a lower_snake_case identifier of at most 64 characters")
 
 
-def _owned_running_conditions(lease: IngestionJobLease, now: datetime) -> tuple[object, ...]:
+def _owned_running_conditions(lease: IngestionJobLease, now: datetime) -> tuple[ColumnElement[bool], ...]:
     return (
         IngestionJob.id == lease.job_id,
         IngestionJob.status == RUNNING_JOB_STATE,
