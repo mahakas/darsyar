@@ -8,7 +8,7 @@ import asyncio
 import hashlib
 import os
 import uuid
-from datetime import UTC, datetime, timedelta
+import datetime as dt
 
 import pytest
 from app.core.config import get_settings
@@ -36,7 +36,7 @@ pytestmark = pytest.mark.skipif(
 
 ENGINE = create_async_engine(get_settings().database_url, poolclass=NullPool)
 SESSION_FACTORY = async_sessionmaker(ENGINE, expire_on_commit=False)
-NOW = datetime.now(UTC)
+NOW = dt.datetime.now(dt.UTC)
 
 
 async def _new_job() -> uuid.UUID:
@@ -55,7 +55,7 @@ async def _new_job() -> uuid.UUID:
             request_idempotency_key=f"test-{uuid.uuid4().hex}",
             request_hash=hashlib.sha256(uuid.uuid4().bytes).hexdigest(),
         )
-        created.job.retry_available_at = NOW - timedelta(seconds=1)
+        created.job.retry_available_at = NOW - dt.timedelta(seconds=1)
         await session.commit()
         return created.job.id
 
@@ -75,14 +75,14 @@ async def test_claim_queued_job_assigns_lease_and_increments_fence() -> None:
             session,
             worker_id="synthetic-worker-a",
             now=NOW,
-            lease_duration=timedelta(seconds=60),
+            lease_duration=dt.timedelta(seconds=60),
         )
         assert lease is not None
         assert lease.job_id == job_id
         assert lease.worker_id == "synthetic-worker-a"
         assert lease.fencing_token == 1
         assert lease.attempt_count == 1
-        assert lease.lease_expires_at == NOW + timedelta(seconds=60)
+        assert lease.lease_expires_at == NOW + dt.timedelta(seconds=60)
         await session.commit()
 
     job = await _job(job_id)
@@ -104,7 +104,7 @@ async def test_concurrent_claimers_never_receive_same_job() -> None:
                 session,
                 worker_id=worker_id,
                 now=NOW,
-                lease_duration=timedelta(minutes=1),
+                lease_duration=dt.timedelta(minutes=1),
             )
             await session.commit()
             return lease
@@ -117,7 +117,7 @@ async def test_concurrent_claimers_never_receive_same_job() -> None:
         assert await complete_ingestion_job(
             session,
             lease=claimed[0],
-            now=NOW + timedelta(seconds=1),
+            now=NOW + dt.timedelta(seconds=1),
         )
         await session.commit()
 
@@ -130,7 +130,7 @@ async def test_expired_lease_reclaims_job_and_fences_stale_attempt() -> None:
             session,
             worker_id="worker-old",
             now=NOW,
-            lease_duration=timedelta(seconds=30),
+            lease_duration=dt.timedelta(seconds=30),
         )
         assert old_lease is not None
         await session.commit()
@@ -139,8 +139,8 @@ async def test_expired_lease_reclaims_job_and_fences_stale_attempt() -> None:
         new_lease = await claim_next_ingestion_job(
             session,
             worker_id="worker-new",
-            now=NOW + timedelta(seconds=31),
-            lease_duration=timedelta(minutes=2),
+            now=NOW + dt.timedelta(seconds=31),
+            lease_duration=dt.timedelta(minutes=2),
         )
         assert new_lease is not None
         assert new_lease.job_id == job_id
@@ -150,13 +150,13 @@ async def test_expired_lease_reclaims_job_and_fences_stale_attempt() -> None:
         stale_complete = await complete_ingestion_job(
             session,
             lease=old_lease,
-            now=NOW + timedelta(seconds=32),
+            now=NOW + dt.timedelta(seconds=32),
         )
         assert stale_complete is False
         current_complete = await complete_ingestion_job(
             session,
             lease=new_lease,
-            now=NOW + timedelta(seconds=32),
+            now=NOW + dt.timedelta(seconds=32),
         )
         assert current_complete is True
         await session.commit()
@@ -165,7 +165,7 @@ async def test_expired_lease_reclaims_job_and_fences_stale_attempt() -> None:
     assert job.status == "succeeded"
     assert job.fencing_token == 2
     assert job.lease_token is None
-    assert job.finished_at == NOW + timedelta(seconds=32)
+    assert job.finished_at == NOW + dt.timedelta(seconds=32)
 
 
 @pytest.mark.asyncio
@@ -176,23 +176,23 @@ async def test_heartbeat_renews_only_current_live_lease() -> None:
             session,
             worker_id="heartbeat-worker",
             now=NOW,
-            lease_duration=timedelta(seconds=30),
+            lease_duration=dt.timedelta(seconds=30),
         )
         assert lease is not None
         await session.commit()
 
-    renewed_at = NOW + timedelta(seconds=10)
+    renewed_at = NOW + dt.timedelta(seconds=10)
     async with SESSION_FACTORY() as session:
         assert await renew_ingestion_job_lease(
             session,
             lease=lease,
             now=renewed_at,
-            lease_duration=timedelta(seconds=45),
+            lease_duration=dt.timedelta(seconds=45),
         )
         await session.commit()
 
     job = await _job(job_id)
-    assert job.lease_expires_at == renewed_at + timedelta(seconds=45)
+    assert job.lease_expires_at == renewed_at + dt.timedelta(seconds=45)
     assert job.heartbeat_at == renewed_at
 
     stale = IngestionJobLease(
@@ -207,13 +207,13 @@ async def test_heartbeat_renews_only_current_live_lease() -> None:
         assert not await renew_ingestion_job_lease(
             session,
             lease=stale,
-            now=renewed_at + timedelta(seconds=1),
-            lease_duration=timedelta(seconds=45),
+            now=renewed_at + dt.timedelta(seconds=1),
+            lease_duration=dt.timedelta(seconds=45),
         )
         assert await complete_ingestion_job(
             session,
             lease=lease,
-            now=renewed_at + timedelta(seconds=2),
+            now=renewed_at + dt.timedelta(seconds=2),
         )
         await session.commit()
 
@@ -221,19 +221,19 @@ async def test_heartbeat_renews_only_current_live_lease() -> None:
 @pytest.mark.asyncio
 async def test_retry_waits_until_explicit_retry_instant_then_can_fail_terminally() -> None:
     job_id = await _new_job()
-    retry_at = NOW + timedelta(minutes=5)
+    retry_at = NOW + dt.timedelta(minutes=5)
     async with SESSION_FACTORY() as session:
         first = await claim_next_ingestion_job(
             session,
             worker_id="retry-worker",
             now=NOW,
-            lease_duration=timedelta(minutes=1),
+            lease_duration=dt.timedelta(minutes=1),
         )
         assert first is not None and first.job_id == job_id
         assert await retry_ingestion_job(
             session,
             lease=first,
-            now=NOW + timedelta(seconds=10),
+            now=NOW + dt.timedelta(seconds=10),
             retry_available_at=retry_at,
             error_code="temporary_backend_failure",
         )
@@ -249,22 +249,22 @@ async def test_retry_waits_until_explicit_retry_instant_then_can_fail_terminally
         not_yet = await claim_next_ingestion_job(
             session,
             worker_id="retry-worker",
-            now=retry_at - timedelta(microseconds=1),
-            lease_duration=timedelta(minutes=1),
+            now=retry_at - dt.timedelta(microseconds=1),
+            lease_duration=dt.timedelta(minutes=1),
         )
         assert not_yet is None
         second = await claim_next_ingestion_job(
             session,
             worker_id="retry-worker",
             now=retry_at,
-            lease_duration=timedelta(minutes=1),
+            lease_duration=dt.timedelta(minutes=1),
         )
         assert second is not None and second.job_id == job_id
         assert second.attempt_count == 2
         assert await fail_ingestion_job(
             session,
             lease=second,
-            now=retry_at + timedelta(seconds=1),
+            now=retry_at + dt.timedelta(seconds=1),
             error_code="permanent_parse_failure",
         )
         await session.commit()
@@ -287,7 +287,7 @@ async def test_queued_cancellation_is_immediate_and_idempotent() -> None:
         assert await request_ingestion_job_cancellation(
             session,
             job_id=job_id,
-            now=NOW + timedelta(seconds=1),
+            now=NOW + dt.timedelta(seconds=1),
         ) == "cancelled"
         await session.commit()
 
@@ -305,7 +305,7 @@ async def test_running_cancellation_requires_current_worker_acknowledgement() ->
             session,
             worker_id="cancel-worker",
             now=NOW,
-            lease_duration=timedelta(minutes=1),
+            lease_duration=dt.timedelta(minutes=1),
         )
         assert lease is not None
         await session.commit()
@@ -314,7 +314,7 @@ async def test_running_cancellation_requires_current_worker_acknowledgement() ->
         assert await request_ingestion_job_cancellation(
             session,
             job_id=job_id,
-            now=NOW + timedelta(seconds=5),
+            now=NOW + dt.timedelta(seconds=5),
         ) == "cancellation_requested"
         await session.commit()
 
@@ -322,18 +322,18 @@ async def test_running_cancellation_requires_current_worker_acknowledgement() ->
         assert not await renew_ingestion_job_lease(
             session,
             lease=lease,
-            now=NOW + timedelta(seconds=6),
-            lease_duration=timedelta(minutes=1),
+            now=NOW + dt.timedelta(seconds=6),
+            lease_duration=dt.timedelta(minutes=1),
         )
         assert not await complete_ingestion_job(
             session,
             lease=lease,
-            now=NOW + timedelta(seconds=6),
+            now=NOW + dt.timedelta(seconds=6),
         )
         assert await acknowledge_ingestion_job_cancellation(
             session,
             lease=lease,
-            now=NOW + timedelta(seconds=6),
+            now=NOW + dt.timedelta(seconds=6),
         )
         await session.commit()
 
@@ -350,7 +350,7 @@ async def test_expired_cancellation_can_be_finalized_without_a_worker() -> None:
             session,
             worker_id="crashed-worker",
             now=NOW,
-            lease_duration=timedelta(seconds=20),
+            lease_duration=dt.timedelta(seconds=20),
         )
         assert lease is not None
         await session.commit()
@@ -359,14 +359,14 @@ async def test_expired_cancellation_can_be_finalized_without_a_worker() -> None:
         assert await request_ingestion_job_cancellation(
             session,
             job_id=job_id,
-            now=NOW + timedelta(seconds=1),
+            now=NOW + dt.timedelta(seconds=1),
         ) == "cancellation_requested"
         await session.commit()
 
     async with SESSION_FACTORY() as session:
         finalized = await finalize_expired_ingestion_cancellations(
             session,
-            now=NOW + timedelta(seconds=21),
+            now=NOW + dt.timedelta(seconds=21),
             batch_size=10,
         )
         assert finalized == 1
@@ -386,18 +386,18 @@ async def test_expired_attempt_cannot_heartbeat_or_complete() -> None:
             session,
             worker_id="expired-worker",
             now=NOW,
-            lease_duration=timedelta(seconds=5),
+            lease_duration=dt.timedelta(seconds=5),
         )
         assert lease is not None and lease.job_id == job_id
         await session.commit()
 
-    expired_at = NOW + timedelta(seconds=6)
+    expired_at = NOW + dt.timedelta(seconds=6)
     async with SESSION_FACTORY() as session:
         assert not await renew_ingestion_job_lease(
             session,
             lease=lease,
             now=expired_at,
-            lease_duration=timedelta(seconds=5),
+            lease_duration=dt.timedelta(seconds=5),
         )
         assert not await complete_ingestion_job(session, lease=lease, now=expired_at)
         await session.commit()
@@ -406,15 +406,15 @@ async def test_expired_attempt_cannot_heartbeat_or_complete() -> None:
         reclaimed = await claim_next_ingestion_job(
             session,
             worker_id="recovery-worker",
-            now=expired_at + timedelta(seconds=1),
-            lease_duration=timedelta(minutes=1),
+            now=expired_at + dt.timedelta(seconds=1),
+            lease_duration=dt.timedelta(minutes=1),
         )
         assert reclaimed is not None and reclaimed.job_id == job_id
         assert reclaimed.fencing_token == lease.fencing_token + 1
         assert await complete_ingestion_job(
             session,
             lease=reclaimed,
-            now=expired_at + timedelta(seconds=2),
+            now=expired_at + dt.timedelta(seconds=2),
         )
         await session.commit()
 
@@ -431,19 +431,19 @@ async def test_service_rejects_unsafe_runtime_arguments() -> None:
                 session,
                 worker_id=" ",
                 now=NOW,
-                lease_duration=timedelta(seconds=1),
+                lease_duration=dt.timedelta(seconds=1),
             )
         with pytest.raises(ValueError, match="lease_duration"):
             await claim_next_ingestion_job(
                 session,
                 worker_id="valid-worker",
                 now=NOW,
-                lease_duration=timedelta(0),
+                lease_duration=dt.timedelta(0),
             )
         with pytest.raises(ValueError, match="timezone-aware"):
             await claim_next_ingestion_job(
                 session,
                 worker_id="valid-worker",
-                now=datetime(2026, 11, 12),
-                lease_duration=timedelta(seconds=1),
+                now=dt.datetime(2026, 11, 12),
+                lease_duration=dt.timedelta(seconds=1),
             )
