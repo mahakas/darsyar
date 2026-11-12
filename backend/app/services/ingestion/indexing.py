@@ -19,7 +19,10 @@ from app.core.errors import AppError
 from app.models.ingestion_chunk import IngestionChunk
 from app.models.ingestion_document import IngestionDocument
 from app.services.ingestion.chunking import ChunkingResult
-from app.services.ingestion.index_registry import require_active_index_meta, validate_embedding_provider
+from app.services.ingestion.index_registry import (
+    require_active_index_meta,
+    validate_embedding_provider,
+)
 from app.services.ingestion.normalize import normalize_persian
 
 
