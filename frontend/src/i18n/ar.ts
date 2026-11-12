@@ -47,5 +47,7 @@ export const ar = {
   "historyLoading": "جارٍ تحميل السجل…",
   "historyEmpty": "لم يتم العثور على محادثات.",
   "historyLoadError": "تعذّر تحميل سجل المحادثات.",
-  "untitledConversation": "محادثة بلا عنوان"
+  "untitledConversation": "محادثة بلا عنوان",
+  "loadOlderConversations": "تحميل المحادثات الأقدم",
+  "historyLoadingMore": "جارٍ تحميل المحادثات…"
 } as const
