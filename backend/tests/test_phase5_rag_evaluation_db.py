@@ -13,6 +13,7 @@ from collections.abc import AsyncIterator
 import pytest
 import pytest_asyncio
 from app.core.config import get_settings
+from app.core.errors import AppError
 from app.models.index_meta import IndexMeta
 from app.models.ingestion_document import IngestionDocument
 from app.services.ingestion.chunking import chunk_two_level
@@ -76,6 +77,43 @@ async def test_retrieval_service_fails_closed_without_active_index_registry() ->
         with pytest.raises(AppError) as exc_info:
             await service.retrieve(s, query="ریاضی", selected_grade=5)
         assert exc_info.value.code == "active_embedding_index_missing"
+
+
+@pytest.mark.asyncio
+async def test_retrieval_service_rejects_provider_model_mismatch() -> None:
+    async with SESSION_FACTORY() as s:
+        embed_calls = 0
+
+        async def _embed(texts: list[str]) -> list[list[float]]:
+            nonlocal embed_calls
+            embed_calls += 1
+            return [_vec(i) for i, _ in enumerate(texts)]
+
+        async def _rerank(query: str, docs: list[str]) -> list[float]:
+            return [1.0] * len(docs)
+
+        service = RetrievalService(embed=_embed, rerank=_rerank,
+                                   embedding_model="wrong-model", embedding_dim=DIM)
+        with pytest.raises(AppError) as exc_info:
+            await service.retrieve(s, query="ریاضی", selected_grade=5)
+        assert exc_info.value.code == "embedding_model_registry_mismatch"
+        assert embed_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_retrieval_service_rejects_wrong_provider_dimension() -> None:
+    async with SESSION_FACTORY() as s:
+        async def _embed(texts: list[str]) -> list[list[float]]:
+            return [_vec(i, dim=768) for i, _ in enumerate(texts)]
+
+        async def _rerank(query: str, docs: list[str]) -> list[float]:
+            return [1.0] * len(docs)
+
+        service = RetrievalService(embed=_embed, rerank=_rerank,
+                                   embedding_model="test", embedding_dim=768)
+        with pytest.raises(AppError) as exc_info:
+            await service.retrieve(s, query="ریاضی", selected_grade=5)
+        assert exc_info.value.code == "embedding_dimension_registry_mismatch"
 
 
 @pytest.mark.asyncio
