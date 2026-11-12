@@ -42,11 +42,6 @@ jobs:
           APP_ENV: test
           DATABASE_URL: postgresql+asyncpg://darsyar:ci-only-password@localhost:5432/darsyar_test
         run: uv run --locked alembic upgrade head
-      - name: Temporary import-order diagnostic
-        working-directory: backend
-        run: |
-          uv run --locked ruff check --fix tests/test_ingestion_jobs_db.py
-          git diff -- tests/test_ingestion_jobs_db.py
       - name: Ruff
         working-directory: backend
         run: uv run --locked ruff check .
