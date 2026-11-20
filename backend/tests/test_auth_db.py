@@ -54,7 +54,7 @@ async def test_full_otp_flow_auto_registers_and_never_stores_plaintext(auth_ctx)
     assert expires_in == 900
     assert access and refresh and jti
     assert user.role == "user"
-    challenges = (await session.execute(select(OtpChallenge))).scalars().all()
+    challenges = (await session.execute(select(OtpChallenge).where(OtpChallenge.phone == "+989121234567"))).scalars().all()
     assert len(challenges) == 1
     assert challenges[0].code_digest != code
     assert code not in challenges[0].code_digest
@@ -78,7 +78,7 @@ async def test_wrong_code_increments_attempts_and_locks(auth_ctx) -> None:
     with pytest.raises(AppError) as excinfo:
         await service.verify_otp("09121234567", code)
     assert excinfo.value.code == "otp_attempts_exceeded"
-    challenges = (await session.execute(select(OtpChallenge))).scalars().all()
+    challenges = (await session.execute(select(OtpChallenge).where(OtpChallenge.phone == "+989121234567"))).scalars().all()
     assert challenges[0].attempts == settings.otp_max_attempts
 
 
@@ -212,7 +212,7 @@ async def test_anti_enumeration_existing_vs_unknown_phone_identical_response() -
 async def test_expired_challenge_rejected(auth_ctx) -> None:
     service, session, sms = auth_ctx
     await service.request_otp("09121234567")
-    challenge = (await session.execute(select(OtpChallenge))).scalars().one()
+    challenge = (await session.execute(select(OtpChallenge).where(OtpChallenge.phone == "+989121234567"))).scalars().one()
     challenge.expires_at = service._now() - timedelta(seconds=10)
     await session.flush()
     with pytest.raises(AppError):

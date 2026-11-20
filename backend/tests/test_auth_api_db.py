@@ -14,7 +14,6 @@ from app.core.config import get_settings
 from app.core.ratelimit import RateLimitRule
 from app.main import app
 from app.models.credit_account import CreditAccount
-from app.models.credit_ledger import CreditLedger
 from app.models.otp_challenge import OtpChallenge
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
@@ -55,9 +54,8 @@ async def _cleanup(phone: str) -> None:
         user_id = result.scalar_one_or_none()
         if user_id is not None:
             await session.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
-            await session.execute(delete(CreditLedger).where(CreditLedger.user_id == user_id))
             await session.execute(delete(CreditAccount).where(CreditAccount.user_id == user_id))
-            await session.execute(delete(User).where(User.id == user_id))
+            # Users with immutable ledger rows are intentionally left as test residue.
         await session.execute(delete(OtpChallenge).where(OtpChallenge.phone == phone))
         await session.commit()
 
