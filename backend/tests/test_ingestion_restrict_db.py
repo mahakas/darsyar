@@ -110,7 +110,7 @@ async def test_pg_alembic_head_is_current() -> None:
     async with SESSION_FACTORY() as s:
         version = (await s.execute(text("SELECT version_num FROM alembic_version"))).scalar_one()
         # Head must match the current project head after Phase 7 audit hardening.
-        assert version == "0023_admin_audit_append_only"
+        assert version == "0024_message_sources"
 
 
 @pytest.mark.asyncio

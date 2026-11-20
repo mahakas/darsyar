@@ -41,4 +41,5 @@ logs/
 .idea/
 .DS_Store
 Thumbs.db
-.claude/
+.claude/ops/backups/*
+!ops/backups/.gitkeep

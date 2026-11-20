@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, Text, text
+from sqlalchemy import JSON, DateTime, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -21,6 +21,7 @@ class Message(Base):
     sequence: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     client_request_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     provider_request_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    sources_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list, server_default=text("'[]'::jsonb"))
     reservation_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
     settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -29,3 +30,9 @@ class Message(Base):
     stream_terminated: Mapped[bool] = mapped_column(nullable=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("now()"), onupdate=text("now()"))
+
+    @property
+    def sources(self) -> list[str]:
+        """Safe citation strings exposed to history/recovery responses."""
+        value = self.sources_json
+        return value if isinstance(value, list) else []

@@ -177,6 +177,73 @@ async def claim_next_ingestion_job(
     )
 
 
+async def claim_ingestion_job_by_id(
+    session: AsyncSession,
+    *,
+    job_id: uuid.UUID,
+    worker_id: str,
+    now: datetime,
+    lease_duration: timedelta,
+) -> IngestionJobLease | None:
+    """Claim one specific queued/retry-waiting job for a queue event consumer.
+
+    Uses the same fenced lease contract as ``claim_next_ingestion_job`` so a
+    deterministic ARQ job ID can be replayed safely after a crash.
+    """
+    _validate_worker_id(worker_id)
+    _validate_instant(now, "now")
+    _validate_lease_duration(lease_duration)
+
+    eligible = and_(
+        IngestionJob.id == job_id,
+        or_(
+            and_(
+                IngestionJob.status.in_(CLAIMABLE_JOB_STATES),
+                IngestionJob.retry_available_at <= now,
+            ),
+            and_(
+                IngestionJob.status == RUNNING_JOB_STATE,
+                IngestionJob.cancellation_requested.is_(False),
+                or_(
+                    IngestionJob.lease_expires_at.is_(None),
+                    IngestionJob.lease_expires_at <= now,
+                ),
+            ),
+        ),
+    )
+    statement = (
+        select(IngestionJob).where(eligible).limit(1).with_for_update(skip_locked=True)
+    )
+    job = (await session.execute(statement)).scalar_one_or_none()
+    if job is None:
+        METRICS.ingestion_job_claim_attempts.inc({"result": "empty"})
+        return None
+
+    expires_at = now + lease_duration
+    token = uuid.uuid4()
+    job.status = RUNNING_JOB_STATE
+    job.lease_owner = worker_id
+    job.lease_token = token
+    job.lease_expires_at = expires_at
+    job.heartbeat_at = now
+    job.attempt_count += 1
+    job.fencing_token += 1
+    job.started_at = job.started_at or now
+    job.finished_at = None
+    job.updated_at = now
+    await session.flush()
+    METRICS.ingestion_job_claim_attempts.inc({"result": "claimed"})
+
+    return IngestionJobLease(
+        job_id=job.id,
+        worker_id=worker_id,
+        lease_token=token,
+        fencing_token=job.fencing_token,
+        attempt_count=job.attempt_count,
+        lease_expires_at=expires_at,
+    )
+
+
 async def renew_ingestion_job_lease(
     session: AsyncSession,
     *,

@@ -70,3 +70,39 @@ def test_evaluation_rejects_mismatched_gold_and_result_counts() -> None:
         assert str(exc) == "gold/results length mismatch"
     else:
         raise AssertionError("expected mismatched input lengths to fail")
+
+
+def test_evaluation_cli_loads_snapshot_and_rejects_small_dataset(tmp_path, capsys) -> None:
+    from app.services.ingestion.evaluation import main
+
+    golden = tmp_path / "golden.jsonl"
+    golden.write_text(
+        '{"query":"q1","selected_grade":5,"ground_truth_chunk_keys":[[5,1]]}\n',
+        encoding="utf-8",
+    )
+    results = tmp_path / "results.jsonl"
+    results.write_text(
+        '{"retrieved":[{"grade_level":5,"chunk_index":1,"title":"book","page_number":2,"content":"x"}]}\n',
+        encoding="utf-8",
+    )
+
+    assert main(["--golden", str(golden), "--results", str(results)]) == 2
+    assert "EVAL NOT ACCEPTED" in capsys.readouterr().out
+
+
+def test_evaluator_rejects_unreviewed_golden_cases(tmp_path, capsys) -> None:
+    from app.services.ingestion.evaluation import main
+
+    golden = tmp_path / "golden_draft.jsonl"
+    golden.write_text(
+        '{"query":"q1","selected_grade":12,"ground_truth_chunk_keys":[[12,1]],"review_status":"draft"}\n',
+        encoding="utf-8",
+    )
+    results = tmp_path / "results.jsonl"
+    results.write_text(
+        '{"retrieved":[{"grade_level":12,"chunk_index":1,"title":"fizik","page_number":5,"content":"x"}]}\n',
+        encoding="utf-8",
+    )
+
+    assert main(["--golden", str(golden), "--results", str(results)]) == 2
+    assert "not owner-reviewed/approved" in capsys.readouterr().out

@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getMyProfile, logout, updateSelectedGrade, type SessionUser } from './api/auth'
 import { listConversations, type ConversationSummary } from './api/chat'
-import { apiFetch } from './api/client'
+import { ApiError, apiFetch } from './api/client'
 import AuthPanel from './components/AuthPanel'
 import ChatPanel from './components/ChatPanel'
 
@@ -37,17 +37,31 @@ export default function App() {
 
   useEffect(() => {
     let active = true
-    void getMyProfile()
-      .then((profile) => {
-        if (!active) return
-        setUser(profile)
-        setSessionState('signed_in')
-      })
-      .catch(() => {
-        if (!active) return
-        setUser(null)
-        setSessionState('signed_out')
-      })
+    const loadProfile = async () => {
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        try {
+          const profile = await getMyProfile()
+          if (!active) return
+          setUser(profile)
+          setSessionState('signed_in')
+          return
+        } catch (error) {
+          if (
+            error instanceof ApiError &&
+            error.code === 'refresh_conflict_retry' &&
+            attempt < 3
+          ) {
+            await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)))
+            continue
+          }
+          if (!active) return
+          setUser(null)
+          setSessionState('signed_out')
+          return
+        }
+      }
+    }
+    void loadProfile()
     return () => {
       active = false
     }

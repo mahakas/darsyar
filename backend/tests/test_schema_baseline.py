@@ -110,3 +110,12 @@ async def test_schema_baseline_only_one_active_row_allowed() -> None:
                 await transaction.rollback()
     finally:
         await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_messages_sources_json_column_exists() -> None:
+    column = await _fetch_one(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = 'messages' AND column_name = 'sources_json'"
+    )
+    assert column == "1"

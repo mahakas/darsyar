@@ -104,7 +104,15 @@ async def logout(
     """باطل‌کردن خانوادهٔ نشست جاری."""
     raw_token = _read_refresh_cookie(request)
     await service.logout_family(raw_token)
-    response.delete_cookie(settings.refresh_cookie_name, path="/", httponly=True, secure=settings.app_env == "production", samesite="lax")
+    # Refresh cookie is issued with path=/api/v1/auth; deleting a different path
+    # would leave the session token in the browser (cookie identity is name+domain+path).
+    response.delete_cookie(
+        settings.refresh_cookie_name,
+        path="/api/v1/auth",
+        httponly=True,
+        secure=settings.app_env == "production",
+        samesite="lax",
+    )
     response.delete_cookie(settings.csrf_cookie_name, path="/", httponly=False, secure=settings.app_env == "production", samesite="lax")
 
 

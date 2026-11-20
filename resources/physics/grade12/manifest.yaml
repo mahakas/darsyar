@@ -4,7 +4,7 @@ grade: 12
 edition_year: 1405
 title: "فیزیک (۳) — پایۀ دوازدهم — رشتۀ ریاضی و فیزیک"
 publisher: "شرکت چاپ و نشر کتاب‌های درسی ایران"
-license_note: "owner-provided authorization reference: docs/licenses/13529.md (record_status: pending_evidence_and_scope_review; not independently verified). Not proof of permission by itself (ADR-024)."
+license_note: "owner-provided authorization reference: docs/licenses/13529.md (owner attested for the 6-page pilot sample on 2026-11-19; full-book evidence and independent verification still pending). Not proof of permission by itself (ADR-024)."
 ingestion_status: needs_review
 
 # Provenance / integrity (ADR-024, R-150, R-153, R-157)

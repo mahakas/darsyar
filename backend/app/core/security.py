@@ -11,6 +11,7 @@ from jwt import PyJWTError
 
 from app.core.config import get_settings
 
+# Default only; token creation/verification use Settings.jwt_algorithm.
 ALGORITHM = "HS256"
 TOKEN_TYPE_ACCESS = "access"
 TOKEN_TYPE_REFRESH = "refresh"
@@ -70,10 +71,25 @@ def _signing_secrets() -> tuple[str, str | None]:
     return current, previous
 
 
+def _verification_key(secret: str, algorithm: str) -> str | bytes:
+    """For asymmetric algorithms derive the public key; HMAC uses the shared secret."""
+    if not algorithm.startswith(("RS", "ES")):
+        return secret
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
+    private_key = load_pem_private_key(secret.encode("utf-8"), password=None)
+    return private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+
+
 def create_token(subject: str, role: str, token_type: str, jti: str, *, lifetime: timedelta) -> str:
     current, _ = _signing_secrets()
     if not current:
         raise ValueError("APP_SECRET_KEY is not configured")
+    algorithm = get_settings().jwt_algorithm
     now = datetime.now(UTC)
     payload: dict[str, Any] = {
         "sub": subject,
@@ -83,21 +99,26 @@ def create_token(subject: str, role: str, token_type: str, jti: str, *, lifetime
         "iat": now,
         "exp": now + lifetime,
     }
-    return jwt.encode(payload, current, algorithm=ALGORITHM)
+    return jwt.encode(payload, current, algorithm=algorithm)
 
 
 def decode_token(token: str, expected_type: str, *, allow_previous: bool = True) -> dict[str, Any]:
-    """JWT را با کلید فعلی (و در صورت نیاز قبلی) اعتبارسنجی می‌کند."""
+    """JWT را با الگوریتم/کلید فعلی (و در صورت نیاز قبلی) اعتبارسنجی می کند."""
     current, previous = _signing_secrets()
     if not current:
         raise ValueError("APP_SECRET_KEY is not configured")
-    candidates = [current]
+    settings = get_settings()
+    candidates: list[tuple[str, str]] = [(current, settings.jwt_algorithm)]
     if allow_previous and previous:
-        candidates.append(previous)
+        candidates.append((previous, settings.jwt_previous_algorithm or settings.jwt_algorithm))
     last_error: PyJWTError | None = None
-    for key in candidates:
+    for secret, algorithm in candidates:
         try:
-            payload = jwt.decode(token, key, algorithms=[ALGORITHM])
+            payload = jwt.decode(
+                token,
+                _verification_key(secret, algorithm),
+                algorithms=[algorithm],
+            )
         except PyJWTError as exc:
             last_error = exc
             continue

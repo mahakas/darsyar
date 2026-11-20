@@ -39,11 +39,22 @@ class LLMProvider(Protocol):
 class OpenAICompatibleProvider:
     """adapter سازگار OpenAI برای NVIDIA/OpenAI و دیگر providers."""
 
-    def __init__(self, *, base_url: str, api_key: str, model: str, timeout_seconds: float) -> None:
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        api_key: str,
+        model: str,
+        timeout_seconds: float,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._model = model
         self._timeout_seconds = timeout_seconds
+        self._max_tokens = max_tokens
+        self._temperature = temperature
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             timeout=httpx.Timeout(self._timeout_seconds, connect=10.0),
@@ -59,10 +70,12 @@ class OpenAICompatibleProvider:
             "messages": req.messages,
             "stream": True,
         }
-        if req.max_tokens is not None:
-            payload["max_tokens"] = req.max_tokens
-        if req.temperature is not None:
-            payload["temperature"] = req.temperature
+        max_tokens = req.max_tokens if req.max_tokens is not None else self._max_tokens
+        temperature = req.temperature if req.temperature is not None else self._temperature
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        if temperature is not None:
+            payload["temperature"] = temperature
         try:
             async with self._client.stream("POST", "/v1/chat/completions", json=payload) as response:
                 response.raise_for_status()
@@ -97,6 +110,8 @@ def get_llm_provider() -> OpenAICompatibleProvider | None:
         api_key=api_key,
         model=settings.llm_model,
         timeout_seconds=settings.llm_timeout_seconds,
+        max_tokens=settings.llm_max_tokens,
+        temperature=settings.llm_temperature,
     )
 
 

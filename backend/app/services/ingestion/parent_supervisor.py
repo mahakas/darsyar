@@ -125,14 +125,16 @@ def run_child(
             shell=False,
         )
         assert proc.stdin is not None and proc.stdout is not None
-        proc.stdin.write(request.to_json().encode("utf-8"))
-        proc.stdin.close()
 
         timed_out = False
         terminated = False
         forced = False
         try:
-            stdout_bytes, _stderr = proc.communicate(timeout=timeout_seconds)
+            # Pass the request via communicate(): closing stdin manually before
+            # communicate() makes the latter flush a closed pipe on some Pythons.
+            stdout_bytes, _stderr = proc.communicate(
+                input=request.to_json().encode("utf-8"), timeout=timeout_seconds
+            )
         except subprocess.TimeoutExpired:
             timed_out = True
             # Graceful termination attempt.

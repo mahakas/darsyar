@@ -21,7 +21,7 @@ This directory contains the architecture, security, authorization, acceptance, a
 ### Not implemented or not accepted
 
 - Source-by-source documentary authorization and separate scope approval for acquisition, storage, extraction, rendering, OCR, embedding/indexing, retrieval, and display. Reference 13529 remains unverified and grants no automatic permission.
-- An authenticated intake/upload API, quarantine lifecycle, and registered ingestion consumer in ARQ. WorkerSettings.functions still does not register process_ingestion_event; the dedicated queue has no Darsyar ingestion consumer.
+- An authenticated file-upload/quarantine lifecycle. The admin-only `POST /api/v1/documents/jobs` route can now create a **synthetic** job for an existing document identity; no file bytes are accepted. `process_ingestion_event` and the outbox publisher are wired in `WorkerSettings` but stay disabled until `INGESTION_CONSUMER_ENABLED` / `INGESTION_PUBLISHER_ENABLED` are explicitly approved. Real `pdf` jobs fail closed with `unsupported_job_type`.
 - Operational PDF extraction, OCR, rendering, formula/image fidelity, and end-to-end processing of an authorized textbook.
 - Closure of Gate A, all required Gate B security/resource controls, and Gate C equivalence/quality validation.
 - Production runtime settings and an operational active index record.
@@ -51,3 +51,15 @@ The Gate B numeric policies approved with conditions are policy decisions only; 
 ## Phase closure
 
 Phase 4 may be marked COMPLETE only after the canonical phase specification and acceptance criteria are satisfied with repeatable evidence, all relevant security gates are closed, the real source and each operation are authorized, end-to-end ingestion runs against an authorized source, and the resulting chunks/index/citations are validated. Synthetic CI success alone is insufficient.
+
+## Pilot decisions (2026-11-19)
+
+The owner supplied a gitignored 6-page `physics12.pdf` sample, stated that it is
+their own licensed source, and approved:
+- Gate A pilot renderer: `pypdfium2` (production licensing/provenance review still open);
+- Gate B pilot limits: existing constants in `config.py` / worker / nginx;
+- Gate C: equivalence test on that sample only.
+
+Evidence: `docs/licenses/13529.md`, `docs/ingestion/OWNER_DECISIONS.md`,
+`backend/tests/evaluation/pdf_equivalence_pilot.json`, and 45 draft golden cases
+in `backend/tests/evaluation/golden_set.draft.jsonl` (not accepted until reviewed).

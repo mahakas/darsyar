@@ -91,3 +91,47 @@ async def test_bounded_retry_gives_up_after_max() -> None:
     await run_chat_with_bounded_retry(provider, ChatRequest(messages=[{"role": "user", "content": "x"}]), max_retries=2, on_chunk=collected.append)
     assert collected[-1].done
     assert collected[-1].error == "provider_failed"
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_provider_payload_uses_generation_defaults() -> None:
+    route = respx.post(f"{BASE}/v1/chat/completions").mock(return_value=_sse("data: [DONE]\n"))
+    provider = OpenAICompatibleProvider(
+        base_url=BASE,
+        api_key="secret",
+        model="configured-model",
+        timeout_seconds=5.0,
+        max_tokens=321,
+        temperature=0.3,
+    )
+    async for _ in provider.stream_chat(ChatRequest(messages=[{"role": "user", "content": "hi"}])):
+        pass
+    import json
+
+    payload = json.loads(route.calls[0].request.content)
+    assert payload["model"] == "configured-model"
+    assert payload["max_tokens"] == 321
+    assert payload["temperature"] == 0.3
+    await provider.aclose()
+
+
+@pytest.mark.asyncio
+async def test_request_model_is_forwarded_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.core.config import get_settings
+    from app.core.errors import AppError
+    from app.services.chat_service import ChatStreamService
+
+    monkeypatch.setenv("LLM_MODEL", "allowed-model")
+    monkeypatch.setenv("LLM_FALLBACK_MODELS", '["fallback-model"]')
+    get_settings.cache_clear()
+    try:
+        service = ChatStreamService()
+        service._validate_model("allowed-model")
+        service._validate_model("fallback-model")
+        service._validate_model(None)
+        with pytest.raises(AppError) as excinfo:
+            service._validate_model("arbitrary-model")
+        assert excinfo.value.code == "model_not_allowed"
+    finally:
+        get_settings.cache_clear()

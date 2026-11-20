@@ -61,13 +61,25 @@ jobs:
           DARSYAR_TEST_DB: "1"
           REDIS_URL: redis://localhost:6379/0
         run: uv run --locked pytest -q
-      - name: RAG evaluation (only after golden set exists)
-        if: ${{ hashFiles('backend/tests/evaluation/golden_set.jsonl') != '' }}
+      - name: RAG evaluation (only after golden set and retrieval snapshot exist)
         working-directory: backend
         env:
           APP_ENV: test
+          APP_SECRET_KEY: "ci-only-signing-secret-never-use-outside-tests-39"
           DATABASE_URL: postgresql+asyncpg://darsyar:ci-only-password@localhost:5432/darsyar_test
-        run: uv run --locked python -m app.services.retrieval.evaluation
+        run: |
+          GOLDEN=tests/evaluation/golden_set.jsonl
+          RESULTS=tests/evaluation/retrieval_results.jsonl
+          if [ ! -f "$GOLDEN" ]; then
+            echo "RAG evaluation NOT RUN: no reviewed golden dataset."
+            exit 0
+          fi
+          if [ ! -f "$RESULTS" ]; then
+            echo "golden dataset exists but its retrieval snapshot is missing" >&2
+            exit 1
+          fi
+          uv run --locked python -m app.services.ingestion.evaluation \
+            --golden "$GOLDEN" --results "$RESULTS"
 
   sigterm-linux:
     runs-on: ubuntu-latest
@@ -146,6 +158,9 @@ jobs:
       - name: Lint
         working-directory: frontend
         run: npm run lint
+      - name: Unit tests
+        working-directory: frontend
+        run: npm test
       - name: Typecheck and build
         working-directory: frontend
         run: npm run build
@@ -160,6 +175,38 @@ jobs:
             --add-host api:127.0.0.1 --add-host frontend:127.0.0.1 \
             -v "${GITHUB_WORKSPACE}/infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" \
             nginx:1.28-alpine nginx -t
+      - name: Validate TLS production template syntax
+        shell: bash
+        run: |
+          mkdir -p "${RUNNER_TEMP}/nginx-certs"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -subj "/CN=localhost" \
+            -keyout "${RUNNER_TEMP}/nginx-certs/privkey.pem" \
+            -out "${RUNNER_TEMP}/nginx-certs/fullchain.pem" >/dev/null 2>&1
+          docker run --rm \
+            --add-host api:127.0.0.1 \
+            -v "${GITHUB_WORKSPACE}/infra/nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro" \
+            -v "${RUNNER_TEMP}/nginx-certs:/etc/nginx/certs:ro" \
+            nginx:1.28-alpine nginx -t
+
+      - name: Smoke-test combined reverse-proxy template serves the SPA
+        shell: bash
+        run: |
+          docker run -d --rm --name darsyar-infra-nginx \
+            --add-host api:127.0.0.1 \
+            -p 127.0.0.1:18081:8080 \
+            -v "${GITHUB_WORKSPACE}/infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" \
+            nginx:1.28-alpine
+          trap 'docker rm -f darsyar-infra-nginx >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 20); do
+            if curl -fsSI http://127.0.0.1:18081/index.html >/dev/null; then break; fi
+            sleep 0.5
+          done
+          headers="$(curl -fsSI http://127.0.0.1:18081/index.html)"
+          grep -Eqi '^X-Frame-Options:[[:space:]]*DENY' <<<"$headers"
+          grep -Eqi '^Cache-Control:[[:space:]]*no-store' <<<"$headers"
+          curl -fsS http://127.0.0.1:18081/index.html | grep -qi '<html'
+
       - name: Smoke-test production frontend security headers
         shell: bash
         run: |

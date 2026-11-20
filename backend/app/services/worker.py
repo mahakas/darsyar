@@ -1,6 +1,7 @@
 """کارگر arq پایه؛ jobهای محصولی در فازهای مربوطه اضافه می‌شوند."""
 
 import logging
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from arq.connections import RedisSettings
@@ -153,15 +154,96 @@ async def recover_orphan_stream_messages(ctx: dict[str, object]) -> dict[str, in
     return {"recovered": recovered}
 
 
+async def process_ingestion_event(
+    ctx: dict[str, object],
+    event_id: str,
+    job_id: str,
+    *,
+    dedup_key: str | None = None,
+    event_type: str | None = None,
+    contract_version: int | None = None,
+) -> dict[str, str]:
+    """Fenced ARQ consumer for outbox ingestion events.
+
+    Only the ``synthetic`` job type is executable. Real PDF jobs fail closed until
+    the source authorization and Gate A/B/C approvals are independently recorded;
+    registering this function alone never authorizes document processing.
+    """
+    from app.db.session import SessionFactory
+    from app.models.ingestion_job import IngestionJob
+    from app.services.ingestion_jobs import (
+        claim_ingestion_job_by_id,
+        complete_ingestion_job,
+        fail_ingestion_job,
+    )
+
+    if not settings.ingestion_consumer_enabled:
+        return {"status": "disabled"}
+
+    lease_seconds = settings.ingestion_lease_seconds
+    async with SessionFactory() as session:
+        lease = await claim_ingestion_job_by_id(
+            session,
+            job_id=uuid.UUID(job_id),
+            worker_id=str(ctx.get("worker_id", "arq-worker"))[:64],
+            now=datetime.now(UTC),
+            lease_duration=timedelta(seconds=lease_seconds),
+        )
+        if lease is None:
+            await session.rollback()
+            return {"status": "already_claimed"}
+        job = await session.get(IngestionJob, lease.job_id)
+        if job is None:
+            await session.rollback()
+            return {"status": "missing_job"}
+        now = datetime.now(UTC)
+        if job.job_type != "synthetic":
+            await fail_ingestion_job(
+                session, lease=lease, now=now, error_code="unsupported_job_type"
+            )
+            await session.commit()
+            return {"status": "failed", "reason": "unsupported_job_type"}
+        await complete_ingestion_job(session, lease=lease, now=now)
+        await session.commit()
+        return {"status": "succeeded"}
+
+
+async def publish_ingestion_outbox(ctx: dict[str, object]) -> dict[str, int]:
+    """Optional scheduled publisher; off by default pending owner approval."""
+    from arq import ArqRedis
+
+    from app.db.session import SessionFactory
+    from app.services.outbox_publisher import publish_pending_outbox_events
+
+    if not settings.ingestion_publisher_enabled:
+        return {"published": 0}
+    ctx_redis = ctx.get("redis")
+    if ctx_redis is None:
+        return {"published": 0}
+    if not isinstance(ctx_redis, ArqRedis):
+        return {"published": 0}
+    async with SessionFactory() as session:
+        result = await publish_pending_outbox_events(
+            session, ctx_redis, batch_size=settings.ingestion_batch_size
+        )
+    return {"published": result.published, "deferred": result.deferred, "failed": result.failed}
+
+
 class WorkerSettings:
     """پیکربندی worker arq برای jobهای async."""
-    functions = [worker_probe]
+    functions = [worker_probe] + ([process_ingestion_event] if settings.ingestion_consumer_enabled else [])
     # بازیابی رزروهای stale + پیام‌های orphan به‌عنوان آخرین لایه recovery پس از
     # shutdown/تصادف. cadence = هر ۶۰ ثانیه، + اجرا در startup.
-    cron_jobs = [
+    cron_jobs = ([
         cron(
             expire_reservation_deadlines,
             name="release-stale-reservations",
+            second={0},
+            run_at_startup=True,
+        ),
+        cron(
+            expire_plan_entitlements,
+            name="expire-plan-entitlements",
             second={0},
             run_at_startup=True,
         ),
@@ -171,7 +253,13 @@ class WorkerSettings:
             second={0},
             run_at_startup=True,
         ),
-    ]
+    ] + ([
+        cron(
+            publish_ingestion_outbox,
+            name="publish-ingestion-outbox",
+            minute=set(range(0, 60, 5)),
+        ),
+    ] if settings.ingestion_publisher_enabled else []))
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     max_jobs = 4
     job_timeout = 300

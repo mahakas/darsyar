@@ -1,7 +1,7 @@
-.PHONY: help lock up down restart logs ps health migrate revision seed-admin seed-plans test test-db coverage eval lint typecheck fmt dev-backend dev-frontend shell-db shell-backend clean smoke
+.PHONY: help lock up down restart logs ps health migrate revision seed-admin seed-plans test test-db coverage eval pdf-equivalence backup-db restore-db load-test lint typecheck fmt dev-backend dev-frontend shell-db shell-backend clean smoke
 
 help:
-	@printf '%s\n' 'Darsyar v4 targets: lock up down restart logs ps health migrate revision seed-admin seed-plans test test-db coverage eval lint typecheck fmt dev-backend dev-frontend shell-db shell-backend clean smoke'
+	@printf '%s\n' 'Darsyar v4 targets: lock up down restart logs ps health migrate revision seed-admin seed-plans test test-db coverage eval pdf-equivalence backup-db restore-db load-test lint typecheck fmt dev-backend dev-frontend shell-db shell-backend clean smoke'
 
 # Phase 0: generate genuine lockfiles from configured registries; never hand-write them.
 lock:
@@ -49,8 +49,26 @@ test-db:
 coverage:
 	cd backend && uv run --locked --extra dev pytest --cov=app --cov-report=term-missing --cov-fail-under=70
 
+backup-db:
+	@bash scripts/backup_db.sh
+
+restore-db:
+	@bash scripts/restore_db.sh "$(FILE)"
+
+load-test:
+	uv run --locked python scripts/load_test_chat.py $(ARGS)
+
+pdf-equivalence:
+	@test -f resources/physics/grade12/samples/physics12.pdf || { echo 'BLOCKED: owner-supplied pilot PDF is not present locally.'; exit 2; }
+	uv run --locked python scripts/pdf_equivalence_pilot.py \
+		--pdf resources/physics/grade12/samples/physics12.pdf \
+		--report backend/tests/evaluation/pdf_equivalence_pilot.json
+
 eval:
-	@echo 'BLOCKED: golden dataset and RAG implementation are phase 4/5 deliverables; do not fabricate scores.'; exit 2
+	@test -s backend/tests/evaluation/golden_set.jsonl || { echo 'BLOCKED: reviewed golden dataset is not present; do not fabricate scores.'; exit 2; }
+	@test -s backend/tests/evaluation/retrieval_results.jsonl || { echo 'BLOCKED: retrieval snapshot for the golden dataset is not present.'; exit 2; }
+	cd backend && uv run --locked python -m app.services.ingestion.evaluation \
+		--golden tests/evaluation/golden_set.jsonl --results tests/evaluation/retrieval_results.jsonl
 
 lint:
 	cd backend && uv run --locked --extra dev ruff check .

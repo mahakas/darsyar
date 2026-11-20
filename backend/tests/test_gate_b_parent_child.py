@@ -142,7 +142,7 @@ def test_parent_rejects_child_result_for_another_attempt(monkeypatch) -> None:
             self.stderr = io.BytesIO()
             self.returncode = 0
 
-        def communicate(self, timeout=None):
+        def communicate(self, timeout=None, input=None):
             return foreign_result, b""
 
         def poll(self):

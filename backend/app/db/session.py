@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings
+from app.core.errors import AppError
 
 settings = get_settings()
 engine = create_async_engine(
@@ -22,9 +23,24 @@ SessionFactory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commi
 
 
 async def get_db() -> AsyncIterator[AsyncSession]:
-    """یک AsyncSession مستقل برای هر درخواست فراهم می‌کند."""
+    """Session مستقل با مرز تراکنش صریح برای هر درخواست.
+
+    سرویسها آزادند نوشتههای خود را زودتر commit کنند؛ commit نهایی در اینجا no-op است.
+    خطاهای دامنهای (AppError) بخشی از رفتار عادیاند و باید نوشتههایی مانند شمارش
+    تلاشهای ناموفق OTP یا ابطال خانواده در reuse را حفظ کنند. سایر استثناها rollback
+    کامل میشوند تا نتیجهٔ ناقص ذخیره نشود.
+    """
     async with SessionFactory() as session:
-        yield session
+        try:
+            yield session
+        except AppError:
+            await session.commit()
+            raise
+        except BaseException:
+            await session.rollback()
+            raise
+        else:
+            await session.commit()
 
 
 async def ping_database() -> None:

@@ -1,5 +1,6 @@
 """وابستگی‌های پایهٔ API؛ احراز هویت و ابزارهای امنیتی."""
 
+import ipaddress
 import uuid
 from collections.abc import Callable
 from typing import Annotated, Any, cast
@@ -95,15 +96,37 @@ async def get_current_user(
     return user
 
 
+def _peer_is_trusted(peer: str | None, forwarded_allow_ips: str) -> bool:
+    if not peer:
+        return False
+    try:
+        address = ipaddress.ip_address(peer)
+    except ValueError:
+        return peer in {item.strip() for item in forwarded_allow_ips.split(",")}
+    for item in forwarded_allow_ips.split(","):
+        value = item.strip()
+        if not value:
+            continue
+        try:
+            if address in ipaddress.ip_network(value, strict=False):
+                return True
+        except ValueError:
+            if peer == value:
+                return True
+    return False
+
+
 def client_ip(request: Request) -> str:
-    """IP کلاینت با پشتیبانی proxy قابل‌اعتماد؛ به X-Forwarded-For خام اعتماد نمی‌شود."""
+    """IP کلاینت با پشتیبانی proxy قابلاعتماد؛ به X-Forwarded-For خام اعتماد نمیشود."""
     settings = get_settings()
-    trusted_proxies = {ip.strip() for ip in settings.forwarded_allow_ips.split(",")} if settings.forwarded_allow_ips else set()
-    if getattr(request.client, "host", None) in trusted_proxies:
+    peer = getattr(request.client, "host", None)
+    if _peer_is_trusted(peer, settings.forwarded_allow_ips):
         forwarded = request.headers.get("x-forwarded-for", "")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-    return getattr(request.client, "host", "unknown") or "unknown"
+        for candidate in forwarded.split(","):
+            candidate = candidate.strip()
+            if candidate:
+                return candidate
+    return peer or "unknown"
 
 
 async def require_admin(
