@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import check_rate_limit, get_current_user, get_db
+from app.api.deps import check_rate_limit, client_ip, get_current_user, get_db
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.metrics import METRICS
@@ -47,6 +47,12 @@ async def chat_stream(
         RateLimitRule(limit=settings.chat_rate_user, window_seconds=60),
         degraded_allowed=True,
     )
+    await check_rate_limit(
+        request,
+        f"chat:ip:{client_ip(request)}",
+        RateLimitRule(limit=settings.chat_rate_ip, window_seconds=60),
+        degraded_allowed=True,
+    )
 
     def on_financial(outcome: str) -> None:
         METRICS.financial_outcome.inc({"outcome": outcome})
@@ -68,7 +74,10 @@ async def chat_stream(
         from collections.abc import AsyncGenerator
         from typing import cast
 
-        stream_iterator: AsyncGenerator[str] = cast(AsyncGenerator[str], service.stream_chat(payload, user))
+        last_event_id = request.headers.get("last-event-id")
+        stream_iterator: AsyncGenerator[str] = cast(
+            AsyncGenerator[str], service.stream_chat(payload, user, last_event_id=last_event_id)
+        )
         try:
             async for event in stream_iterator:
                 if first_billable is None and "event:delta" in event:

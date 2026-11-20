@@ -1,0 +1,61 @@
+{
+  "pdf": "resources/physics/grade12/samples/physics12.pdf",
+  "page_count": 6,
+  "all_pages_rendered_nonblank": true,
+  "pages": [
+    {
+      "page": 1,
+      "pypdf_chars": 1775,
+      "pdfium_chars": 1809,
+      "text_token_jaccard": 0.4581,
+      "render_width": 291,
+      "render_height": 383,
+      "render_nonblank": true
+    },
+    {
+      "page": 2,
+      "pypdf_chars": 2118,
+      "pdfium_chars": 2162,
+      "text_token_jaccard": 0.5579,
+      "render_width": 291,
+      "render_height": 383,
+      "render_nonblank": true
+    },
+    {
+      "page": 3,
+      "pypdf_chars": 2077,
+      "pdfium_chars": 2171,
+      "text_token_jaccard": 0.5746,
+      "render_width": 291,
+      "render_height": 383,
+      "render_nonblank": true
+    },
+    {
+      "page": 4,
+      "pypdf_chars": 1891,
+      "pdfium_chars": 1991,
+      "text_token_jaccard": 0.5513,
+      "render_width": 291,
+      "render_height": 383,
+      "render_nonblank": true
+    },
+    {
+      "page": 5,
+      "pypdf_chars": 2877,
+      "pdfium_chars": 2908,
+      "text_token_jaccard": 0.6043,
+      "render_width": 291,
+      "render_height": 383,
+      "render_nonblank": true
+    },
+    {
+      "page": 6,
+      "pypdf_chars": 1794,
+      "pdfium_chars": 1858,
+      "text_token_jaccard": 0.6447,
+      "render_width": 291,
+      "render_height": 383,
+      "render_nonblank": true
+    }
+  ]
+}

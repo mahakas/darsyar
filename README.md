@@ -9,8 +9,8 @@
 - فازهای ۰ و ۱ تکمیل‌شده‌اند.
 - فاز ۲ تکمیل‌شده با محدودیت‌های عملیاتی مستند است.
 - فاز ۳ تکمیل‌شده و شواهد CI/خاموشی کنترل‌شده ثبت شده‌اند.
-- فاز ۴ علاوه بر اجزای synthetic مربوط به manifest، chunking، embedding، indexing و retrieval، چرخهٔ durable job (PR #21)، staging/publish امن Artifact (PR #22)، متریک‌های کم‌کاردینالیتی (PR #23) و تست انتهابه‌انتها PostgreSQL→Parent/Child→Artifact برای موفقیت و شکست (PR #24) را دارد؛ بااین‌حال ingestion عملیاتی PDF، مجوز هر منبع و گیت‌های Gate A/B/C همچنان باز هستند.
-- فاز ۵ نمونهٔ اولیهٔ retrieval و ارزیابی synthetic دارد؛ دیتاست طلایی حداقل ۱۵۰ پرسشی، evidence snapshot و اتصال کامل evidence/citation به پاسخ چت باقی است.
+- فاز ۴ علاوه بر اجزای synthetic مربوط به manifest، chunking، embedding، indexing و retrieval، چرخهٔ durable job (PR #21)، staging/publish امن Artifact (PR #22)، متریک‌های کم‌کاردینالیتی (PR #23) و تست انتهابه‌انتها PostgreSQL→Parent/Child→Artifact برای موفقیت و شکست (PR #24) را دارد؛ بااین‌حال ingestion عملیاتی کتاب کامل، مجوز مستقل منابع و تأیید production گیت‌های Gate A/B/C باز هستند (تصمیم آزمایشی نمونه در `docs/ingestion/OWNER_DECISIONS.md`).
+- فاز ۵ نمونهٔ اولیهٔ retrieval و ارزیابی synthetic دارد؛ groundingservice با fail-closed، citationها و SourceCard در رابط متصل و replay SSE با Last-Event-ID همگام شد، ولی دیتاست طلایی حداقل ۱۵۰ پرسشی تأییدشده و evidence snapshot برای benchmark باقی است (۴۵ مورد پیشنویس از نمونهٔ ۶صفحهای متعلق به مالک `backend/tests/evaluation/golden_set.draft.jsonl` موجود است، اما هنوز تأیید نشدهاند).
 - فاز ۶ احراز هویت نشست، پایهٔ تحصیلی صریح، تاریخچهٔ مالک‌محور، pagination/search و replay/status recovery پایدار SSE دارد؛ SourceCard، Markdown امن، دسترس‌پذیری و پذیرش کامل رابط باقی است.
 - فاز ۷ زیرساخت محدود مجوز مدیر و audit تغییرناپذیر در PostgreSQL دارد؛ پنل مدیریت، routeهای مدیریتی، seed عملیاتی، MFA/step-up و acting session هنوز پیاده‌سازی/پذیرفته نشده‌اند. ADR-051 همچنان Proposed است.
 - فاز ۸ عمداً Deferred و خارج از MVP است.
@@ -36,7 +36,7 @@
 - هیچ PDF کتاب واقعی بدون شواهد مجوز و تأیید دامنهٔ استفاده پردازش نمی‌شود. مرجع 13529 هنوز از نظر سند، دامنه و عملیات مستقل تأیید نشده است.
 - Gate A (مجوز/انتخاب نهایی renderer)، بخش‌هایی از Gate B (محدودیت‌های عددی و امنیت پردازش) و Gate C (آزمون هم‌ارزی) باز هستند.
 - endpoint کامل intake و consumer عملیاتی PDF در worker هنوز پذیرفته نشده‌اند.
-- RAG هنوز دیتاست طلایی حداقل ۱۵۰ پرسشی و اتصال evidence به پاسخ واقعی را ندارد.
+- RAG دارای مسیر groundشدهٔ fail-closed و منابع SSE است، ولی دیتاست طلایی حداقل ۱۵۰ پرسشی و اسناد مجوز منبع برای پردازش PDF واقعی باقی است.
 - تجربهٔ کامل کاربر و پنل Admin هنوز آماده نیستند.
 - Production هنوز تأیید نشده است.
 
@@ -108,7 +108,14 @@ make test-db
 
 تست‌های DB به PostgreSQL واقعی نیاز دارند؛ SQLite جایگزین معتبر این پروژه نیست. برخی تست‌های sandbox یا مدل واقعی فقط در محیط محدودشده/دارای منابع لازم اجرا می‌شوند و ممکن است در CI عمومی به‌صورت صریح skip شوند.
 
-آخرین CI موفق روی `main` پس از ادغام PR #24، commit `385a3d1fdedb429250e478ed836c96e9e1422a9e`، در 2026-11-12 اجرا شد: [Run 43254717321](https://github.com/mahakas/darsyar/actions/runs/43254717321). Backend: **545 passed, 21 skipped, 1 warning**؛ Ruff، mypy (132 فایل)، migration smoke، Frontend lint/typecheck/build، Linux SIGTERM، Nginx smoke و Trivy report-only همگی موفق بودند. RAG evaluation به دلیل نبود golden dataset اجرا نشد و تست‌های sandbox/cgroup و real-model به دلیل پیش‌نیاز محیطی Skip شدند. Trivy report-only فقط تولید گزارش را ثابت می‌کند، نه صفر بودن آسیب‌پذیری‌ها.
+وضعیت شواهد (محلی، روی شاخهٔ کاری جاری، 2026-11-19):
+
+- `backend`: `ruff check .` و `mypy app` موفق (133 فایل)؛ coverage محلی بدون DB: **52%** (با ۳۳۰ تست skipشده قابل مقایسه با هدف ۷۰٪ نیست).
+- `pytest -q` (بدون PostgreSQL و Redis محلی): **265 passed, 330 skipped**؛ تستهای `*_db` و sandbox/real-model صریحاً skip شدند و نتیجهٔ PASS تلقی نمیشوند.
+- `frontend`: `npm test` (4 test)، `npm run typecheck` و `npm run lint` موفق.
+- `.github/workflows/ci.yml` اکنون شامل backend/frontend test gate، RAG evaluator با مسیر درست و smoke یکپارچه reverse-proxy است؛ نتایج CI اخیر تأیید نشدهاند.
+- آخرین CI موفق ثبتشده روی `main` مربوط به PR #24 و commit `385a3d1fdedb429250e478ed836c96e9e1422a9e`، 2026-11-12 است: [Run 43254717321](https://github.com/mahakas/darsyar/actions/runs/43254717321). این شاهد مربوط به کد قبل از تغییرات اخیر است و نباید بهعنوان نتیجهٔ CI شاخهٔ حاضر خوانده شود.
+- Trivy تنها report-mode است و صفر بودن آسیبپذیریها را ثابت نمیکند.
 
 ## حاکمیت، امنیت و منابع
 

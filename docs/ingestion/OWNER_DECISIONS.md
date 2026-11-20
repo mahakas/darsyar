@@ -12,6 +12,17 @@ Three gates block ingestion implementation:
 
 Each is presented with evidence and states. No owner decision is made on the owner's behalf.
 
+## Owner decisions recorded 2026-11-19 (pilot sample only)
+
+| Gate | Decision | Scope / caveat |
+|---|---|---|
+| A | `pypdfium2>=5.15,<6.0` added for pilot rendering and text extraction | Production approval still needs license/provenance review; `pypdf` remains parse-only |
+| B | Existing numeric/security constants accepted as pilot limits | No new limit invented; container memory/CPU/pids remain `CONFIGURATION_REQUIRED` |
+| C | Controlled equivalence test authorized and executed on `physics12.pdf` | `scripts/pdf_equivalence_pilot.py`; report in `backend/tests/evaluation/pdf_equivalence_pilot.json` |
+
+
+**Update 2026-11-19:** the owner supplied a 6-page pilot PDF (`physics12.pdf`), stated that the source is theirs and licensed, and subsequently approved the pilot choices recorded in the table above. The source attestation is in `docs/licenses/13529.md`. These approvals are limited to the pilot sample: production renderer licensing/provenance, independent legal verification, container resource limits and full-book uploads remain outstanding.
+
 ## 2. Gate A — PDF renderer options
 
 Current stack evidence:
@@ -23,7 +34,7 @@ Current stack evidence:
 | Candidate | Status | Notes |
 |---|---|---|
 | `pypdf` (existing) | `ALREADY_APPROVED` (parse only) | cannot render pages |
-| `pypdfium2` | `OWNER_APPROVED_CONDITIONAL_CANDIDATE` | Owner decision 2026-11-10: conditional candidate for continued Gate A evaluation; **not** production approval. Evidence below; assessment: `GATE_A_RENDERER_DECISION.md`; license inventory: `PDFIUM_LICENSE_INVENTORY.md` (INCOMPLETE — ELF/PE independently confirmed; PyPI attestation not available for 5.15.2; component provenance not independently verified; owner/legal review required) |
+| `pypdfium2` | `OWNER_APPROVED_PILOT_RENDERER` | Owner decision 2026-11-10: conditional candidate for continued Gate A evaluation; **not** production approval. Evidence below; assessment: `GATE_A_RENDERER_DECISION.md`; license inventory: `PDFIUM_LICENSE_INVENTORY.md` (INCOMPLETE — ELF/PE independently confirmed; PyPI attestation not available for 5.15.2; component provenance not independently verified; owner/legal review required) |
 | PyMuPDF (`pymupdf`) | `AVAILABLE_BUT_NOT_APPROVED` | used for preflight; needs approval, packaging, licensing review |
 | OS renderer (e.g., poppler/mutool) | `REQUIRES_EXTERNAL_REVIEW` | separate binary; Docker+licensing impact; no repo evidence |
 | Other (UNKNOWN) | `UNKNOWN` | no repository evidence to compare |
@@ -37,6 +48,8 @@ Decision matrix (recommended evaluation order, not a decision):
 Licensing: must be reviewed by owner/legal before approval; no license claim is made here.
 
 ## 3. Gate B — security/numeric limit inventory
+
+**Pilot decision 2026-11-19:** the owner accepted the existing constants in this table as pilot limits for the 6-page sample. This is not a production container-resource decision.
 
 Existing evidence (non-secret):
 
@@ -70,7 +83,7 @@ Observations:
 
 ## 4. Gate C — PDF-backend equivalence test plan
 
-Authorization state: **`OWNER_APPROVAL_REQUIRED`** (not executed).
+Authorization state: **`OWNER_APPROVED_FOR_PILOT_SAMPLE`** (2026-11-19). Executed for the 6-page owner-supplied sample; full books remain out of scope until uploaded.
 
 Preconditions:
 - A production PDF adapter is selected (Gate A) and its backend/version recorded.

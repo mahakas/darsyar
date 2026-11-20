@@ -19,17 +19,17 @@ Base path مسیرهای محصول: `/api/v1`. سه endpoint عملیاتی roo
 
 ## مسیرهای هدف فازهای بعدی
 
-| Method | Path | فاز | هدف |
+| Method | Path | فاز | وضعیت |
 |---|---|---|---|
-| POST/GET | `/conversations` | 3 | ساخت و فهرست مکالمه‌های خود کاربر |
-| POST | `/conversations/{id}/messages` | 3/5 | پاسخ استریم‌شده با reservation پیش از provider |
-| GET | `/conversations/{id}/messages` | 3 | پیام‌ها با cursor pagination و مالکیت query-level |
-| GET | `/conversations/{id}/messages/{message_id}` | 6 | وضعیت پایدار یک پیام برای بازیابی امن SSE؛ فقط مالک گفتگو |
-| POST | `/documents` | 4 | ایجاد ingestion job برای منبع مجاز |
-| GET | `/documents/{id}` | 4/7 | وضعیت ingestion، فقط با مجوز |
-| POST | `/billing/checkout` | 2 | ایجاد سفارش با مبلغ ذخیره‌شده در DB |
-| POST | `/billing/callback` | 2 | verify provider و ثبت اتمیک/idempotent |
-| GET | `/admin/*` | 7 | endpointهای مدیریتی با `require_admin` |
+| GET | `/api/v1/conversations` | 6 | پیادهشده؛ فهرست مالکمحور با paging و جستجو |
+| POST | `/api/v1/chat/stream` | 3/6 | پیادهشده؛ SSE با reservation و recovery |
+| GET | `/api/v1/conversations/{conversation_id}/messages` | 6 | پیادهشده؛ cursor pagination و مالکیت query-level |
+| GET | `/api/v1/conversations/{conversation_id}/messages/{message_id}` | 6 | پیادهشده؛ وضعیت پایدار برای بازیابی SSE |
+| POST | `/api/v1/documents/jobs` | 4 | admin؛ فقط job synthetic برای سند ثبتشده |
+| GET | `/api/v1/documents/jobs/{job_id}` | 4/7 | admin؛ وضعیت job |
+| POST | `/billing/checkout` | 2 | پیادهشده |
+| GET | `/billing/callback` | 2 | پیادهشده؛ provider ما را با GET فراخوانی میکند |
+| GET | `/admin/*` | 7 | مسدود؛ routeای ثبت نشده است |
 
 ## خطا
 فرمت یکتا: `{"code":"...","message":"پیام امن برای کاربر","request_id":"..."}`. جزئیات داخلی و stack trace در پاسخ عمومی ممنوع‌اند. validation error نیز جزئیات ورودی حساس را منعکس نمی‌کند.
@@ -71,8 +71,8 @@ Base path مسیرهای محصول: `/api/v1`. سه endpoint عملیاتی roo
 از `fetch` + `ReadableStream` استفاده می‌شود؛ نه `EventSource` برای bearer-authenticated POST stream.
 - هر turn یک `client_request_id` ثابت دارد. پس از قطع شبکه، کلاینت باید همان body و همان شناسه را دوباره POST کند؛ ساخت شناسهٔ جدید برای retry ممنوع است، چون می‌تواند یک turn/رزرو تازه بسازد.
 - Backend در retry همان پیام پایدار را replay می‌کند و provider/reservation را دوباره اجرا نمی‌کند. replay ممکن است `done.status=streaming` برگرداند؛ این **پایان موفق نیست**.
-- وقتی status برابر `streaming` است، کلاینت با GET مسیر `/conversations/{id}/messages/{message_id}` متن و وضعیت پایدار را poll می‌کند تا به `completed`, `partial`, `failed` یا `cancelled` برسد. polling محدود است؛ در صورت پایان مهلت، کلاینت همان turn را با همان idempotency key دوباره بررسی می‌کند.
-- `Last-Event-ID` در قرارداد فعلی cursor قابل‌بازیابی رویداد نیست و نباید برای event-offset resume استفاده شود. بازیابی از state پایدار پیام و idempotency turn انجام می‌شود.
+- وقتی status برابر `streaming` است، کلاینت با GET مسیر `/conversations/{conversation_id}/messages/{message_id}` متن و وضعیت پایدار را poll می‌کند تا به `completed`, `partial`, `failed` یا `cancelled` برسد. polling محدود است؛ در صورت پایان مهلت، کلاینت همان turn را با همان idempotency key دوباره بررسی می‌کند.
+- `Last-Event-ID` اکنون cursor عددی وابسته به turn است: کلاینت آخرین `id:` دیدهشده را در retry ارسال میکند و سرور رویدادهای replay را از آن شماره ادامه میدهد. رویداد `snapshot` متن کامل پایدار را جایگزین deltaهای تکراری میکند؛ منابع هم بهصورت رویداد `sources` و هم در history پیام قابل بازیابیاند.
 - EOF بدون رویداد `done` قطع‌شدن stream محسوب می‌شود؛ کلاینت مجاز است یک retry محدود با همان شناسه انجام دهد. خروجی `partial` از `completed` جدا می‌ماند.
 
 تغییر path/schema/status/code نیازمند ADR و به‌روزرسانی هم‌زمان این سند، کد و تست‌ها است.

@@ -40,6 +40,8 @@ dev = [
   "ruff>=0.14,<0.15",
   "mypy>=1.18,<2.0",
   "testcontainers[postgres]>=4.13,<5.0",
+  # Gate C آزمون همارزی PDF؛ در production لزومی ندارد.
+  "pypdfium2>=5.15,<6.0",
 ]
 rag = [
   "langgraph>=1.0,<2.0",
@@ -53,6 +55,8 @@ rag = [
   "Pillow>=12.0,<13.0",
   "filetype>=1.2,<2.0",
   "pytesseract>=0.3.13,<1.0",
+  # Gate A آزمایشی: رندر صفحهٔ PDF فقط برای ارزیابی همارزی (تأیید مالک 2026-11-19).
+  "pypdfium2>=5.15,<6.0",
 ]
 
 [build-system]

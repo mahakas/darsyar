@@ -19,6 +19,8 @@ pytestmark = pytest.mark.skipif(
 
 def _fresh_engine() -> AsyncEngine:
     """engine مستقل بدون pool برای هر تست؛ از اتصال‌های بین event loopها جلوگیری می‌کند."""
+    # Other tests clear the settings cache while patching env vars; resolve URL fresh.
+    get_settings.cache_clear()
     return create_async_engine(get_settings().database_url, poolclass=NullPool)
 
 
@@ -110,3 +112,12 @@ async def test_schema_baseline_only_one_active_row_allowed() -> None:
                 await transaction.rollback()
     finally:
         await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_messages_sources_json_column_exists() -> None:
+    column = await _fetch_one(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = 'messages' AND column_name = 'sources_json'"
+    )
+    assert column == "1"

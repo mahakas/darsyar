@@ -7,6 +7,7 @@ import {
   makeClientRequestId,
   type ChatMessage,
 } from '../api/chat'
+import SafeMarkdown from './SafeMarkdown'
 
 export type ChatPanelProps = {
   selectedGrade: number
@@ -20,6 +21,7 @@ type PendingTurn = {
   conversationId: string | null
   temporaryAssistantId: string
   serverMessageId: string | null
+  sources: string[]
 }
 
 const RECOVERY_POLL_ATTEMPTS = 60
@@ -146,6 +148,7 @@ export default function ChatPanel({
       status: message.status,
       errorCode: message.errorCode,
       sequence: message.sequence,
+      sources: message.sources,
     })
   }, [updateTurnMessage])
 
@@ -201,6 +204,11 @@ export default function ChatPanel({
           updateTurnMessage(turn, { id: messageId, content: '', status: 'streaming', errorCode: undefined })
         },
         onDelta: (delta) => updateTurnMessage(turn, {}, delta),
+        onSnapshot: (snapshot) => updateTurnMessage(turn, { content: snapshot }),
+        onSources: (citations) => {
+          turn.sources = citations
+          updateTurnMessage(turn, { sources: citations })
+        },
         onDone: (status) => {
           terminalStatus = status
         },
@@ -275,6 +283,7 @@ export default function ChatPanel({
       conversationId,
       temporaryAssistantId: `assistant-${clientRequestId}`,
       serverMessageId: null,
+      sources: [],
     }
     pendingTurnRef.current = turn
     append({ id: clientRequestId, role: 'user', content: text, status: 'complete' })
@@ -318,9 +327,21 @@ export default function ChatPanel({
           return (
             <article key={message.id} className={`chat-message role-${message.role} status-${message.status}`}>
               <div className="message-role">{message.role === 'user' ? t('you') : t('assistant')}</div>
-              <div className="message-content">{message.content || (message.status === 'streaming' ? '…' : '')}</div>
+              <div className="message-content">
+                {message.content
+                  ? <SafeMarkdown text={message.content} />
+                  : (message.status === 'streaming' ? '…' : '')}
+              </div>
               {message.status === 'error' && <div className="message-error">{message.errorCode}</div>}
               {message.status === 'partial' && <div className="message-status">{t('partialResponse')}</div>}
+              {message.sources && message.sources.length > 0 && (
+                <section className="message-sources" aria-label={t('sources')}>
+                  <div className="sources-label">{t('sources')}</div>
+                  <ul>
+                    {message.sources.map((source) => <li key={source}>{source}</li>)}
+                  </ul>
+                </section>
+              )}
               {canResume && (
                 <button
                   type="button"

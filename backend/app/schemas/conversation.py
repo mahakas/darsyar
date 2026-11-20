@@ -81,6 +81,7 @@ class HistoryMessageOut(BaseModel):
     status: str
     content: str
     sequence: int
+    sources: list[str] = Field(default_factory=list)
     created_at: datetime
 
 

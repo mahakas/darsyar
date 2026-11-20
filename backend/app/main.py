@@ -10,6 +10,7 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
 from starlette.responses import Response
 
@@ -123,6 +124,22 @@ app.add_middleware(
 install_error_handlers(app)
 app.include_router(operations_router)
 app.include_router(api_router)
+
+
+@app.middleware("http")
+async def enforce_request_size(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+    """Reject oversized declared bodies before hitting endpoint validation."""
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > settings.max_request_bytes:
+        return JSONResponse(
+            status_code=413,
+            content={
+                "code": "payload_too_large",
+                "message": "درخواست بیش از حد بزرگ است.",
+                "request_id": str(uuid4()),
+            },
+        )
+    return await call_next(request)
 
 
 @app.middleware("http")

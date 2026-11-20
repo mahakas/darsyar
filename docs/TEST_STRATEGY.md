@@ -11,7 +11,7 @@
 ## قواعد کیفیت
 - حداقل یک happy path و edge/error برای منطق جدید.
 - SQLite در تست DB ممنوع.
-- core/security/credits/retrieval/agent حداقل ۷۰٪ پوشش هدف؛ coverage جایگزین صحت نیست.
+- core/security/credits/retrieval/agent حداقل ۷۰٪ پوشش هدف است و با `make coverage` بهصورت محلی اندازهگیری میشود؛ CI فعلاًآنرا gate نکرده و coverage جایگزین صحت نیست.
 - هر اجرای تست باید نتیجه، تعداد، فرمان و exit code واقعی را گزارش کند.
 - تست‌هایی که نیاز به Docker یا registry دارند در نبود ابزار `NOT RUN` هستند، نه PASS.
 

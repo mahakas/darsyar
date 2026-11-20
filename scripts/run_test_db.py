@@ -55,4 +55,4 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except (RuntimeError, subprocess.CalledProcessError) as exc:
-        raise SystemExit(str(exc))
+        raise SystemExit(str(exc)) from exc

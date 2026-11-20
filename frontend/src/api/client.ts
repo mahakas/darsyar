@@ -45,31 +45,39 @@ function readCookie(name: string): string | null {
 export async function refreshSession(): Promise<boolean> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
-      const csrfToken = readCookie('darsyar_csrf')
-      if (!csrfToken) {
-        clearAccessToken()
-        return false
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const csrfToken = readCookie('darsyar_csrf')
+        if (!csrfToken) {
+          clearAccessToken()
+          return false
+        }
+        const response = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { Accept: 'application/json', 'X-CSRF-Token': csrfToken },
+        })
+        if (response.status === 409) {
+          // ADR-046: a concurrent winner already rotated the cookie. Retry the read
+          // with bounded backoff instead of reporting a logout to the caller.
+          if (attempt < 4) {
+            await new Promise((resolve) => setTimeout(resolve, 120 * (attempt + 1)))
+            continue
+          }
+          throw new ApiError(409, 'refresh_conflict_retry', 'The session is being refreshed. Retry shortly.')
+        }
+        if (!response.ok) {
+          clearAccessToken()
+          return false
+        }
+        const payload = await response.json() as { access_token?: string }
+        if (!payload.access_token) {
+          clearAccessToken()
+          return false
+        }
+        setAccessToken(payload.access_token)
+        return true
       }
-      const response = await fetch(`${API_BASE}/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { Accept: 'application/json', 'X-CSRF-Token': csrfToken },
-      })
-      if (response.status === 409) {
-        // ADR-046: concurrent refresh conflict is retryable, not a logout signal.
-        throw new ApiError(409, 'refresh_conflict_retry', 'The session is being refreshed. Retry shortly.')
-      }
-      if (!response.ok) {
-        clearAccessToken()
-        return false
-      }
-      const payload = await response.json() as { access_token?: string }
-      if (!payload.access_token) {
-        clearAccessToken()
-        return false
-      }
-      setAccessToken(payload.access_token)
-      return true
+      return false
     })().finally(() => {
       refreshInFlight = null
     })

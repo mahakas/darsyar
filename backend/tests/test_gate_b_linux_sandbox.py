@@ -171,14 +171,11 @@ def test_sandbox_parent_recovers_after_child_failure() -> None:
     assert second.result.outcome is ChildProcessingOutcome.SUCCESS
 
 
-def test_sandboxed_child_env_allowlist_excludes_sentinels() -> None:
+def test_sandboxed_child_env_allowlist_excludes_sentinels(monkeypatch: pytest.MonkeyPatch) -> None:
     sentinels = {"DATABASE_URL": "postgres://u:p@db/app", "SECRET_TOKEN": "s3cr3t"}
-    os.environ.update(sentinels)
-    try:
-        run = run_sandboxed_child(_request(_compressed_pdf()), timeout_seconds=20)
-    finally:
-        for k in sentinels:
-            os.environ.pop(k, None)
+    for key, value in sentinels.items():
+        monkeypatch.setitem(os.environ, key, value)
+    run = run_sandboxed_child(_request(_compressed_pdf()), timeout_seconds=20)
     assert run.ok
     assert run.forbidden_env_seen == []
     for frag in FORBIDDEN_ENV_FRAGMENTS:

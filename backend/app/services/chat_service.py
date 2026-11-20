@@ -27,6 +27,12 @@ from app.models.user import User
 from app.repositories import conversations as conv_repo
 from app.repositories import reservations as reservations_repo
 from app.schemas.conversation import ChatStreamRequest
+from app.services.grounding import (
+    NO_EVIDENCE,
+    GroundingContext,
+    GroundingService,
+    build_default_grounding,
+)
 from app.services.llm import ChatRequest, LLMProvider, get_llm_provider
 from app.services.reservation import FinanceService
 
@@ -34,11 +40,14 @@ logger = logging.getLogger(__name__)
 
 REQUEST_NOT_FOUND = AppError("conversation_not_found", 404, "گفتگو یافت نشد.")
 MODEL_UNAVAILABLE = AppError("llm_not_configured", 503, "provider مدل پیکربندی نشده است.")
+MODEL_NOT_ALLOWED = AppError("model_not_allowed", 422, "مدل درخواستشده مجاز نیست.")
 INSUFFICIENT = AppError("insufficient_credit", 409, "اعتبار کافی موجود نیست.")
 
 EVENT_ACK = "ack"
 EVENT_ASSISTANT_CREATED = "assistant_created"
 EVENT_DELTA = "delta"
+EVENT_SOURCES = "sources"
+EVENT_SNAPSHOT = "snapshot"
 EVENT_DONE = "done"
 EVENT_ERROR = "error"
 EVENT_CANCELLED = "cancelled"
@@ -143,13 +152,24 @@ class ChatStreamService:
         provider: LLMProvider | None = None,
         session_factory: Callable[[], AsyncSession] | None = None,
         on_financial: Callable[[str], None] | None = None,
+        grounding: GroundingService | None = None,
     ) -> None:
         self._settings = get_settings()
         self._provider_override = provider
         self._session_factory = session_factory or SessionFactory
         self._on_financial = on_financial
+        self._grounding = grounding
+        self._grounding_context: GroundingContext | None = None
 
     # ------------------------------------------------------------- helpers
+
+    def _validate_model(self, model: str | None) -> None:
+        """Only configured model IDs may affect a billable turn's identity."""
+        if model is None:
+            return
+        allowed = {self._settings.llm_model, *self._settings.llm_fallback_models}
+        if model not in allowed:
+            raise MODEL_NOT_ALLOWED
 
     @staticmethod
     def _fingerprint(content: str, model: str | None) -> str:
@@ -167,6 +187,13 @@ class ChatStreamService:
     @staticmethod
     def _sse(seq: int, event: str, payload: dict[str, Any]) -> str:
         return f"id:{seq}\nevent:{event}\ndata:{json.dumps(payload, ensure_ascii=False)}\n\n"
+
+    @staticmethod
+    def _parse_last_event_id(value: str | None) -> int:
+        """Parse an untrusted Last-Event-ID header into a bounded replay cursor."""
+        if not value or not value.isdigit():
+            return 0
+        return min(int(value), 1_000_000)
 
     async def _resolve_conversation(
         self, conversation_id: uuid.UUID | None, user_id: uuid.UUID, *, title: str | None = None
@@ -201,7 +228,13 @@ class ChatStreamService:
                 raise
 
     async def _create_messages(
-        self, conversation_id: uuid.UUID, user_id: uuid.UUID, content: str, client_request_id: str, reservation_id: uuid.UUID
+        self,
+        conversation_id: uuid.UUID,
+        user_id: uuid.UUID,
+        content: str,
+        client_request_id: str,
+        reservation_id: uuid.UUID,
+        sources: list[str] | None = None,
     ) -> tuple[uuid.UUID, uuid.UUID]:
         async with self._session_factory() as session:
             user_msg = await conv_repo.create_message_idempotent(
@@ -221,6 +254,7 @@ class ChatStreamService:
                         role="assistant",
                         status="streaming",
                         reservation_id=reservation_id,
+                        sources=list(sources or []),
                     )
             except Exception:
                 # concurrent duplicate: someone else already created the assistant for this reservation
@@ -459,6 +493,25 @@ class ChatStreamService:
             raise AppError("invalid_selected_grade", 422, "پایهٔ تحصیلی ثبت‌شده معتبر نیست.")
         return grade
 
+    async def _prepare_grounding(self, req: ChatStreamRequest, user: User) -> None:
+        """Admit the turn only with grade-bounded evidence when grounding is required."""
+        self._grounding_context = None
+        if not self._settings.chat_grounding_required:
+            return
+        grade = self._require_selected_grade(user)
+        grounding = self._grounding
+        closer = None
+        if grounding is None:
+            grounding, closer = await build_default_grounding()
+        try:
+            async with self._session_factory() as session:
+                self._grounding_context = await grounding.build(
+                    session, query=req.content, grade=grade
+                )
+        finally:
+            if closer is not None:
+                await closer()
+
     async def preflight(self, req: ChatStreamRequest, user: User) -> None:
         """اعتبارسنجیِ قبل از شروع stream (برای بازگرداندن خطای JSON مناسب).
 
@@ -467,6 +520,8 @@ class ChatStreamService:
         پاسخ استاندارد (404/409) بازگردند.
         """
         self._require_selected_grade(user)
+        self._validate_model(req.model)
+        await self._prepare_grounding(req, user)
         # A new-chat preflight must be read-only: stream_chat creates its conversation
         # exactly once after admission. Existing conversation IDs still require an
         # ownership check before the HTTP response is committed to SSE.
@@ -495,6 +550,9 @@ class ChatStreamService:
 
     async def stream_chat(self, req: ChatStreamRequest, user: User, last_event_id: str | None = None) -> AsyncIterator[str]:
         self._require_selected_grade(user)
+        self._validate_model(req.model)
+        if self._settings.chat_grounding_required and self._grounding_context is None:
+            raise NO_EVIDENCE
         fp = self._fingerprint(req.content, req.model)
         key = f"chat:{user.id}:{req.client_request_id}"
         reservation = await self._reserve(user.id, key, fp)
@@ -513,12 +571,15 @@ class ChatStreamService:
                 )
             if existing_conversation is None:
                 raise REQUEST_NOT_FOUND
-            async for ev in self._replay(assistant, existing_conversation.id):
+            async for ev in self._replay(assistant, existing_conversation.id, last_event_id):
                 yield ev
             return
         title = " ".join(req.content.split())[:120] or None
         conv = await self._resolve_conversation(req.conversation_id, user.id, title=title)
-        user_msg_id, assistant_id = await self._create_messages(conv.id, user.id, req.content, req.client_request_id, reservation.id)
+        citations = list(self._grounding_context.citations) if self._grounding_context else []
+        user_msg_id, assistant_id = await self._create_messages(
+            conv.id, user.id, req.content, req.client_request_id, reservation.id, sources=citations
+        )
         # مالکیت Stream + heartbeat اولیه (fencing برای recovery)
         owner_token = str(uuid.uuid4())
         async with self._session_factory() as session:
@@ -533,7 +594,7 @@ class ChatStreamService:
         # cleanup) داخل try/finally بیرونی است تا heartbeat همیشه متوقف شود و cleanup مالی
         # در صورت لغو زودهنگام/شکست provider نیز «دقیقاً یک بار» اجرا شود.
         request_id = str(uuid.uuid4())
-        seq = 0
+        seq = self._parse_last_event_id(last_event_id)
         provider = None
         billable = False
         parts: list[str] = []
@@ -546,15 +607,33 @@ class ChatStreamService:
             yield self._sse(seq, EVENT_ACK, {"request_id": request_id, "conversation_id": str(conv.id), "message_id": str(assistant_id)})
             seq += 1
             yield self._sse(seq, EVENT_ASSISTANT_CREATED, {"message_id": str(assistant_id), "sequence": seq})
+            if self._grounding_context is not None:
+                seq += 1
+                yield self._sse(
+                    seq,
+                    EVENT_SOURCES,
+                    {"sequence": seq, "citations": citations},
+                )
 
             provider = self._get_provider()
+            messages: list[dict[str, str]] = [{"role": "user", "content": req.content}]
+            if self._grounding_context is not None:
+                messages.insert(
+                    0,
+                    {"role": "system", "content": self._grounding_context.system_prompt},
+                )
             attempts = 0
             while True:
                 emitted = False
                 err: str | None = None
                 try:
                     async for chunk in provider.stream_chat(
-                        ChatRequest(messages=[{"role": "user", "content": req.content}])
+                        ChatRequest(
+                            model=req.model,
+                            messages=messages,
+                            max_tokens=self._settings.llm_max_tokens,
+                            temperature=self._settings.llm_temperature,
+                        )
                     ):
                         if chunk.error:
                             err = chunk.error
@@ -631,14 +710,26 @@ class ChatStreamService:
         seq += 1
         yield self._sse(seq, EVENT_DONE, {"sequence": seq, "status": terminal_status, "content": "".join(parts)})
 
-    async def _replay(self, assistant: Message, conversation_id: uuid.UUID) -> AsyncIterator[str]:
-        """بازسازی قطعی پاسخ از state پایدار؛ بدون فراخوانی دوبارهٔ provider/رزرو/settle."""
-        seq = 0
+    async def _replay(
+        self, assistant: Message, conversation_id: uuid.UUID, last_event_id: str | None = None
+    ) -> AsyncIterator[str]:
+        """Deterministic replay from durable state, with a monotonic SSE cursor.
+
+        A reconnect supplies the last event ID it saw. Replayed events continue
+        from that cursor so a client-side de-duplicator never discards them. The
+        full saved answer is sent as a ``snapshot`` event (not a delta) to avoid
+        appending an already-received partial answer twice.
+        """
+        seq = self._parse_last_event_id(last_event_id)
         seq += 1
         yield self._sse(seq, EVENT_ACK, {"request_id": str(assistant.id), "conversation_id": str(conversation_id), "message_id": str(assistant.id)})
         seq += 1
         yield self._sse(seq, EVENT_ASSISTANT_CREATED, {"message_id": str(assistant.id), "sequence": seq})
+        sources = assistant.sources
+        if sources:
+            seq += 1
+            yield self._sse(seq, EVENT_SOURCES, {"sequence": seq, "citations": sources})
         seq += 1
-        yield self._sse(seq, EVENT_DELTA, {"sequence": seq, "content": assistant.content})
+        yield self._sse(seq, EVENT_SNAPSHOT, {"sequence": seq, "content": assistant.content})
         seq += 1
         yield self._sse(seq, EVENT_DONE, {"sequence": seq, "status": assistant.status, "content": assistant.content})

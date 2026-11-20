@@ -35,6 +35,7 @@ class Settings(BaseSettings):
 
     jwt_algorithm: Literal["HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "ES256"] = "HS256"
     jwt_previous_secret: SecretStr | None = None
+    jwt_previous_algorithm: Literal["HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "ES256"] | None = None
     refresh_grace_seconds: int = Field(default=30, ge=0, le=120)
     access_token_expire_minutes: int = Field(default=15, gt=0, le=120)
     refresh_token_expire_days: int = Field(default=7, gt=0, le=30)
@@ -92,6 +93,8 @@ class Settings(BaseSettings):
     llm_temperature: float = Field(default=0.2, ge=0.0, le=2.0)
     llm_max_retries: int = Field(default=2, ge=0, le=10)
 
+    chat_grounding_required: bool = False
+    chat_grounding_top_k: int = Field(default=5, ge=1, le=50)
     chat_rate_fallback_limit: int = Field(default=5, ge=1, le=1000)
     chat_rate_fallback_window: int = Field(default=60, ge=1, le=3600)
     chat_stream_shutdown_grace_seconds: int = Field(default=30, ge=1, le=600)
@@ -122,6 +125,11 @@ class Settings(BaseSettings):
     min_retrieval_score: float = Field(default=0.0, ge=0.0, le=1.0)
     reranker_top_k: int = Field(default=20, gt=0, le=100)
     max_context_tokens: int = Field(default=12000, gt=0, le=200000)
+    ingestion_consumer_enabled: bool = False
+    ingestion_publisher_enabled: bool = False
+    ingestion_lease_seconds: int = Field(default=300, ge=30, le=3600)
+    ingestion_batch_size: int = Field(default=50, ge=1, le=500)
+    ingestion_retry_seconds: int = Field(default=60, ge=1, le=3600)
     resources_dir: str = "./resources"
     upload_dir: str = "./uploads"
     supported_languages: list[str] = Field(default_factory=lambda: ["fa", "en", "ar"])
@@ -143,6 +151,22 @@ class Settings(BaseSettings):
         """قیود متقابل تنظیمات و boot guard امنیتی را بررسی می‌کند."""
         if self.child_chunk_overlap >= self.child_chunk_size:
             raise ValueError("CHILD_CHUNK_OVERLAP must be smaller than CHILD_CHUNK_SIZE")
+
+        def _assert_asymmetric_key(label: str, secret: SecretStr | None, algorithm: str | None) -> None:
+            if secret is None or not algorithm or not algorithm.startswith(("RS", "ES")):
+                return
+            from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
+            try:
+                load_pem_private_key(secret.get_secret_value().encode("utf-8"), password=None)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{label} must be a PEM private key for {algorithm}") from exc
+
+        _assert_asymmetric_key("APP_SECRET_KEY", self.app_secret_key, self.jwt_algorithm)
+        _assert_asymmetric_key(
+            "JWT_PREVIOUS_SECRET", self.jwt_previous_secret, self.jwt_previous_algorithm or self.jwt_algorithm
+        )
+
         if self.app_env == "production":
             secret = self.app_secret_key.get_secret_value() if self.app_secret_key else ""
             pepper = self.otp_pepper.get_secret_value() if self.otp_pepper else ""

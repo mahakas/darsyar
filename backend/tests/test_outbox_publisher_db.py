@@ -377,6 +377,10 @@ async def test_existing_application_worker_functions_unchanged() -> None:
     function_names = [f.__name__ for f in WorkerSettings.functions]
     assert function_names == ["worker_probe"]
     cron_names = [c.name for c in WorkerSettings.cron_jobs]
-    assert cron_names == ["release-stale-reservations", "recover-orphan-stream-messages"]
+    assert cron_names == [
+        "release-stale-reservations",
+        "expire-plan-entitlements",
+        "recover-orphan-stream-messages",
+    ]
     assert INGESTION_EVENT_QUEUE != "arq:queue"
     assert not any("ingestion" in name for name in function_names)

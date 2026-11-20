@@ -15,9 +15,9 @@ except json.JSONDecodeError:
     for line in raw.splitlines():
         try:
             rows.append(json.loads(line))
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as exc:
             print(f"Invalid docker compose JSON row: {line}", file=sys.stderr)
-            raise SystemExit(2)
+            raise SystemExit(2) from exc
 by_service = {str(row.get("Service", row.get("Name", ""))): row for row in rows if isinstance(row, dict)}
 failed = []
 for service in sorted(REQUIRED):

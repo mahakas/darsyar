@@ -67,6 +67,7 @@ async def create_message(
     client_request_id: str | None = None,
     provider_request_id: str | None = None,
     reservation_id: uuid.UUID | None = None,
+    sources: list[str] | None = None,
 ) -> Message:
     max_seq = await session.execute(
         select(func.max(Message.sequence)).where(Message.conversation_id == conversation_id)
@@ -82,6 +83,7 @@ async def create_message(
         client_request_id=client_request_id,
         provider_request_id=provider_request_id,
         reservation_id=reservation_id,
+        sources_json=list(sources or []),
     )
     session.add(msg)
     await session.flush()
