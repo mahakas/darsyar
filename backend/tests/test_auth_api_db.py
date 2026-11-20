@@ -70,7 +70,7 @@ async def auth_client():
     app.dependency_overrides[_sms_provider] = lambda: sms
     app.state.rate_limiter = AllowAllLimiter()
     async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test", cookies={"darsyar_csrf": "csrf"}
+        transport=ASGITransport(app=app), base_url="http://localhost", cookies={"darsyar_csrf": "csrf"}
     ) as client:
         yield client, phone, sms
 

@@ -29,8 +29,11 @@ def _sms_provider() -> SmsProvider:
     return KavenegarProvider(settings)
 
 
-def _auth_service(session: Annotated[AsyncSession, Depends(get_db)]) -> AuthService:
-    return AuthService(session, _sms_provider())
+def _auth_service(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    provider: Annotated[SmsProvider, Depends(_sms_provider)],
+) -> AuthService:
+    return AuthService(session, provider)
 
 
 def _phone_key_builder() -> Callable[[Request], str]:

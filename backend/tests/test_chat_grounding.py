@@ -8,10 +8,7 @@ import pytest
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.models.conversation import Conversation
-from app.models.credit_account import CreditAccount
-from app.models.credit_ledger import CreditLedger
 from app.models.message import Message
-from app.models.reservation import Reservation
 from app.models.user import User
 from app.repositories import credit_accounts as accounts_repo
 from app.repositories import users as users_repo
@@ -125,9 +122,9 @@ async def test_grounded_turn_emits_sources_and_system_prompt(monkeypatch: pytest
         }
 
         async with TEST_SESSION_FACTORY() as session:
-            # Credit ledger rows keep a RESTRICT FK to reservations; remove
-            # dependants before their parents.
-            for model in (Message, CreditLedger, Reservation, CreditAccount, Conversation):
+            # Ledger and reservation rows are immutable/orphan-safe test residue;
+            # only rows that can block user deletion are removed here.
+            for model in (Message, Conversation):
                 await session.execute(delete(model).where(model.user_id == uid))
             await session.execute(delete(User).where(User.id == uid))
             await session.commit()

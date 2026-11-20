@@ -10,6 +10,7 @@ import os
 import threading
 import zlib
 
+import pytest
 from app.services.ingestion.parent_child_contract import ChildErrorCategory, ChildProcessingOutcome
 
 from sandbox.s4_1_lib import build_content_only, build_raw_content_streams, payload
@@ -98,13 +99,10 @@ def test_no_orphan_child_remains() -> None:
     assert run_doc_child(DOC_A).ok
 
 
-def test_credentials_never_reach_child() -> None:
+def test_credentials_never_reach_child(monkeypatch: pytest.MonkeyPatch) -> None:
     sentinels = {"DATABASE_URL": "postgres://u:p@db/app", "SECRET_TOKEN": "s3cr3t"}
-    os.environ.update(sentinels)
-    try:
-        r = run_doc_child(DOC_A)
-    finally:
-        for k in sentinels:
-            os.environ.pop(k, None)
+    for key, value in sentinels.items():
+        monkeypatch.setitem(os.environ, key, value)
+    r = run_doc_child(DOC_A)
     assert r.ok
     assert r.forbidden_env_seen == []

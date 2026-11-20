@@ -247,15 +247,12 @@ def test_parent_validates_structured_child_output() -> None:
     assert run.result.contract_version == PARENT_CHILD_CONTRACT_VERSION
 
 
-def test_child_does_not_receive_sentinel_secret_env() -> None:
+def test_child_does_not_receive_sentinel_secret_env(monkeypatch: pytest.MonkeyPatch) -> None:
     # Plant sentinel secrets in the parent env; assert they do not reach the child.
     sentinels = {"DATABASE_URL": "postgres://user:pass@db/app", "SECRET_TOKEN": "s3cr3t"}
-    os.environ.update(sentinels)
-    try:
-        run = run_child(_request(_compressed_pdf()), timeout_seconds=20, cwd=BACKEND_DIR)
-    finally:
-        for k in sentinels:
-            os.environ.pop(k, None)
+    for key, value in sentinels.items():
+        monkeypatch.setitem(os.environ, key, value)
+    run = run_child(_request(_compressed_pdf()), timeout_seconds=20, cwd=BACKEND_DIR)
     assert run.ok
     # The allowlisted child env must not contain any forbidden fragment.
     assert run.forbidden_env_seen == []

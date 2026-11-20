@@ -64,7 +64,7 @@ async def history_client():
     async def make_client(user: User):
         nonlocal current_user
         current_user = user
-        return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+        return AsyncClient(transport=ASGITransport(app=app), base_url="http://localhost")
 
     yield make_client, owner_user, other_user, conversation_id
 
