@@ -13,7 +13,7 @@
 - فاز ۵ نمونهٔ اولیهٔ retrieval و ارزیابی synthetic دارد؛ groundingservice با fail-closed، citationها و SourceCard در رابط متصل و replay SSE با Last-Event-ID همگام شد، ولی دیتاست طلایی حداقل ۱۵۰ پرسشی تأییدشده و evidence snapshot برای benchmark باقی است (۴۵ مورد پیشنویس از نمونهٔ ۶صفحهای متعلق به مالک `backend/tests/evaluation/golden_set.draft.jsonl` موجود است، اما هنوز تأیید نشدهاند).
 - فاز ۶ احراز هویت نشست، پایهٔ تحصیلی صریح، تاریخچهٔ مالک‌محور، pagination/search و replay/status recovery پایدار SSE دارد؛ SourceCard، Markdown امن، دسترس‌پذیری و پذیرش کامل رابط باقی است.
 - فاز ۷ زیرساخت محدود مجوز مدیر و audit تغییرناپذیر در PostgreSQL دارد؛ پنل مدیریت، routeهای مدیریتی، seed عملیاتی، MFA/step-up و acting session هنوز پیاده‌سازی/پذیرفته نشده‌اند. ADR-051 همچنان Proposed است.
-- فاز ۸ عمداً Deferred و خارج از MVP است.
+- [فاز ۸](specs/phase-8.md) برنامهٔ ابزارهای یادگیری پس از MVP است؛ منطق مستقل مرور آزموده شده اما ابزار وب فعال نیست.
 - فاز ۹ بخشی از hardening هدرها و no-store را دارد؛ TLS/HSTS واقعی، تست بار، backup/restore، vulnerability triage/enforcement، privacy/legal approvals و Production release باقی است.
 
 جزئیات و گیت‌ها در [ROADMAP.md](ROADMAP.md)، [AGENTS.md](AGENTS.md) و [مشخصات فازها](specs/README.md) ثبت شده‌اند.

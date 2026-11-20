@@ -407,3 +407,9 @@
 | backend/tests/test_gate_b_s4_2_security_regressions.py | آزمایش C/D S4.2: مشاوره/فیلترها (6.21.3). |
 | backend/alembic/versions/0019_outbox_job_fk_restrict.py | مهاجرت R-1: تغییر FK `fk_outbox_events_job` از CASCADE به RESTRICT (برگشت‌پذیر؛ R1-IMPL؛ روی `darsyar` اعمال شد 2026-11-11). |
 | backend/tests/test_ingestion_restrict_db.py | تست PostgreSQL R-1: metadata/catalog/RESTRICT، رد حذف SQL و ORM، حفظ والد/فرزند، حذف job بی‌outbox، head 0019 (7 تست). |
+## فاز ۸ ـ برش مستقل مرور
+
+- `specs/phase-8.md`: ترتیب تحویل و معیارهای پذیرش؛ `specs/README.md`، `ROADMAP.md` و `README.md`: وضعیت و ارجاع به برنامه.
+- `docs/adr/ADR-056-learning-tools-pilot.md` و `docs/DECISIONS.md`: تصمیم محدود به دامنه، ترتیب و سیاست مرور.
+- `backend/app/services/learning/flashcard_review.py`: سیاست قطعی موعد مرور، بدون دسترسی به DB یا اتصال به API.
+- `backend/tests/test_flashcard_review.py`: آزمون‌های سیاست نسخهٔ اول.
