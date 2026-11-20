@@ -19,6 +19,8 @@ pytestmark = pytest.mark.skipif(
 
 def _fresh_engine() -> AsyncEngine:
     """engine مستقل بدون pool برای هر تست؛ از اتصال‌های بین event loopها جلوگیری می‌کند."""
+    # Other tests clear the settings cache while patching env vars; resolve URL fresh.
+    get_settings.cache_clear()
     return create_async_engine(get_settings().database_url, poolclass=NullPool)
 
 

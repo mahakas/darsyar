@@ -406,7 +406,7 @@ async def test_replay_of_active_stream_reports_streaming_snapshot_not_completion
         sequence=1,
     )
     events = [event async for event in service._replay(assistant, assistant.conversation_id)]
-    assert any("event:delta" in event and "persisted partial snapshot" in event for event in events)
+    assert any("event:snapshot" in event and "persisted partial snapshot" in event for event in events)
     done = next(event for event in events if "event:done" in event)
     payload_line = next(line for line in done.splitlines() if line.startswith("data:"))
     payload = json.loads(payload_line.removeprefix("data:"))

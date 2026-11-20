@@ -46,7 +46,7 @@ class AllowAllLimiter:
 
 
 def _phone() -> str:
-    return "09" + str(uuid.uuid4().int % 1_000_000_000).zfill(9)
+    return "+989" + str(uuid.uuid4().int % 1_000_000_000).zfill(9)
 
 
 async def _cleanup(phone: str) -> None:

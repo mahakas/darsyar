@@ -125,7 +125,9 @@ async def test_grounded_turn_emits_sources_and_system_prompt(monkeypatch: pytest
         }
 
         async with TEST_SESSION_FACTORY() as session:
-            for model in (Message, Conversation, Reservation, CreditLedger, CreditAccount):
+            # Credit ledger rows keep a RESTRICT FK to reservations; remove
+            # dependants before their parents.
+            for model in (Message, CreditLedger, Reservation, CreditAccount, Conversation):
                 await session.execute(delete(model).where(model.user_id == uid))
             await session.execute(delete(User).where(User.id == uid))
             await session.commit()
