@@ -49,6 +49,7 @@
 | D-09 | ADR-036 پذیرفته‌شده: انتخاب INFERENCE_MODE=service (سرویس داخلی) برای فاز ۳؛ remote حالت جایگزین پیکربندی‌پذیر است و fallback خاموش ندارد | accepted (تصمیم مالک — 2026-11-07) |
 | D-10 | OQ-006 گزینهٔ انتخابی: چت هنگام ازکارافتادن Redis از شمارندهٔ fallback امن مبتنی بر PostgreSQL با سقف تنزل‌یافتهٔ قابل‌پیکربندی استفاده می‌کند (R-115 حفظ؛ بدون تبدیل Redis به منبع حقیقت مالی) | accepted (تصمیم مالک — 2026-11-07) |
 | D-11 | ADR-054 پذیرفته‌شده: پشتیبانی رسمی Remote Embedding/Inference با جداسازی process و backend، بدون fallback خودکار؛ رابطه با ADR-036 به‌عنوان توسعه | accepted (تصمیم مالک — 2026-11-08) |
+| [ADR-056](adr/ADR-056-learning-tools-pilot.md) | ترتیب ابزارهای وب پس از MVP و منطق مستقل مرور | accepted | مجوز انتشار نیست؛ گیت‌های فاز ۸ برقرارند |
 | ADR-051 | Admin Control Center، دسترسی user-facing برای Admin و acting context حسابرسی‌شده | proposed | جزئیات در docs/ADMIN_CONSOLE_SPEC.md؛ کنترل‌های MFA/step-up و مرزهای امنیتی پیش از اجرا ratify شوند |
 | ADR-041 | ارتقای فناوری‌ها و سازگاری wheel | proposed |
 | ADR-042 | retention و حذف دادهٔ دانش‌آموز | proposed |
